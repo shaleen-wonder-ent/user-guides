@@ -1,4 +1,4 @@
-# Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — Complete Guide
+# Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — SAML Based
 
 **Purpose:** Step‑by‑step guide to federate a Microsoft Entra tenant (Azure AD) with Keycloak so users authenticated by Keycloak can access Power BI (Microsoft 365). This guide explains why SAML is required, prerequisites, exact configuration steps (PowerShell + Keycloak), mapper examples, testing checklist, troubleshooting, and references.
 
