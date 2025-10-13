@@ -489,6 +489,4 @@ Key principle: Power BI always consumes Entra-issued tokens; your federation sel
 
 ---
 
-**Need more?** Request add-ons: SCIM provisioning design, advanced CA examples (JSON), or a rollback runbook.
 
-_End of Document_
