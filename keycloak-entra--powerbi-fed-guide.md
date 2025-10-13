@@ -1,4 +1,4 @@
-# Keycloak ↔ Microsoft Entra ID Federation for Power BI Access  
+# Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML
 _Comprehensive Architecture Explanation & Step‑by‑Step Implementation Guide_
 
 **Last Updated:** 2025-10-13  
