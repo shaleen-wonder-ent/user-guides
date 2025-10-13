@@ -37,31 +37,27 @@ _Comprehensive Architecture Explanation & Step‑by‑Step Implementation Guide_
 - Pros: Native experience, simpler license assignment & CA targeting.  
 - Cons: Higher operational risk (IdP outage impacts workforce), more setup complexity.
 
-### Option 3: Provision & Sync Users (SCIM / Scripts) + Local Entra Auth
-- Replicate identities into Entra; optionally abandon upstream federation.
-- Pros: Full Entra feature parity.  
-- Cons: Identity & password (or passwordless credential) lifecycle complexity.
-
 **Decision Heuristic:**
 - Need speed + acceptable Guest model → Option 1 (OIDC).
 - Need workforce-native status, dynamic groups, device CA, domain-based branding → Option 2 (SAML domain).
-- Need advanced conditional / device / risk with no upstream dependency → Option 3.
+  
+![Architecture Diagram](./architecture.png)
 
 ---
 
 ## 3. Decision Matrix
 
-| Requirement | Option 1 (OIDC Guest) | Option 2 (SAML Domain) | Option 3 (Provision) |
-|-------------|----------------------|------------------------|----------------------|
-| Time-to-Implement | Fast | Medium | Slow–Medium |
-| User Type | Guest | Member | Member |
-| OIDC Use | Yes | No (not for domain) | Internal (no federation) |
-| MFA Centralization | Keycloak OR Entra | Usually Entra | Entra |
-| Dynamic Groups by Domain | Limited (guest) | Full | Full |
-| Device Compliance (Intune) | Hard (guests) | Feasible | Feasible |
-| License Assignment Automation | Script / Group (guests) | Standard (groups) | Standard (groups) |
-| Migration Complexity (later) | Higher (guest→member) | N/A | N/A |
-| Downtime Blast Radius if Keycloak Fails | Affects guest sign-ins only | Affects workforce sign-ins | None (except local Entra) |
+| Requirement | Option 1 (OIDC Guest) | Option 2 (SAML Domain) |
+|-------------|----------------------|------------------------|
+| Time-to-Implement | Fast | Medium |
+| User Type | Guest | Member |
+| OIDC Use | Yes | No (not for domain) |
+| MFA Centralization | Keycloak OR Entra | Usually Entra |
+| Dynamic Groups by Domain | Limited (guest) | Full |
+| Device Compliance (Intune) | Hard (guests) | Feasible |
+| License Assignment Automation | Script / Group (guests) | Standard (groups) |
+| Migration Complexity (later) | Higher (guest→member) | N/A |
+| Downtime Blast Radius if Keycloak Fails | Affects guest sign-ins only | Affects workforce sign-ins |
 
 ---
 
@@ -464,7 +460,6 @@ Invoke-RestMethod -Method Post -Uri "https://graph.microsoft.com/v1.0/groups/$gr
 |-------------|--------|
 | Fast enablement & minimal changes | OIDC External IdP (Guests) |
 | Native workforce identity & domain branding | SAML Domain Federation |
-| Deep Entra device/risk governance with minimal external dependency | Provision + (optionally) Domain Federation |
 
 Key principle: Power BI always consumes Entra-issued tokens; your federation selection only alters how Entra authenticates users, not how Power BI performs authorization.
 
@@ -486,5 +481,3 @@ Key principle: Power BI always consumes Entra-issued tokens; your federation sel
 | Stale guest lifecycle script | IAM Ops |  |
 
 ---
-
-
