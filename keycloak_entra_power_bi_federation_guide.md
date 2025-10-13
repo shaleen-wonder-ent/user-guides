@@ -1,4 +1,4 @@
-# Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — SAML Based
+# Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — Security Assertion Markup Language(SAML)
 
 **Purpose:** Step‑by‑step guide to federate a Microsoft Entra tenant (Azure AD) with Keycloak so users authenticated by Keycloak can access Power BI (Microsoft 365). This guide explains why SAML is required, prerequisites, exact configuration steps (PowerShell + Keycloak), mapper examples, testing checklist, troubleshooting, and references.
 
@@ -44,8 +44,8 @@ Coming soon...
 
 ## 3. Key Concepts: SAML vs OIDC (short)
 
-- **SAML 2.0**: XML-based assertions, standard for enterprise SSO and federation with Microsoft 365. Suitable for tenant-level federation in Entra.
-- **OIDC**: JSON/JWT-based, built on OAuth 2.0. Great for modern apps, APIs, SPAs, and for External Identities (B2C/B2B scenarios) but **not** for tenant-level federation used by Microsoft 365 apps.
+- **Security Assertion Markup Language (SAML 2.0)**: XML-based assertions, standard for enterprise SSO and federation with Microsoft 365. Suitable for tenant-level federation in Entra.
+- **Access OpenID Connect (OIDC)**: JSON/JWT-based, built on OAuth 2.0. Great for modern apps, APIs, SPAs, and for External Identities (B2C/B2B scenarios) but **not** for tenant-level federation used by Microsoft 365 apps.
 
 **Conclusion:** Use **SAML** for the scenario in this guide.
 
