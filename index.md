@@ -9,3 +9,4 @@ Please select a guide from the list below:
 * [Deploying the Idle VM Shutdown Solution to Production](./AZure_Idle_VM_Shutdown__Automation.md)
 * [Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML](./keycloak-entra--powerbi-fed-guide.md)
 * [Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — SAML Based](./keycloak_entra_power_bi_federation_guide.md)
+* [Power BI Licensing & Management Comparison](./PBI-Keycloack-licensing.md)
