@@ -1,8 +1,6 @@
-# Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML
+# Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OpenID Connect (OIDC) & Security Assertion Markup Language(SAML)
 _Comprehensive Architecture Explanation & Step‑by‑Step Implementation Guide_
 
-**Last Updated:** 2025-10-13  
-**Audience:** Identity / Security Architects, IAM Engineers, Power BI / M365 Platform Owners  
 **Goal:** Enable users whose primary identities live in Keycloak to access Microsoft Power BI (and broader Microsoft 365) through Microsoft Entra ID (formerly Azure AD), using either:
 - External Identities (Guest) federation (OIDC or SAML)  
 - Domain (home realm) federation (SAML / WS‑Fed) for member accounts  
