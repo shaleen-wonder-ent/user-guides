@@ -36,13 +36,8 @@ Power BI and the Microsoft 365 ecosystem rely on **Microsoft Entra (Azure AD)** 
 
 ## 2. Architecture Diagram
 
-```mermaid
-flowchart LR
-  A[User] --> B[Power BI (app)]
-  B --> C[Entra ID / Azure AD]
-  C --> D[Keycloak (SAML IdP)]
-  D --> C
-  C --> B
+```
+Coming soon...
 ```
 
 ---
@@ -249,24 +244,16 @@ Choose based on lifecycle management and compliance requirements.
 
 ## 13. References & Public Documents
 
-- Microsoft: *Direct federation with SAML/WS‑Fed identity providers* (Microsoft Learn)
-- Microsoft: *SAML authentication with Microsoft Entra ID*
-- Keycloak: *Server Administration Guide* — Identity brokering, mappers
-- Example blog: *Azure AD Federation with Keycloak as SAML IdP* (community walkthrough)
+- Microsoft: *Direct federation with SAML/WS‑Fed identity providers* (https://learn.microsoft.com/en-us/entra/external-id/direct-federation)
+- Microsoft: *SAML authentication with Microsoft Entra ID* (https://learn.microsoft.com/en-us/entra/architecture/auth-saml)
+- Keycloak: *Server Administration Guide* — Identity brokering, mappers (https://www.keycloak.org/docs/latest/server_admin/index.html)
+- Example blog: *Azure AD Federation with Keycloak as SAML IdP* (community walkthrough https://medium.com/@manoj.bhagat/microsoft-azure-ad-with-saml-integration-using-keycloak-as-an-identity-provider-8a2cf66e1c57)
 
 (Use the official Microsoft Learn pages and Keycloak docs as the authoritative source.)
 
 ---
 
-## 14. Next Steps I can do for you right now
 
-- Produce the **Microsoft Graph PowerShell** equivalent to set domain federation (if you prefer modern modules).
-- Generate downloadable artifacts: `keycloak-saml-metadata.xml`, `Set-AzureAD-Federation.ps1`, and a ready-to-import Keycloak JSON client.
-- Create a diagram image or a printable PDF documentation pack for customer handoff.
-
-Tell me which artifacts you want and I’ll create them in the workspace.
-
----
 
 *End of document.*
 
