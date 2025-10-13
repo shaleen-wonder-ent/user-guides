@@ -37,7 +37,7 @@ Power BI and the Microsoft 365 ecosystem rely on **Microsoft Entra (Azure AD)** 
 ## 2. Architecture Diagram
 
 ```
-<img width="2326" height="1305" alt="architecture" src="https://github.com/user-attachments/assets/a6581813-523a-4afe-be58-77710f4afc4f" />
+<img source ="./architecture.png">
 
 ```
 
