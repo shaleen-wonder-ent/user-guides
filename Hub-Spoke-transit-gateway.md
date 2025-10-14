@@ -87,6 +87,8 @@ az network vnet peering create -g RG -n SpokeToHub --vnet-name SpokeVnet --remot
 
 
 ✅ Architecture Diagram
+
+
 <img width="738" height="307" alt="image" src="https://github.com/user-attachments/assets/98431e86-7130-435b-b285-cd905dbdfcf3" />
 
 
