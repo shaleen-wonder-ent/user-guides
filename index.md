@@ -29,5 +29,7 @@ Please select a guide from the list below:
 * [Power BI Licensing & Management Comparison](./PBI-Keycloack-licensing.md)
 
   ---
-  
+    
+* [AKS Security & Governance](./AKS_Security_n_Governance.md)
 
+  ---
