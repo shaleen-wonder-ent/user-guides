@@ -30,7 +30,7 @@ Please select a guide from the list below:
 
   ---
     
-* [AKS Security & Governance](./AKS_Security_n_Governance.md)
+* [AKS Security & Governance](./aks-vulnerability-management.md)
 
   ---
   
