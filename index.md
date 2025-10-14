@@ -33,3 +33,7 @@ Please select a guide from the list below:
 * [AKS Security & Governance](./AKS_Security_n_Governance.md)
 
   ---
+  
+* [Hub-Spoke Architecture](./Hub-Spoke-transit-gateway.md)
+
+  ---
