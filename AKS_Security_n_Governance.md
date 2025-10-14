@@ -5,7 +5,7 @@
 ---
 
 ## Table of Contents
-1. [Executive Summary](#executive-summary)
+1. [Summary](#executive-summary)
 2. [Quick Reference: Security Best Practices](#quick-reference-security-best-practices)
 3. [Container Image Security](#container-image-security)
 4. [AKS Cluster Security (Nodes & Host)](#aks-cluster-security-nodes--host)
