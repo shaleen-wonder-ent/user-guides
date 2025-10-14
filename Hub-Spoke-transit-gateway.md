@@ -59,8 +59,10 @@ az network vnet peering create -g RG -n SpokeToHub --vnet-name SpokeVnet --remot
 ## Notes & Best Practices
 
 - Only one VNet in a peering group can use a remote gateway.
-- For multiple customers or large-scale environments, use **Azure Virtual WAN / Virtual Hub** for better isolation and simplified routing.
 - Validate traffic using `Network Watcher → Connection Troubleshoot`.
+- Hub acts as a transit for multiple on-prem connections.
+- Ensure no overlapping IP ranges between all environments.
+- Apply NSGs or route filters for isolation if needed.
 
 ---
 
@@ -127,4 +129,10 @@ az network vnet peering create -g RG -n SpokeToHub --vnet-name SpokeVnet --remot
 - ✅ Single gateway, simpler management.
 - ✅ Lower cost compared to multiple gateways.
 - ❌ Requires careful routing and security to prevent cross-spoke access.
+- Hub acts as a transit for multiple on-prem connections.
+- Ensure no overlapping IP ranges between all environments.
+- Apply NSGs or route filters for isolation if needed.
+
+  ---
+  
 
