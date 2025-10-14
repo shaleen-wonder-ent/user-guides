@@ -96,6 +96,7 @@ az network vnet peering create -g RG -n SpokeToHub --vnet-name SpokeVnet --remot
 
 
 ✅ Step-by-Step Implementation
+
 **Step 1: Create Hub VNet and VPN Gateway**
 - Create a Hub VNet with a dedicated GatewaySubnet.
 - Deploy an Azure VPN Gateway in the Hub VNet.
