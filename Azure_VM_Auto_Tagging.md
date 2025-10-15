@@ -1,4 +1,4 @@
-# Definitive Guide: Automatically Tag Azure VMs with Creator ID
+# Guide: Automatically Tag Azure VMs with Creator ID
 
 This guide details how to build a robust, event-driven solution using an Azure Automation Account to automatically tag newly created Virtual Machines with the creator's identity (`CreatorId`) and the [...]
 
