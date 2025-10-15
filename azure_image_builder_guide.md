@@ -13,7 +13,8 @@ This guide provides a step-by-step approach to create hardened VM images in Azur
 7. [Monitoring & Next Steps](#monitoring--next-steps)
 8. [Restrict Access to Marketplace Images](#restrict-access-to-marketplace-images)
 9. [Automating the Process](#automating-the-process)
-10. [Best Practices](#best-practices)
+10. [Sharing Hardened Images Across Tenants](#Sharing-Hardened-Images-Across-Tenants)
+11. [Best Practices](#best-practices)
  
 
 ## Prerequisites
@@ -561,6 +562,10 @@ steps:
    - Make templates reusable across different OS types
    - Enable customization for different environments
    - Simplify maintenance with DRY (Don't Repeat Yourself) principles
+
+---
+
+## Azure Hardened Images
 
 # Azure Hardened Images – Storage, Sharing, and Multi-Tenant Flow
 
