@@ -14,7 +14,7 @@ This guide provides a step-by-step approach to create hardened VM images in Azur
 8. [Restrict Access to Marketplace Images](#restrict-access-to-marketplace-images)
 9. [Automating the Process](#automating-the-process)
 10. [Best Practices](#best-practices)
-11. [Sharing Hardened Images Across Tenants](#Sharing-Hardened-Images-Across-Tenants)
+11. [Sharing Hardened Images Across Tenants](#sharing-hardened-images-across-tenants)
     
  
 
