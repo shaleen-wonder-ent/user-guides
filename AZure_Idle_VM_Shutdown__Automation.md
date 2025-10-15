@@ -1,4 +1,4 @@
-# Definitive Guide: Deploying the Idle VM Shutdown Solution to Production
+# Guide: Deploying the Idle VM Shutdown Solution to Production
 
 This guide provides the complete, end-to-end steps to create, configure, and activate an automated solution that shuts down idle VMs to save costs.
 
