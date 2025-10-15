@@ -562,6 +562,95 @@ steps:
    - Enable customization for different environments
    - Simplify maintenance with DRY (Don't Repeat Yourself) principles
 
+# Azure Hardened Images – Storage, Sharing, and Multi-Tenant Flow
+
+## Azure Compute Gallery — Image Storage & Versioning Limits
+
+Azure Compute Gallery (ACG) is where your hardened images are stored, versioned, and shared. It allows you to maintain consistent, compliant images across environments.
+
+| Resource Type | Default Limit | Can Be Increased | Notes |
+|----------------|---------------|------------------|--------|
+| Image definitions per gallery | 1,000 | ✅ Yes | Each represents a unique OS or configuration type |
+| Versions per image definition | 1,000 | ✅ Yes | Allows image versioning for patch cycles |
+| Target regions per version | 100 | ✅ Yes | Replicate globally for performance and resilience |
+| Replicas per region | 50 | ✅ Yes | Increases availability and deployment speed |
+| Total galleries per subscription | 1,000 | ✅ Yes | Supports large-scale multi-image architectures |
+
+
+
+---
+
+## Sharing Hardened Images Across Tenants
+
+Azure Compute Gallery supports **cross-tenant image sharing**, allowing centralized management of hardened base images while securely sharing them across multiple Azure AD tenants.
+
+### ✅ You Can Share:
+- Entire **Gallery**
+- Individual **Image Definitions**
+- Individual **Image Versions**
+
+### 🔐 Sharing Mechanisms
+
+You can share images using **Azure CLI** or **Azure Portal**.
+
+#### Example (CLI):
+```bash
+az sig share update   --gallery-name MyHardenedGallery   --resource-group RG-Hardening   --permissions groups   --target-tenants 11111111-aaaa-bbbb-cccc-222222222222 33333333-aaaa-bbbb-cccc-444444444444
+```
+
+Or through the Portal:
+> **Azure Compute Gallery → Sharing → Direct sharing → Add tenant IDs**
+
+### 🧭 Types of Sharing
+
+| Mode | Description | Recommended For |
+|-------|--------------|-----------------|
+| **Private (Default)** | Accessible only within your tenant using RBAC | Internal organizational use |
+| **Direct Sharing** | Explicitly share with target tenant IDs | ✅ Best for multi-tenant MSP/SaaS use cases |
+| **Community Gallery** | Publicly available to all Azure users | ❌ Not for private hardened images |
+
+### 💡 Access Notes
+- Receiving tenants **don’t need to copy** the image — they can directly use it for VM creation.
+- Access can be **revoked at any time**.
+- For better performance, replicate your images to regions near each tenant.
+
+---
+
+## Example: Multi-Tenant Sharing Flow
+
+### Architecture Overview
+
+```
+Your Tenant (A)
+│
+├── Azure Image Builder → Hardened Images (10)
+│
+├── Azure Compute Gallery (MyHardenedGallery)
+│       ├── Image Def: HardenedUbuntu2204
+│       ├── Image Def: HardenedWin2022
+│       └── ...
+│
+└── Shared with:
+    ├── Tenant B (Customer1)
+    ├── Tenant C (Customer2)
+    ├── Tenant D (Customer3)
+    └── ... up to 25 tenants
+```
+
+### Example: Tenant Deployment Command
+Each tenant can create a VM using your shared hardened image:
+
+```bash
+az vm create   --resource-group CustomerRG   --name MySecureVM   --image "/subscriptions/<your-sub>/resourceGroups/RG-Hardening/providers/Microsoft.Compute/galleries/MyHardenedGallery/images/HardenedUbuntu2204/versions/1.0.0"   --admin-username azureuser
+```
+
+### Key Benefits
+- Centralized image lifecycle and version control  
+- Consistent security baseline across tenants  
+- Reduced risk of unapproved marketplace image usage  
+- Easy revocation or version update management  
+
+---
 
 ## Conclusion
 
