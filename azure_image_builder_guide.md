@@ -590,12 +590,12 @@ Azure Compute Gallery (ACG) is where your hardened images are stored, versioned,
 
 Azure Compute Gallery supports **cross-tenant image sharing**, allowing centralized management of hardened base images while securely sharing them across multiple Azure AD tenants.
 
-### ✅ You Can Share:
+### You Can Share:
 - Entire **Gallery**
 - Individual **Image Definitions**
 - Individual **Image Versions**
 
-### 🔐 Sharing Mechanisms
+### Sharing Mechanisms
 
 You can share images using **Azure CLI** or **Azure Portal**.
 
@@ -607,15 +607,15 @@ az sig share update   --gallery-name MyHardenedGallery   --resource-group RG-Har
 Or through the Portal:
 > **Azure Compute Gallery → Sharing → Direct sharing → Add tenant IDs**
 
-### 🧭 Types of Sharing
+### Types of Sharing
 
 | Mode | Description | Recommended For |
 |-------|--------------|-----------------|
 | **Private (Default)** | Accessible only within your tenant using RBAC | Internal organizational use |
-| **Direct Sharing** | Explicitly share with target tenant IDs | ✅ Best for multi-tenant MSP/SaaS use cases |
-| **Community Gallery** | Publicly available to all Azure users | ❌ Not for private hardened images |
+| **Direct Sharing** | Explicitly share with target tenant IDs |  Best for multi-tenant MSP/SaaS use cases |
+| **Community Gallery** | Publicly available to all Azure users |  Not for private hardened images |
 
-### 💡 Access Notes
+### Access Notes
 - Receiving tenants **don’t need to copy** the image — they can directly use it for VM creation.
 - Access can be **revoked at any time**.
 - For better performance, replicate your images to regions near each tenant.
