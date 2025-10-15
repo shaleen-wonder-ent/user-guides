@@ -14,7 +14,8 @@ This guide provides a step-by-step approach to create hardened VM images in Azur
 8. [Restrict Access to Marketplace Images](#restrict-access-to-marketplace-images)
 9. [Automating the Process](#automating-the-process)
 10. [Best Practices](#best-practices)
-11. [Sharing Hardened Images Across Tenants](#sharing-hardened-images-across-tenants)
+11. [Azure Hardened Images](#azure-hardened-images)
+12. [Sharing Hardened Images Across Tenants](#sharing-hardened-images-across-tenants)
     
  
 
@@ -568,19 +569,17 @@ steps:
 
 ## Azure Hardened Images
 
-# Azure Hardened Images – Storage, Sharing, and Multi-Tenant Flow
-
-## Azure Compute Gallery — Image Storage & Versioning Limits
+# Azure Compute Gallery — Image Storage & Versioning Limits
 
 Azure Compute Gallery (ACG) is where your hardened images are stored, versioned, and shared. It allows you to maintain consistent, compliant images across environments.
 
 | Resource Type | Default Limit | Can Be Increased | Notes |
 |----------------|---------------|------------------|--------|
-| Image definitions per gallery | 1,000 | ✅ Yes | Each represents a unique OS or configuration type |
-| Versions per image definition | 1,000 | ✅ Yes | Allows image versioning for patch cycles |
-| Target regions per version | 100 | ✅ Yes | Replicate globally for performance and resilience |
-| Replicas per region | 50 | ✅ Yes | Increases availability and deployment speed |
-| Total galleries per subscription | 1,000 | ✅ Yes | Supports large-scale multi-image architectures |
+| Image definitions per gallery | 1,000 | Yes | Each represents a unique OS or configuration type |
+| Versions per image definition | 1,000 | Yes | Allows image versioning for patch cycles |
+| Target regions per version | 100 | Yes | Replicate globally for performance and resilience |
+| Replicas per region | 50 | Yes | Increases availability and deployment speed |
+| Total galleries per subscription | 1,000 | Yes | Supports large-scale multi-image architectures |
 
 
 
