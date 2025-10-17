@@ -37,3 +37,7 @@ Please select a guide from the list below:
 * [Hub-Spoke Architecture](./Hub-Spoke-transit-gateway.md)
 
   ---
+
+* [Azure Application Gateway Architecture - Public & Private with WAF and Header-Based Filtering](./app_gw_architecture.md)
+
+  ---
