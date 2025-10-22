@@ -1,6 +1,6 @@
 # Azure Virtual WAN: Scalable Shared Services Architecture for Hub & Spoke
 
-<img width="2655" height="1422" alt="Shared service architecture" src="https://github.com/user-attachments/assets/457875c8-326d-4c0b-8a60-e1106872d09f" />
+<img style="width:60%; max-width:100%; height:auto;" alt="Shared service architecture" src="https://github.com/user-attachments/assets/457875c8-326d-4c0b-8a60-e1106872d09f" />
 
 **Legend:**
 - **Contoso OnPrem:** Your on-premises network, connected to Azure via VPN/ExpressRoute.
