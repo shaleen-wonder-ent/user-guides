@@ -41,3 +41,8 @@ Please select a guide from the list below:
 * [Azure Application Gateway Architecture - Public & Private with WAF and Header-Based Filtering](./app_gw_architecture.md)
 
   ---
+
+* [Azure vWAN Shared Services Architecture](./Azure-vWAN-Shared-Services.md)
+ 
+  ---
+  
