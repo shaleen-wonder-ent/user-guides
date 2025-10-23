@@ -37,7 +37,7 @@ To connect your Azure Virtual WAN hub to an existing traditional hub-and-spoke t
 
 **ER Style Diagram**
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/59a0b35a-ae6f-4af5-8a36-c105bb47774c" />
+<img style="width:80%; max-width:100%; height:auto;" alt="image" src="https://github.com/user-attachments/assets/59a0b35a-ae6f-4af5-8a36-c105bb47774c" />
 
 **Option 1 (Direct VNet Connection)**
 - Azure Virtual WAN connects directly to VNet (no gateway allowed in VNet).
