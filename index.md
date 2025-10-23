@@ -45,4 +45,9 @@ Please select a guide from the list below:
 * [Azure vWAN Shared Services Architecture](./Azure-vWAN-Shared-Services.md)
  
   ---
+
+* [Azure vWAN Integration](./Azure_vWAN_Integration.md)
+
+  ---
+  
   
