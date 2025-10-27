@@ -49,5 +49,7 @@ Please select a guide from the list below:
 * [Azure vWAN Integration](./Azure_vWAN_Integration.md)
 
   ---
+
+* [Secure Entra ID Audit Logs to LAW via ZTNA with AMPLS](./AMPLS-LAW-ZTNA.md)
   
   
