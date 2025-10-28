@@ -50,7 +50,7 @@
 
 #### **Steps:**
 
-1. **In Azure Portal, go to AMPLS ==> Networking ==> Private Endpoint connections ==> Add.**
+1. **In Azure Portal, go to AMPLS ==> Configure ==> Private Endpoint connections ==> Add.**
 2. **Choose Hub VNet**  
    - Select the Hub VNet (not the Spoke VNet).
 3. **Create a dedicated subnet for Private Endpoints in the Hub**  
