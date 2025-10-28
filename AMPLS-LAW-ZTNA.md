@@ -159,11 +159,11 @@ All monitoring traffic (LAW queries) from spokes routes to LAW via Hub PE.
 # High level info
 - During Private Endpoint creation for AMPLS, set “Integrate with private DNS zone” to No.
 - Afterwards:
-  - Provide the required Azure Private Link zone names to your DNS team:
-  - privatelink.oms.opinsights.azure.com
-  - privatelink.ods.opinsights.azure.com
-  - privatelink.monitor.azure.com
-  - privatelink.agentsvc.azure-automation.net
+  Provide the required Azure Private Link zone names to your DNS team:
+  	- privatelink.oms.opinsights.azure.com
+  	- privatelink.ods.opinsights.azure.com
+  	- privatelink.monitor.azure.com
+  	- privatelink.agentsvc.azure-automation.net
 # DNS team will set up conditional forwarders to Azure DNS (168.63.129.16) or the IP of your Azure DNS Private Resolver inbound endpoint.
 
 OPTIONAL:
