@@ -60,7 +60,7 @@
      - Keeps NSG rules simple and secure
      - Only PEs live here; no VMs
 4. **Enable “Integrate with Private DNS zones”**  
-   - Unless you have complex custom DNS (see Step 4 for custom DNS)
+   - Unless you have complex custom DNS (see below Step 4.1 for custom DNS)
    - This ensures all VNets peered to the hub can resolve monitoring endpoints correctly
 
 5. **Ensure “Network Policy for Private Endpoints” is enabled**
@@ -153,6 +153,26 @@ All monitoring traffic (LAW queries) from spokes routes to LAW via Hub PE.
 - **No further DNS configuration needed** for Azure VMs using Azure DNS (168.63.129.16).
 
 ### Custom DNS Configuration (On-Prem/Org-wide DNS)
+
+```
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# High level info
+- During Private Endpoint creation for AMPLS, set “Integrate with private DNS zone” to No.
+- Afterwards:
+  - Provide the required Azure Private Link zone names to your DNS team:
+  - privatelink.oms.opinsights.azure.com
+  - privatelink.ods.opinsights.azure.com
+  - privatelink.monitor.azure.com
+  - privatelink.agentsvc.azure-automation.net
+# DNS team will set up conditional forwarders to Azure DNS (168.63.129.16) or the IP of your Azure DNS Private Resolver inbound endpoint.
+
+OPTIONAL:
+If you use Storage Account exports or Application Insights, consider adding:
+ - privatelink.blob.core.windows.net
+ - privatelink.applicationinsights.azure.com
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+```
 
 - If your devices (including ZTNA clients) use custom DNS, you **must manually configure conditional forwarders** for each Azure Private DNS zone.
 - **Configure your DNS servers (e.g., Windows DNS):**
