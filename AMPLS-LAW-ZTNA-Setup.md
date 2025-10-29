@@ -4,35 +4,8 @@
 
 ## Architecture Diagram
 
-```mermaid
-flowchart TD
-    A[ZTNA Client/User] -- Access via ZTNA --> B[ZTNA Connector/Gateway]
-    B -- DNS Query (FQDN) --> C[Corporate DNS]
-    C -- Conditional Forwarder --> D1[Azure DNS Private Resolver Central]
-    C -- Conditional Forwarder --> D2[Azure DNS Private Resolver South]
-    D1 -- Private DNS Zone Lookup --> E1[AMPLS PE Central HUB VNet]
-    D2 -- Private DNS Zone Lookup --> E2[AMPLS PE South HUB VNet]
-    E1 -- Routed via Internal Firewall --> F1[LAW Resource Central]
-    E2 -- Routed via Internal Firewall --> F1
-    B -- Network Route --> E1
-    B -- Network Route --> E2
-    subgraph Azure Central Region
-        D1
-        E1
-        F1
-    end
-    subgraph Azure South Region
-        D2
-        E2
-    end
-    subgraph On-prem / External
-        A
-        B
-        C
-    end
-    E1 -.-> F1
-    E2 -.-> F1
-```
+<img style="width:110%; max-width:100%; height:auto;" alt="Architecture Diagram" src="https://github.com/user-attachments/assets/0390f9c5-c08b-4ba4-8502-64413256edb7" />
+
 
 ---
 
