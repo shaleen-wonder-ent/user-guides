@@ -50,6 +50,6 @@ Please select a guide from the list below:
 
   ---
 
-* [Secure Entra ID Audit Logs to LAW via ZTNA with AMPLS](./AMPLS-LAW-ZTNA.md)
+* [Azure LAW, AMPLS, Private Endpoint & ZTNA Integration Setup](./AMPLS-LAW-ZTNA-Setup.md)
   
   
