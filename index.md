@@ -51,5 +51,9 @@ Please select a guide from the list below:
   ---
 
 * [Azure LAW, AMPLS, Private Endpoint & ZTNA Integration Setup](./AMPLS-LAW-ZTNA-Setup.md)
+
+  ---
+
+* [Azure Cross-Region Load Balancer Architecture for RC System](./Cross-Region-LB-Architecture-RC-System.md)
   
   
