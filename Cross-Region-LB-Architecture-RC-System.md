@@ -1,5 +1,8 @@
 # Azure Cross-Region Load Balancer Architecture for RC System
 
+## Architecure Diagram
+<img width="1006" height="431" alt="image" src="https://github.com/user-attachments/assets/5b4f8089-9d6b-450a-ac4c-0130b8d3fd00" />
+
 ## Architecture Overview
 
 ### DNS Configuration
