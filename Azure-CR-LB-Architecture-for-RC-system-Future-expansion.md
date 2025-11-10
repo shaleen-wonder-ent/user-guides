@@ -149,42 +149,8 @@ Each maps to its own CR-LB frontend + SLB + Broker compute.
 
 # 5. Mermaid Diagram — Expansion Model
 
-```mermaid
-flowchart TB
+<img width="704" height="262" alt="image" src="https://github.com/user-attachments/assets/0db3d6a8-4cdc-4b34-8273-a6b31d691018" />
 
-subgraph CRLB["CR-LB (Multiple Anycast Frontends)"]
-  FE1["fe-b1-us"]
-  FE2["fe-b2-us"]
-  FE3["fe-b3-in"]
-  FE4["fe-b4-in"]
-  FEN["fe-b5-eu (new)"]
-end
-
-subgraph US["USA Region"]
-  SLB1["slb-b1-us"]
-  SLB2["slb-b2-us"]
-  B1["Broker B1"]
-  B2["Broker B2"]
-end
-
-subgraph India["India Region"]
-  SLB3["slb-b3-in"]
-  SLB4["slb-b4-in"]
-  B3["Broker B3"]
-  B4["Broker B4"]
-end
-
-subgraph EU["Europe Region (New)"]
-  SLB5["slb-b5-eu"]
-  B5["Broker B5"]
-end
-
-FE1 --> SLB1 --> B1
-FE2 --> SLB2 --> B2
-FE3 --> SLB3 --> B3
-FE4 --> SLB4 --> B4
-FEN --> SLB5 --> B5
-```
 
 ---
 
