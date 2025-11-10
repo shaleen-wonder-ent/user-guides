@@ -11,6 +11,7 @@ This explains how a session is established when **each Broker has its own Region
 - DNS returns an **Anycast IP** for that Broker’s **CR‑LB Frontend**.  
 - C1 connects to the **nearest Azure edge**, then Azure routes to the **Broker’s own SLB** in its home region, and the SLB forwards to the **Broker**.  
 - The Broker completes **mTLS** and issues a **Connection Code**.
+- Controller is now logically “attached” to Broker B1
 
 ## 2) Target chooses the nearest Broker
 - The Target (T1) has the same list of Broker hostnames.  
