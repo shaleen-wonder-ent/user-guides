@@ -54,6 +54,29 @@ Please select a guide from the list below:
 
   ---
 
-* [Azure Cross-Region Load Balancer Architecture for RC System](./Cross-Region-LB-Architecture-RC-System.md)
+* [End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
+
+ ---
+
+* [Azure CR‑LB Architecture for RC System — Component Reference](./Azure-CR-LB-Architecture-for-RC-system-ComponentReference.md)
+
+ ---
+
+* [Azure CR‑LB Architecture for RC System — Future Expansion Strategy](./Azure-CR-LB-Architecture-for-RC-system-Future-expansion.md)
+
+  ---
+
+* [Azure CR‑LB Architecture for RC System — Why This Architecture Works](./Azure-CR-LB-Architecture-for-RC-system-reasoning.md)
+
+  ---
+
+* [Azure CR‑LB Architecture for RC System — Step-by-step Build Order (Azure CR‑LB → per‑Broker SLB → Brokers)](./Azure-CR-LB-Architecture-for-RC-system-resource-placement.md)
+
+  ---
+
+* [Azure CR‑LB Architecture for RC System (Final) — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
+
+  ---
+
   
   
