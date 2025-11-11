@@ -54,7 +54,7 @@ Please select a guide from the list below:
 
   ---
 
-* [End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
+* [Azure CR-LB Architecture End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
 
  ---
 
@@ -78,9 +78,10 @@ Please select a guide from the list below:
 
    ---
 
-* [Azure Cross-Region LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
+* [Azure CR-LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
 
   ---
+  
 
 
   
