@@ -5,6 +5,11 @@ This explains how a session is established when **each Broker has its own Region
 
 ---
 
+<img width="986" height="437" alt="image" src="https://github.com/user-attachments/assets/e0e1763c-4d36-4db8-9f42-5f0e9ed7c17c" />
+
+
+---
+
 ## 1) Controller starts with any Broker
 - The Controller (C1) has a list of Broker hostnames.  
 - It picks one (e.g., `broker-us-1.company.com`).  
