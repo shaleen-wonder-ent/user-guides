@@ -94,7 +94,7 @@ Please select a guide from the list below:
 
 ---
 
-* [Multi-Region Azure Monitor (Without DNS Resolver) Flow & Use Cases](./MPLS-Multi-Region-without-DNS-Resolver-Flow.md)
+* [Multi-Region Azure Monitor (Without DNS Resolver) Flow & Use Cases](./AMPLS-Multi-Region-without-DNS-Resolver-Flow.md)
 
 ---
 
