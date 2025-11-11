@@ -76,7 +76,12 @@ Please select a guide from the list below:
 
 * [Azure CR‑LB Architecture for RC System (Final) — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
 
+   ---
+
+* [Azure Cross-Region LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
+
   ---
+
 
   
   
