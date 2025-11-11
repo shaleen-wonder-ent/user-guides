@@ -215,3 +215,78 @@ Recovery Objectives:
 
   ---
   
+
+# Active-Active DR Pricing Structure
+
+## Common (Shared Across Both Regions)
+These are global or once-per-deployment resources.
+
+**Common Resources:**
+- C1 = Traffic Manager (or Azure Front Door)
+- C2 = DNS Zone
+- C3 = Monitoring (Log Analytics, Alerts)
+- C4 = Shared Key Vault (optional)
+
+**Chargeable (Common):**
+- C1 + C2 + C3 + C4 → counted once
+
+---
+
+## Region 1 (Central India)
+**Components:**
+- A1 = App Tier (VMSS)
+- B1 = MySQL Server (Primary)
+- D1 = Redis Cache (Primary)
+- E1 = Blob Storage (GRS)
+- F1 = WAF / Firewall
+- G1 = VNET + NSG + Public IP
+
+---
+
+## Region 2 (South India)
+**Components:**
+- A2 = App Tier (VMSS)
+- B2 = MySQL Server (Read Replica)
+- D2 = Redis Cache (Replica)
+- E2 = Blob Storage (RA-GRS)
+- F2 = WAF / Firewall
+- G2 = VNET + NSG + Public IP
+
+---
+
+## Detailed Breakdown
+
+```
+Common:
+  - Traffic Manager (1)
+  - DNS Zone (1)
+  - Monitoring Workspace (1)
+
+Region 1:
+  - App Tier (1)
+  - MySQL Primary (1)
+  - Redis Primary (1)
+  - Storage GRS (1)
+  - WAF (1)
+  - VNET + NSG (1)
+
+Region 2:
+  - App Tier (1)
+  - MySQL Read Replica (1)
+  - Redis Replica (1)
+  - Storage RA-GRS (1)
+  - WAF (1)
+  - VNET + NSG (1)
+
+Chargeable Multipliers:
+  - Common: 1x
+  - App Tier: 2x
+  - Database: 2x
+  - Cache: 2x
+  - Storage: 2x
+  - WAF: 2x
+  - Networking: 2x
+```
+
+---
+
