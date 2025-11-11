@@ -1,4 +1,4 @@
-# Multi-Region Azure Monitor Use Cases
+# Multi-Region Azure Monitor (Without DNS Resolver) Use Cases
 
 This document explains how data travels in the multi-region Azure Monitor setup **without DNS Resolver**, using simple English.
 
