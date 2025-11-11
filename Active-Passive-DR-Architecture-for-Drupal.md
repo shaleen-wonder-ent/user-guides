@@ -544,6 +544,68 @@ Secondary Region - South India:
 Total DR Cost: ~30-40% of primary region cost
 ```
 
+# Active-Passive DR Pricing Structure (DR costing only for the website component)
+
+## Common (Shared Across Both Regions)
+
+**Common Resources (C):**
+- Traffic Manager (or Azure Front Door)
+- DNS Zone
+- Monitoring & Alerts Workspace
+- Shared Key Vault (Optional)
+
+**Chargeable (Common):**
+- C × 1
+
+---
+
+## Region 1 (Primary / Active)
+
+**Components (A, B, D, E, F, G):**
+- A1 = App Tier (VMSS)
+- B1 = Database Primary (MySQL Flexible Server Primary)
+- D1 = Redis Cache (Primary)
+- E1 = Blob Storage (GRS)
+- F1 = WAF / Firewall
+- G1 = VNET + NSG + Public IP
+
+---
+
+## Region 2 (Secondary / Passive Standby)
+
+**Components (A, B, D, E, F, G):**
+- A2 = App Tier (Scaled-down / Standby)
+- B2 = Database Replica (Geo-replica)
+- D2 = Redis Cache Replica
+- E2 = Blob Storage RA-GRS
+- F2 = WAF / Firewall
+- G2 = VNET + NSG + Public IP
+
+---
+
+## Chargeable Resources Summary
+
+```
+Common:         C * 1
+App Tier:       A * 2  (A1 + A2)
+Database:       B * 2  (B1 + B2)
+Cache:          D * 2  (D1 + D2)
+Storage:        E * 2  (E1 + E2)
+WAF/Firewall:   F * 2  (F1 + F2)
+Networking:     G * 2  (G1 + G2)
+```
+
+---
+
+## Notes
+
+- Region 2 App Tier may be scaled down but is still counted as a resource.
+- DB replica costs apply fully.
+- Storage secondary replication is counted for Region 2.
+- Monitoring, DNS, CI/CD are shared resources billed once.
+
+---
+
 
 ## Advantages of Active-Passive
 
