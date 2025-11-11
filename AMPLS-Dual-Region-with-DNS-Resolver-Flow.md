@@ -1,4 +1,4 @@
-# Azure Monitor Use Case Flow
+# Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub Flow & Use Case
 
 ## Quick Links
 - [Use Case 1: Entra ID Logs Flowing Into LAW](#use-case-1-entra-id-logs-flowing-into-law)
