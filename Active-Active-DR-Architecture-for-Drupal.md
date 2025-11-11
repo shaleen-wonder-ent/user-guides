@@ -216,7 +216,7 @@ Recovery Objectives:
   ---
   
 
-# Active-Active DR Pricing Structure
+# Active-Active DR Pricing Structure (DR costing only for the website component)
 
 ## Common (Shared Across Both Regions)
 These are global or once-per-deployment resources.
