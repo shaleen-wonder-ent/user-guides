@@ -126,7 +126,7 @@ Repeat for b2, b3, b4.
 
 <details> 
   <summary>
-       <strong><span style="color:red;">Detailed info for CR-LB Creation</span></strong>  
+       <strong>Detailed info for CR-LB Creation</strong>  
   </summary>
  
   ### Step-by-Step Guide: Creating an Azure Cross-Region Load Balancer (CR-LB)
