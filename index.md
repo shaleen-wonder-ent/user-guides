@@ -81,6 +81,15 @@ Please select a guide from the list below:
 * [Azure CR-LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
 
   ---
+
+* [Active-Active DR Architecture for Drupal 10 Website](./Active-Active-DR-Architecture-for-Drupal.md)
+
+   ---
+
+* [Active-Passive DR Architecture for Drupal 10 Website](./Active-Passive-DR-Architecture-for-Drupal.md)
+
+  ---
+  
   
 
 
