@@ -84,11 +84,27 @@ Please select a guide from the list below:
 
 * [Active-Active DR Architecture for Drupal 10 Website](./Active-Active-DR-Architecture-for-Drupal.md)
 
-   ---
+---
 
 * [Active-Passive DR Architecture for Drupal 10 Website](./Active-Passive-DR-Architecture-for-Drupal.md)
 
-  ---
+---
+
+* [Multi-Region Azure Monitor Architecture (Without DNS Resolver)](./AMPLS-Multi-Region-without-DNS-Resolver.md)
+
+---
+
+* [Multi-Region Azure Monitor (Without DNS Resolver) Flow & Use Cases](./MPLS-Multi-Region-without-DNS-Resolver-Flow.md)
+
+---
+
+* [Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub](./AMPLS-Dual-Region-with-DNS-Resolver.md)
+
+---
+
+* [Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub Flow & Use Case](./AMPLS-Dual-Region-with-DNS-Resolver-Flow.md)
+
+---
   
   
 
