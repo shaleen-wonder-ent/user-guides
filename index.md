@@ -105,6 +105,10 @@ Please select a guide from the list below:
 * [Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub Flow & Use Case](./AMPLS-Dual-Region-with-DNS-Resolver-Flow.md)
 
 ---
+
+* [Multi-Tenant Application Architecture on Azure VMs](./Multi-Tenant-Architecure-Infra.md)
+
+---
   
   
 
