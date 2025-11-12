@@ -89,7 +89,7 @@ It covers all layers except the SQL Server database, focusing on the **applicati
 
 ### Core Design Principles
 | Concern | Implementation |
-|----------|----------------|
+|---------|----------------|
 | Tenant Context | API expects Tenant ID in header, token, or subdomain |
 | Authentication | Azure Entra ID multi-tenant app registration |
 | Authorization | Middleware validates Tenant ID and policies |
