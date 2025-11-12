@@ -88,7 +88,7 @@ It covers all layers except the SQL Server database, focusing on the **applicati
 ## 4. Multi-Tenancy at the API Layer
 
 ### Core Design Principles
-| Concern | Implementation |
+| Concern | Implementation | 
 |---------|----------------|
 | Tenant Context | API expects Tenant ID in header, token, or subdomain |
 | Authentication | Azure Entra ID multi-tenant app registration |
