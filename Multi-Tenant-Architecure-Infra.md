@@ -88,13 +88,8 @@ It covers all layers except the SQL Server database, focusing on the **applicati
 ## 4. Multi-Tenancy at the API Layer
 
 ### Core Design Principles
-| Concern | Implementation | 
-|---------|----------------|
-| Tenant Context | API expects Tenant ID in header, token, or subdomain |
-| Authentication | Azure Entra ID multi-tenant app registration |
-| Authorization | Middleware validates Tenant ID and policies |
-| Throttling | Custom or API Gateway-based rate limiting per tenant |
-| Telemetry | Tenant ID tagged in Application Insights |
+<img width="500" height="251" alt="image" src="https://github.com/user-attachments/assets/f3c24329-c509-4a4f-9d22-8a414f62905a" />
+
 
 ### Tenant Context Middleware Example
 ```csharp
