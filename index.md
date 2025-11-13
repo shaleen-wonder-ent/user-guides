@@ -109,6 +109,10 @@ Please select a guide from the list below:
 * [Multi-Tenant Application Architecture on Azure VMs](./Multi-Tenant-Architecure-Infra.md)
 
 ---
+
+* [High Availability Architecture for Contoso-Fabrikam-Customer Connectivity](./HA-VPN-PrivateLink-Gateway.md)
+
+---
   
   
 
