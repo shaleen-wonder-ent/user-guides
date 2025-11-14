@@ -11,7 +11,7 @@ This document describes how to architect the RC (Remote Control) system using **
 <details>
   <summary> High Level(Simple)</summary>
   
-<img width="7188" height="1347" alt="image" src="https://github.com/user-attachments/assets/53d25a48-cd11-42a4-9b98-2ad6e16810eb" />
+<img width="3188" height="747" alt="image" src="https://github.com/user-attachments/assets/53d25a48-cd11-42a4-9b98-2ad6e16810eb" />
 
 
 </details>
@@ -21,7 +21,7 @@ This document describes how to architect the RC (Remote Control) system using **
 <details>
   <summary> Flow Level</summary>
   
-<img width="1892" height="1505" alt="image" src="https://github.com/user-attachments/assets/14a23968-b970-4afd-941c-1648f4d878cc" />
+<img width="1092" height="1005" alt="image" src="https://github.com/user-attachments/assets/14a23968-b970-4afd-941c-1648f4d878cc" />
 
 
 </details>
