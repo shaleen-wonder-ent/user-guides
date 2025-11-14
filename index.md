@@ -113,11 +113,17 @@ Please select a guide from the list below:
 * [High Availability Architecture for Contoso-Fabrikam-Customer Connectivity](./HA-VPN-PrivateLink-Gateway.md)
 
 ---
+
+* [Azure Traffic Manager (ATM) Architecture for RC System – End-to-End Communication Flow](./Azure-ATM-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
+  
 ---
+<!--
 ---
 ---
   
 * [Ignore-Test](./1.md)
+
+-->
 
 
   
