@@ -126,7 +126,7 @@ Please select a guide from the list below:
   
 ---
 
-* [AMPLS DNS - Precise Forwarding in Simple Explanation](.AMPLS-NON-DR-Precise-Forwarding-Simple-Expalnation.md)
+* [AMPLS DNS - Precise Forwarding in Simple Explanation](./AMPLS-NON-DR-Precise-Forwarding-Simple-Expalnation.md)
   
 ---
 
