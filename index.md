@@ -117,11 +117,30 @@ Please select a guide from the list below:
 * [Azure Traffic Manager (ATM) Architecture for RC System – End-to-End Communication Flow](./Azure-ATM-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
   
 ---
+
+* [AMPLS DNS - Cross-Region Forwarding in Simple Explanation](./AMPLS-NON-DR-Cross-Region-Forwarding-Simple-Explanation.md)
+  
+---
+
+* [AMPLS Multi-Region DNS Resolution - Cross-Region Forwarding Architecture](./AMPLS-NON-DR-Cross-Region-Forwarding.md)
+  
+---
+
+* [AMPLS DNS - Precise Forwarding in Simple Explanation](.AMPLS-NON-DR-Precise-Forwarding-Simple-Expalnation.md)
+  
+---
+
+* [AMPLS Multi-Region DNS Resolution - Precise Forwarding Architecture](./AMPLS-NON-DR-Precise-Forwarding.md)
+  
+---
+
 <!--
 ---
 ---
+
+* [Title](./file_name.md)
   
-* [Ignore-Test](./1.md)
+---
 
 -->
 
