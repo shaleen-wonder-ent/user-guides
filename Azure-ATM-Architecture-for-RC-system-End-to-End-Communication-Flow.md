@@ -39,8 +39,7 @@ This document describes how to architect the RC (Remote Control) system using **
 
 ---
 
-<details>
-  <summary> How It Works (flow, simplified) </summary>
+## How this architecture works? (flow, simplified)
 
 ## What is Azure Traffic Manager?
 
@@ -177,9 +176,6 @@ Now both **Target (India)** and **Controller (USA)** are connected to the same *
 
 ---
   
-</details>
-
----
 
 ## 3. End-to-End Communication Flow (bit more depth)
 
