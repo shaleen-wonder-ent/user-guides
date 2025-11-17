@@ -67,11 +67,11 @@ This document provides comprehensive technical and commercial guidance for imple
 │  │  Backup Vault (backupvault01)                      │    │
 │  │  ┌──────────────────────────────────────────────┐  │    │
 │  │  │  Immutable Backup Storage                    │  │    │
-│  │  │  ✓ Snapshot 1: Day 1 (10 TB - Full)          │  │    │
-│  │  │  ✓ Snapshot 2: Day 2 (10 TB - Full)          │  │    │
-│  │  │  ✓ Snapshot 3: Day 3 (10 TB - Full)          │  │    │
-│  │  │  ..                                          │   │   │
-│  │  │  ✓ Snapshot 30: Day 30 (10 TB - Full)        │  │    │
+│  │  │    Snapshot 1: Day 1 (10 TB - Full)          │  │    │
+│  │  │    Snapshot 2: Day 2 (10 TB - Full)          │  │    │
+│  │  │    Snapshot 3: Day 3 (10 TB - Full)          │  │    │
+│  │  │  ..                                          │  │    │
+│  │  │    Snapshot 30: Day 30 (10 TB - Full)        │  │    │
 │  │  │                                              │  │    │
 │  │  │  Features:                                   │  │    │
 │  │  │  - WORM (immutable)                          │  │    │
@@ -776,11 +776,11 @@ Month 4+:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Configuration Changes:                                 │
-│  ✓ Backup policy: DISASSOCIATED                         │
-│  ✓ Scheduled backups: STOPPED                           │
-│  ✗ Existing recovery points: DELETED IMMEDIATELY        │
-│  ✗ Immutability locks: OVERRIDDEN (after soft delete)   │
-│  ✗ Restore capability: NOT AVAILABLE                    │
+│   Backup policy: DISASSOCIATED                         │
+│   Scheduled backups: STOPPED                           │
+│   Existing recovery points: DELETED IMMEDIATELY        │
+│   Immutability locks: OVERRIDDEN (after soft delete)   │
+│   Restore capability: NOT AVAILABLE                    │
 │  ⚠ Soft delete: 14-day grace period (if enabled)        │
 └─────────────────────────────────────────────────────────┘
 
@@ -821,10 +821,10 @@ Day 15+ (Permanent Deletion):
 
 | Scenario | Protected Instance | Vault Storage | Restore | Timeline to $0 |
 |----------|-------------------|---------------|---------|----------------|
-| **Active Protection** | ✓ Charged | ✓ Charged | ✓ Available | N/A |
-| **Stop + Retain** | ✗ Free | ✓ Charged | ✓ Available | 30 days (retention policy) |
-| **Stop + Delete (Soft Delete ON)** | ✗ Free | ✓ Charged (14 days) | ⚠️ 14 days only | 14 days |
-| **Stop + Delete (Soft Delete OFF)** | ✗ Free | ✗ Free | ✗ Not available | Immediate |
+| **Active Protection** |  Charged |  Charged |  Available | N/A |
+| **Stop + Retain** |  Free |  Charged |  Available | 30 days (retention policy) |
+| **Stop + Delete (Soft Delete ON)** |  Free |  Charged (14 days) |  14 days only | 14 days |
+| **Stop + Delete (Soft Delete OFF)** |  Free |  Free |  Not available | Immediate |
 
 ---
 
@@ -894,12 +894,12 @@ Retention Lock Impact on Stop Protection:
 If Backup Policy Has Immutability Lock:
 ┌─────────────────────────────────────────────────────────┐
 │  Locked Retention Policy (e.g., 7-year compliance)      │
-│                                                          │
+│                                                         │
 │  Attempting to "Stop Protection + Delete Data":         │
-│  ✗ BLOCKED - Cannot delete recovery points              │
-│  ✗ Must wait until retention period expires             │
-│  ✓ Can only "Stop Protection + Retain Data"             │
-│                                                          │
+│   BLOCKED - Cannot delete recovery points               │
+│   Must wait until retention period expires              │
+│   Can only "Stop Protection + Retain Data"              │
+│                                                         │
 │  Billing Implications:                                  │
 │  - Vault storage charges continue for full 7 years      │
 │  - Cannot reduce costs until lock expires               │
@@ -973,14 +973,14 @@ Result: Recovery points CANNOT be deleted for:
 
 | Standard | Azure Backup Compliant | Notes |
 |----------|----------------------|-------|
-| **SOC 1, 2, 3** | ✓ Yes | Service Organization Control |
-| **ISO 27001** | ✓ Yes | Information Security Management |
-| **ISO 27018** | ✓ Yes | Privacy in Public Cloud |
-| **HIPAA** | ✓ Yes | Healthcare data protection |
-| **FedRAMP** | ✓ Yes | US Federal compliance |
-| **GDPR** | ✓ Yes | EU data protection |
-| **PCI DSS** | ✓ Yes | Payment card data |
-| **SEC 17a-4** | ✓ Yes (with immutability) | Financial records retention |
+| **SOC 1, 2, 3** |  Yes | Service Organization Control |
+| **ISO 27001** |  Yes | Information Security Management |
+| **ISO 27018** |  Yes | Privacy in Public Cloud |
+| **HIPAA** |  Yes | Healthcare data protection |
+| **FedRAMP** |  Yes | US Federal compliance |
+| **GDPR** |  Yes | EU data protection |
+| **PCI DSS** |  Yes | Payment card data |
+| **SEC 17a-4** |  Yes (with immutability) | Financial records retention |
 
 ---
 
@@ -1222,9 +1222,9 @@ Monthly Savings: $12,000 (80% reduction)
 When to Use Cross-Region Vaulted Backup:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✓ Compliance requires geo-redundancy
-✓ Disaster recovery (regional failure)
-✓ Data sovereignty requirements
+ Compliance requires geo-redundancy
+ Disaster recovery (regional failure)
+ Data sovereignty requirements
 
 Cost Implications:
 Same-Region (LRS):
@@ -1263,25 +1263,25 @@ Alternative: Use GRS storage at source + LRS vault
 │  Cost: ~$500/month (5% daily change, 30-day retention)       │
 │  Protection: Accidental deletion, overwrite                  │
 │  RTO/RPO: Seconds / Point-in-time                            │
-│  ⚠️ Not air-gapped, no compliance                            │
+│   Not air-gapped, no compliance                              │
 │                                                              │
 │  Option 3: Operational Backup (Versioning + Azure Backup)    │
 │  Cost: ~$760/month                                           │
 │  Protection: Versioning + policy management                  │
 │  RTO/RPO: Minutes / Continuous                               │
-│  ⚠️ Data stays in source account (not air-gapped)            │
+│   Data stays in source account (not air-gapped)              │
 │                                                              │
 │  Option 4: Vaulted Backup (Air-Gapped, Immutable)            │
 │  Cost: ~$8,160/month (30-day daily retention)                │
 │  Protection: Full compliance, ransomware protection          │
 │  RTO/RPO: 2-4 hours / 24 hours                               │
-│  ✓ Air-gapped, immutable, compliance-ready                   │
+│   Air-gapped, immutable, compliance-ready                    │
 │                                                              │
 │  Option 5: Vaulted Backup (Optimized Tiered Retention)       │
 │  Cost: ~$11,910/month (7D+4W+12M)                            │
 │  Protection: Full compliance, extended retention             │
 │  RTO/RPO: 2-4 hours / 24 hours                               │
-│  ✓ Best balance of cost and protection                       │
+│   Best balance of cost and protection                        │
 │                                                              │
 │  Option 6: Third-Party (e.g., Commvault, Veeam)              │
 │  Cost: ~$15,000-25,000/month (varies by vendor)              │
@@ -1560,24 +1560,24 @@ Scenario 1: INCREASE Retention
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Change: 30 days → 90 days
 Impact: 
-  ✓ NEW recovery points kept for 90 days
-  ⚠️ EXISTING recovery points retain original 30-day policy
-  ✓ Costs increase gradually as new points accumulate
+   NEW recovery points kept for 90 days
+   EXISTING recovery points retain original 30-day policy
+   Costs increase gradually as new points accumulate
 
 Scenario 2: DECREASE Retention
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Change: 90 days → 30 days
 Impact:
-  ✓ NEW recovery points kept for 30 days
-  ⚠️ EXISTING recovery points keep original 90-day policy
-  ⚠️ If immutability enabled, CANNOT force-delete existing points
-  ✓ Costs decrease gradually as old points expire
+   NEW recovery points kept for 30 days
+   EXISTING recovery points keep original 90-day policy
+   If immutability enabled, CANNOT force-delete existing points
+   Costs decrease gradually as old points expire
 
 Scenario 3: Immutability Lock Enabled
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✗ CANNOT reduce retention
-  ✓ Can ONLY increase retention
-  ⚠️ Permanent restriction (compliance requirement)
+   CANNOT reduce retention
+   Can ONLY increase retention
+   Permanent restriction (compliance requirement)
 
 Best Practice:
 - Start with SHORTER retention during pilot
@@ -1645,11 +1645,11 @@ Architecture:
 └─────────────────────────────────────────────────────────┘
 
 Benefits:
-✓ Centralized management
-✓ Single pane of glass for monitoring
-✓ Consolidated reporting
-✓ Shared policies (if appropriate)
-✓ Reduced administrative overhead
+ Centralized management
+ Single pane of glass for monitoring
+ Consolidated reporting
+ Shared policies (if appropriate)
+ Reduced administrative overhead
 
 Costs:
 - Protected Instance Fee: 4 accounts × $10 = $40/month
@@ -1681,7 +1681,7 @@ Limitations:
 Azure Vaulted Backup for Blob Storage:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✓ PROS:
+ PROS:
   - Air-gapped, immutable protection
   - Native Azure integration (no third-party agents)
   - Compliance-ready (SEC 17a-4, HIPAA, etc.)
@@ -1689,14 +1689,14 @@ Azure Vaulted Backup for Blob Storage:
   - Predictable pricing model
   - Multi-region disaster recovery support
 
-✗ CONS:
+ CONS:
   - Significantly higher cost than operational backup
   - No native compression or deduplication
   - Billed for full logical snapshot size
   - Source account transaction costs can be high
   - Archive tier backup prohibitively expensive
 
-💰 COST REALITY:
+ COST REALITY:
   10 TB, 30-day retention: ~$8,160/month (~$97,921/year)
   10 TB, tiered retention (7D+4W+12M): ~$11,910/month
 ```
@@ -1709,31 +1709,31 @@ Azure Vaulted Backup for Blob Storage:
 ┌─────────────────────────────────────────────────────────────┐
 │  Choose VAULTED BACKUP if:                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  ✓ Compliance requires immutable, air-gapped backups        │
-│  ✓ Storing regulated data (financial, healthcare, PII)      │
-│  ✓ High ransomware risk                                     │
-│  ✓ Multi-year retention requirements                        │
-│  ✓ Budget allows for premium protection                     │
-│  ✓ RTO of 2-4 hours is acceptable                           │
+│   Compliance requires immutable, air-gapped backups         │
+│   Storing regulated data (financial, healthcare, PII)       │
+│   High ransomware risk                                      │
+│   Multi-year retention requirements                         │
+│   Budget allows for premium protection                      │
+│   RTO of 2-4 hours is acceptable                            │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │  Choose OPERATIONAL BACKUP if:                              │
 ├─────────────────────────────────────────────────────────────┤
-│  ✓ Cost optimization is primary concern                     │
-│  ✓ Short retention period sufficient (< 30 days)            │
-│  ✓ Rapid recovery critical (minutes vs. hours)              │
-│  ✓ No strict compliance requirements                        │
-│  ✓ Acceptable for data in same account (not air-gapped)     │
+│   Cost optimization is primary concern                      │
+│   Short retention period sufficient (< 30 days)             │
+│   Rapid recovery critical (minutes vs. hours)               │
+│   No strict compliance requirements                         │
+│   Acceptable for data in same account (not air-gapped)      │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │  Choose HYBRID APPROACH if:                                 │
 ├─────────────────────────────────────────────────────────────┤
-│  ✓ Some data critical, some not                             │
-│  ✓ Operational backup for fast recovery (short retention)   │
-│  ✓ Vaulted backup for compliance (long retention)           │
-│  ✓ Best balance of cost and protection                      │
+│   Some data critical, some not                              │
+│   Operational backup for fast recovery (short retention)    │
+│   Vaulted backup for compliance (long retention)            │
+│   Best balance of cost and protection                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
