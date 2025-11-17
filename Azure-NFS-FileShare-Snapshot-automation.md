@@ -49,13 +49,13 @@ az automation account create \
 
 ### Step 2: Enable Managed Identity
 
-```bash
-# Enable system-assigned managed identity
-az automation account update \
-  --resource-group $RESOURCE_GROUP \
-  --name $AUTOMATION_ACCOUNT \
-  --assign-identity
-```
+#### Using Azure Portal (Easiest)
+
+1. Navigate to your Automation Account in Azure Portal
+2. Go to **Account Settings** → **Identity**
+3. Under **System assigned** tab, toggle **Status** to **On**
+4. Click **Save**
+5. Copy the **Object (principal) ID** for the next step
 
 ### Step 3: Assign RBAC Permissions
 
