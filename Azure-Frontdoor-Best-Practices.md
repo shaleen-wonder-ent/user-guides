@@ -1,4 +1,4 @@
-# Azure Front Door – Best Practices, Configuration, Caching, and Logging (HCL)
+# Azure Front Door – Best Practices, Configuration, Caching, and Logging 
 
 This document summarizes recommended practices, configuration steps, sample scripts, and links to official Microsoft documentation for deploying Azure Front Door.
 
