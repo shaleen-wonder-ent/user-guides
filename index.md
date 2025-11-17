@@ -134,6 +134,14 @@ Please select a guide from the list below:
   
 ---
 
+* [Azure Front Door – Best Practices, Configuration, Caching, and Logging](./Azure-Frontdoor-Best-Practices.md)
+  
+---
+
+* [Azure Files NFS Share Snapshot Automation](./Azure-NFS-FileShare-Snapshot-automation.md)
+  
+---
+
 <!--
 ---
 ---
