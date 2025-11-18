@@ -17,12 +17,12 @@ This document provides comprehensive technical and commercial guidance for imple
 
 ## Table of Contents
 
-- [Pricing Model & Worked Examples](#2-pricing-model--worked-examples)
-- [Incremental Backup & Data Movement](#3-incremental-backup--data-movement)
-- [Charging for Read Operations](#4-charging-for-read-operations)
-- [Compression, Deduplication, and Encryption](#5-compression-deduplication-and-encryption)
-- [Stop Protection / Retain Data Behaviour](#6-stop-protection--retain-data-behaviour)
-- [TCO Analysis & Recommendations](#8-tco-analysis--recommendations)
+- [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
+- [Incremental Backup & Data Movement](#2-incremental-backup--data-movement)
+- [Charging for Read Operations](#3-charging-for-read-operations)
+- [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
+- [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
+- [Quick answers to the questions](#5-Quick-Answers-to-the-questions:
 
 ---
 
@@ -1134,191 +1134,95 @@ Alternative: Use GRS storage at source + LRS vault
 
 ---
 
-## 13. FAQ - Frequently Asked Questions
+## 6. Quick Answers to the questions:
 
-**Q1: Can I backup blob storage from one subscription and store vault in another?**
+### **1. Pricing Model & Worked Example**  
+**Quick Answer:**  
+Pay-as-you-use model: protected-instance fee + backup-storage cost (per GB) + chosen redundancy tier; restores and intra-region transfers typically incur no additional charge.
 
-```
-Answer: YES
-
-Architecture:
-  Subscription A: Production Storage Account
-  Subscription B: Backup Vault
-
-Requirements:
-1. Backup Vault managed identity needs access to Subscription A
-2. RBAC role: "Storage Blob Data Contributor" on storage account
-3. Cross-subscription policy must allow backup operations
-
-Benefits:
-- Security isolation (separate billing)
-- Compliance (different teams managing production vs. backup)
-- Cost allocation (backup costs in separate subscription)
-
-Limitations:
-- Slightly more complex RBAC setup
-- Cross-subscription permissions required
-```
+**Azure references:**  
+- Azure Backup Pricing Overview  
+  https://learn.microsoft.com/en-us/azure/backup/azure-backup-pricing  
+- Backup Vault Overview  
+  https://learn.microsoft.com/en-us/azure/backup/backup-vault-overview  
+- Storage Redundancy Options (LRS/GRS/ZRS)  
+  https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy  
+- Restore Billing Details  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-restore-files-from-vm  
 
 ---
 
-**Q2: What happens if I delete the source storage account?**
+### **2. Incremental Backup & Data Movement**  
+**Quick Answer:**  
+After the initial full backup, Azure Backup only transfers changed blocks (incremental), comparing block-level deltas against the previous recovery point.
 
-```
-Answer: Backup data REMAINS in vault
-
-Behavior:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Source storage account deleted
-   → Recovery points in vault are NOT affected
-   → Backups continue to exist per retention policy
-
-2. Future backups STOP
-   → No new backups can be created
-   → Protection automatically disabled
-
-3. You can still restore
-   → Restore to NEW storage account
-   → Restore to different subscription
-   → Restore to different region
-
-4. Vault storage costs CONTINUE
-   → Billed for existing recovery points
-   → Until retention period expires or manual deletion
-
-Recommendation:
-- Before deleting source, decide:
-  "Stop Protection + Retain Data" (keep backups)
-  OR
-  "Stop Protection + Delete Data" (remove backups)
-```
+**Azure references:**  
+- Backup Architecture (Incremental backup behaviour)  
+  https://learn.microsoft.com/en-us/azure/backup/backup-architecture  
+- Blob Versioning & Change Tracking  
+  https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-overview  
+- Data Movement & Change Tracking  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction  
 
 ---
 
-**Q3: Can I change retention policy after backup is configured?**
+### **3. Charging for Read Operations**  
+**Quick Answer:**  
+Backup operations do **not** incur separate read-transaction costs on the source storage account—charges apply only to backup storage and protected-instance sizing.
 
-```
-Answer: YES, but with caveats
-
-Scenario 1: INCREASE Retention
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Change: 30 days → 90 days
-Impact: 
-   NEW recovery points kept for 90 days
-   EXISTING recovery points retain original 30-day policy
-   Costs increase gradually as new points accumulate
-
-Scenario 2: DECREASE Retention
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Change: 90 days → 30 days
-Impact:
-   NEW recovery points kept for 30 days
-   EXISTING recovery points keep original 90-day policy
-   If immutability enabled, CANNOT force-delete existing points
-   Costs decrease gradually as old points expire
-
-Scenario 3: Immutability Lock Enabled
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   CANNOT reduce retention
-   Can ONLY increase retention
-   Permanent restriction (compliance requirement)
-
-Best Practice:
-- Start with SHORTER retention during pilot
-- Increase as needed after validation
-- Enable immutability ONLY after finalizing policy
-```
+**Azure references:**  
+- Azure Storage Billing  
+  https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-pricing  
+- Azure Backup Billing FAQ  
+  https://learn.microsoft.com/en-us/azure/backup/azure-backup-faq#billing  
 
 ---
 
-**Q4: How do I backup blob storage in Archive tier?**
+### **4. Compression, Deduplication & Encryption**  
+**Quick Answer:**  
+Azure Backup encrypts all data by default and applies internal compression/deduplication, but Microsoft does not provide a guaranteed compression ratio.
 
-```
-Answer: AVOID - Extremely Expensive
-
-Problem:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Archive tier blobs must be "rehydrated" before backup
-
-Rehydration Costs:
-- Read operations: $5.50 per 10,000 (vs. $0.0044 for Hot)
-- Data retrieval: $0.02 per GB
-- Rehydration time: Up to 15 hours
-
-Example Cost for 10 TB Archive Backup:
-  Read operations: 100M × $5.50/10K = $55,000 (!!)
-  Data retrieval: 10,000 GB × $0.02 = $200
-  Total PER BACKUP: ~$55,200
-
-Monthly cost (daily backups): ~$1,656,000 (!!!)
-
-Recommended Approach:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Option 1: DON'T backup Archive tier
-  - Archive is already long-term storage
-  - Enable GRS replication instead
-  - Cost: $0.01/GB vs. $55/GB for backup
-
-Option 2: Backup BEFORE moving to Archive
-  - Take backup while in Hot tier
-  - Then move to Archive for long-term storage
-  - Vault backup + Archive storage
-
-Option 3: Use blob snapshots (not vaulted)
-  - Create snapshots before archiving
-  - Snapshots stay in Archive tier
-  - Lower cost alternative
-```
+**Azure references:**  
+- Backup Encryption  
+  https://learn.microsoft.com/en-us/azure/backup/backup-encryption  
+- Security Baseline for Azure Backup  
+  https://learn.microsoft.com/en-us/security/benchmark/azure/baselines/backup-security-baseline  
+- Backup Storage Redundancy  
+  https://learn.microsoft.com/en-us/azure/backup/backup-storage-redundancy-overview  
 
 ---
 
-**Q5: Can I use the same Backup Vault for multiple storage accounts?**
+### **5. Stop Protection / Retain Data Behaviour**  
+**Quick Answer:**  
+Stopping protection while retaining data continues to incur storage and protected-instance charges until recovery points are explicitly deleted.
 
-```
-Answer: YES - Highly Recommended
-
-Architecture:
-┌─────────────────────────────────────────────────────────┐
-│  Single Backup Vault                                    │
-│  ├─ Storage Account 1 (10 TB)                           │
-│  ├─ Storage Account 2 (5 TB)                            │
-│  ├─ Storage Account 3 (8 TB)                            │
-│  └─ Storage Account 4 (12 TB)                           │
-│                                                         │
-│  Total Vault Storage: 35 TB × 30 snapshots = 1050 TB    │
-└─────────────────────────────────────────────────────────┘
-
-Benefits:
- Centralized management
- Single pane of glass for monitoring
- Consolidated reporting
- Shared policies (if appropriate)
- Reduced administrative overhead
-
-Costs:
-- Protected Instance Fee: 4 accounts × $10 = $40/month
-- Vault Storage: 1050 TB × $0.05 = $52,500/month
-- Total: $52,540/month
-
-vs. Separate Vaults (4 vaults):
-- Management overhead: 4× higher
-- No cost difference (pay per storage + instances)
-
-Best Practice:
-- Group by:  
-  - Region (one vault per region)
-  - Compliance tier (separate vault for regulated data)
-  - Retention requirements (same policy = same vault)
-
-Limitations:
-- Vault limit: 1000 protected items per vault
-- If >1000 storage accounts, need multiple vaults
-```
+**Azure references:**  
+- Stop Protection Behaviour  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-manage-stop-protection  
+- Retention & Lifecycle  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-vault-overview#retention  
+- Backup Data Deletion  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-manage-vault  
 
 ---
 
+## **Additional Recommended References**
 
-## 15. References & Resources
+### **Storage Transactions & Data Access Costs**  
+- Storage Read/Write/Egress Billing  
+  https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-pricing  
+- Bandwidth (Egress) Pricing  
+  https://learn.microsoft.com/en-us/azure/bandwidth-pricing  
+
+### **Restore Operations**  
+- File/Folder Restore  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-restore-files-from-vm  
+- VM Restore  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-arm-restore-vms  
+
+### **Backup Vault Redundancy**  
+- Redundancy Comparison  
+  https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy  
 
 ### Official Documentation:
 - [Azure Backup for Blob Storage Overview](https://learn.microsoft.com/azure/backup/blob-backup-overview)
