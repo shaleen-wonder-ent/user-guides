@@ -142,6 +142,10 @@ Please select a guide from the list below:
   
 ---
 
+* [Azure Blob Storage Vaulted Backup Solution](./vaulted-backup-strategy.md)
+  
+---
+
 <!--
 ---
 ---
