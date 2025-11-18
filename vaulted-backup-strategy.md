@@ -1,5 +1,4 @@
-# Azure Blob Storage Vaulted Backup Solution - Architectural Strategy
-
+# Azure Blob Storage Vaulted Backup Solution
 
 ## Summary
 
