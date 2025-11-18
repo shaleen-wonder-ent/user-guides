@@ -150,7 +150,7 @@ Databricks ←trusts only← Azure Entra ID ←trusts← Keycloak
 
 ### Architecture Flow
 
-<img width="2250" height="1518" alt="mermaid-diagram-2025-11-18-131320" src="https://github.com/user-attachments/assets/776150f1-94f6-48e5-86b4-bd5acc55e395" />
+<img width="1550" height="1018" alt="mermaid-diagram-2025-11-18-131320" src="https://github.com/user-attachments/assets/776150f1-94f6-48e5-86b4-bd5acc55e395" />
 
 
 
@@ -307,10 +307,7 @@ Databricks ←trusts only← Azure Entra ID ←trusts← Keycloak
 
 ---
 
-<details>
-  <summary> User Provisioning and Lifecycle Management</summary>
-
-   User Provisioning and Lifecycle Management
+### User Provisioning and Lifecycle Management
 ## Azure Entra ID Federation - Member vs Guest Users, Security Controls, and Offboarding
 
 ---
@@ -334,7 +331,7 @@ The answer depends on **which type of federation** you implement. This decision 
 
 ### The Two Federation Options
 
-<img width="2250" height="1518" alt="mermaid-diagram-2025-11-18-133938" src="https://github.com/user-attachments/assets/d82da7f6-08e4-41fe-98ca-73d6a51ade88" />
+<img width="1750" height="1018" alt="mermaid-diagram-2025-11-18-133938" src="https://github.com/user-attachments/assets/d82da7f6-08e4-41fe-98ca-73d6a51ade88" />
 
 ---
 
@@ -346,7 +343,7 @@ When you configure **domain-level federation** using PowerShell `Set-MsolDomainA
 
 ### Authentication Flow and User Creation
 
-<img width="4250" height="2918" alt="mermaid-diagram-2025-11-18-134033" src="https://github.com/user-attachments/assets/c7f69c20-d3a8-49c5-a4da-443831b093f7" />
+<img width="2250" height="1518" alt="mermaid-diagram-2025-11-18-134033" src="https://github.com/user-attachments/assets/c7f69c20-d3a8-49c5-a4da-443831b093f7" />
 
 ### User Type Created: **MEMBER** (Not Guest!)
 
