@@ -331,7 +331,7 @@ The answer depends on **which type of federation** you implement. This decision 
 
 ### The Two Federation Options
 
-<img width="1750" height="1018" alt="mermaid-diagram-2025-11-18-133938" src="https://github.com/user-attachments/assets/d82da7f6-08e4-41fe-98ca-73d6a51ade88" />
+<img width="1250" height="718" alt="mermaid-diagram-2025-11-18-133938" src="https://github.com/user-attachments/assets/d82da7f6-08e4-41fe-98ca-73d6a51ade88" />
 
 ---
 
@@ -343,7 +343,7 @@ When you configure **domain-level federation** using PowerShell `Set-MsolDomainA
 
 ### Authentication Flow and User Creation
 
-<img width="2250" height="1518" alt="mermaid-diagram-2025-11-18-134033" src="https://github.com/user-attachments/assets/c7f69c20-d3a8-49c5-a4da-443831b093f7" />
+<img width="2250" height="1018" alt="mermaid-diagram-2025-11-18-134033" src="https://github.com/user-attachments/assets/c7f69c20-d3a8-49c5-a4da-443831b093f7" />
 
 ### User Type Created: **MEMBER** (Not Guest!)
 
@@ -506,7 +506,7 @@ This is a **critical security concern** and represents a significant gap in the 
 
 ### The Core Problem: No Automatic Synchronization
 
-<img width="2250" height="1518" alt="mermaid-diagram-2025-11-18-134615" src="https://github.com/user-attachments/assets/25e476e9-4b12-4bab-b5c0-9f3a5559c0ee" />
+<img width="2250" height="1018" alt="mermaid-diagram-2025-11-18-134615" src="https://github.com/user-attachments/assets/25e476e9-4b12-4bab-b5c0-9f3a5559c0ee" />
 
 
 ### Why This Happens
