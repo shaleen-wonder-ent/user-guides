@@ -12,7 +12,6 @@ This document provides comprehensive technical and commercial guidance for imple
 -  **Snapshot-based** scheduled backups
 -  **Cross-region vault** support for geo-redundancy
 
-
 ---
 
 ## Table of Contents
@@ -927,7 +926,7 @@ enabling retention locks!
 
 ### **1. Pricing Model & Worked Example**  
 **Quick Answer:**  
-Pay-as-you-use model: protected-instance fee + backup-storage cost (per GB) + chosen redundancy tier; restores and intra-region transfers typically incur no additional charge.
+Have explained in detail above. Refer  [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
 
 **Azure references:**  
 - Azure Backup Pricing Overview  
@@ -1013,13 +1012,11 @@ Stopping protection while retaining data continues to incur storage and protecte
 - Redundancy Comparison  
   https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy  
 
-### Official Documentation:
 - [Azure Backup for Blob Storage Overview](https://learn.microsoft.com/azure/backup/blob-backup-overview)
 - [Azure Backup Pricing](https://azure.microsoft.com/pricing/details/backup/)
 - [Blob Storage Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/)
 - [Azure Backup Security Features](https://learn.microsoft.com/azure/backup/security-overview)
 - [Immutable Storage for Azure Blobs](https://learn.microsoft.com/azure/storage/blobs/immutable-storage-overview)
-
 
 
 ---
