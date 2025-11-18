@@ -17,12 +17,12 @@ This document provides comprehensive technical and commercial guidance for imple
 
 ## Table of Contents
 
-- [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
-- [Incremental Backup & Data Movement](#2-incremental-backup--data-movement)
-- [Charging for Read Operations](#3-charging-for-read-operations)
-- [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
-- [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
-- [Quick answers to the questions](#5-Quick-Answers-to-the-questions:
+1. [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
+2. [Incremental Backup & Data Movement](#2-incremental-backup--data-movement)
+3. [Charging for Read Operations](#3-charging-for-read-operations)
+4. [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
+5. [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
+6. [Quick answers to the questions](#5-Quick-Answers-to-the-questions:
 
 ---
 
@@ -93,7 +93,7 @@ This document provides comprehensive technical and commercial guidance for imple
 
 ---
 
-## 2. Pricing Model & Worked Examples
+## 1. Pricing Model & Worked Examples
 
 ### Cost Components for Vaulted Backup:
 
@@ -265,7 +265,7 @@ SAVINGS vs. 90-day daily retention: ~87% reduction
 
 ---
 
-## 3. Incremental Backup & Data Movement
+## 2. Incremental Backup & Data Movement
 
 ### How Vaulted Backup Works:
 
@@ -426,7 +426,7 @@ Day 3: 3 GB (3 × 1 GB snapshots)
 
 ---
 
-## 4. Charging for Read Operations
+## 3. Charging for Read Operations
 
 ### Source Storage Account Transaction Costs:
 
