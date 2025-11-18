@@ -22,7 +22,7 @@ This document provides comprehensive technical and commercial guidance for imple
 3. [Charging for Read Operations](#3-charging-for-read-operations)
 4. [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
 5. [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
-6. [Quick answers to the questions](#5-Quick-Answers-to-the-questions:
+6. [Quick answers to the questions](#6-Quick-Answers-to-the-questions)
 
 ---
 
@@ -546,7 +546,7 @@ Total Restore Cost: ~$700.00
 
 ---
 
-## 5. Compression, Deduplication, and Encryption
+## 4. Compression, Deduplication, and Encryption
 
 ### Azure Vaulted Backup Optimization Features:
 
@@ -708,7 +708,7 @@ Benefits:
 
 ---
 
-## 6. Stop Protection / Retain Data Behaviour
+## 5. Stop Protection / Retain Data Behaviour
 
 ### Stop Protection Options:
 
@@ -919,217 +919,6 @@ Total 7-Year Cost: ~$1,260,000
 
  CRITICAL: Understand immutability implications BEFORE
 enabling retention locks!
-```
-
----
-
-
-### Audit and Monitoring:
-
-```
-Azure Backup Reporting & Monitoring:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. Azure Monitor Integration:
-   ┌────────────────────────────────────────────┐
-   │  Backup Vault                              │
-   │  ↓                                         │
-   │  Diagnostic Logs → Log Analytics Workspace │
-   │  ↓                                         │
-   │  Metrics & Alerts                          │
-   │  ├─ Backup job failures                    │
-   │  ├─ Restore job status                     │
-   │  ├─ Policy changes                         │
-   │  └─ Vault storage consumption              │
-   └────────────────────────────────────────────┘
-
-2. Backup Reports (Power BI):
-   - Backup job success/failure trends
-   - Storage consumption over time
-   - Policy compliance dashboards
-   - Cost analysis and forecasting
-
-3. Azure Activity Log:
-   - All vault configuration changes
-   - Policy modifications
-   - Protection stop/start events
-   - Delete operations (with MUA approval trail)
-
-4. Backup Center:
-   - Centralized view across all vaults
-   - Multi-subscription monitoring
-   - Compliance reporting
-   - Restore point inventory
-```
-
----
-
-### Cost Optimization Strategies:
-
-#### 1. Tiered Retention Policy (RECOMMENDED)
-
-```
-Instead of: 30 daily backups
-Use: 7 daily + 4 weekly + 12 monthly
-
-Cost Comparison:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Original (30 daily):
-  30 snapshots × 10 TB × $0.05 = $15,000/month
-
-Optimized (7+4+12):
-  23 snapshots × 10 TB × $0.05 = $11,500/month
-
-Monthly Savings: $3,500 (23% reduction)
-Annual Savings: $42,000
-```
-
----
-
-#### 2. Application-Level Compression
-
-```
-Compress data BEFORE storing in blob storage:
-
-Scenario: Log files (highly compressible)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Original: 10 TB raw logs
-GZIP Compressed: 1 TB (90% reduction)
-
-Backup Cost Comparison:
-  Uncompressed: 300 TB vault × $0.05 = $15,000/month
-  Compressed: 30 TB vault × $0.05 = $1,500/month
-
-Monthly Savings: $13,500 (90% reduction)
-Annual Savings: $162,000
-```
-
----
-
-#### 3. Lifecycle Management at Source
-
-```
-Strategy: Move older data to Cool/Archive tier BEFORE backup
-
-┌────────────────────────────────────────────────────────┐
-│  Data Lifecycle:                                       │
-│  Days 0-30: Hot tier (frequently accessed)             │
-│  Days 31-90: Cool tier (backup from Cool)              │
-│  Days 91+: Archive tier (no vaulted backup)            │
-└────────────────────────────────────────────────────────┘
-
-Cost Impact:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Hot tier backup transaction cost: $1,320/month
-Cool tier backup transaction cost: $3,000/month (higher!)
-   Cool tier has higher transaction costs
-
-Recommendation:
-- Keep data in Hot tier if backing up frequently
-- OR backup LESS frequently from Cool tier
-- Avoid backing up Archive tier (extremely expensive)
-```
-
----
-
-#### 4. Right-Size Backup Scope
-
-```
-Selective Backup Strategy:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Instead of backing up entire storage account:
-Use container-level or blob prefix filtering
-
-Example:
-Storage Account: 10 TB total
-├─ /critical-data/ (2 TB) → BACKUP (immutable vault)
-├─ /transient-logs/ (5 TB) → NO BACKUP (regenerable)
-└─ /archived-reports/ (3 TB) → Blob versioning only
-
-Vault Cost Comparison:
-Full account: 300 TB (30 × 10 TB) × $0.05 = $15,000/month
-Critical only: 60 TB (30 × 2 TB) × $0.05 = $3,000/month
-
-Monthly Savings: $12,000 (80% reduction)
-```
-
----
-
-#### 5. Cross-Region Strategy
-
-```
-When to Use Cross-Region Vaulted Backup:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
- Compliance requires geo-redundancy
- Disaster recovery (regional failure)
- Data sovereignty requirements
-
-Cost Implications:
-Same-Region (LRS):
-  Vault Storage: $0.05/GB
-  Data Transfer: $0
-  Total: $15,000/month (for 300 TB)
-
-Cross-Region (GRS):
-  Vault Storage: $0.10/GB (2× cost)
-  Data Transfer: $0.02/GB × 10 TB × 30 = $6,000
-  Total: $30,000 + $6,000 = $36,000/month
-
- Cross-region is 2.4× more expensive
-
-Alternative: Use GRS storage at source + LRS vault
-  Source: Enable GRS replication ($0.046/GB)
-  Vault: LRS backup ($0.05/GB)
-  Total: $15,460/month (cost-effective geo-redundancy)
-```
-
----
-
-### Cost Comparison: Vaulted vs. Alternatives
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  10 TB Blob Backup - Monthly Cost Comparison                 │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Option 1: No Backup (Risky)                                 │
-│  Cost: $0                                                    │
-│  Protection: None                                            │
-│  RTO/RPO: N/A (data loss)                                    │
-│                                                              │
-│  Option 2: Blob Versioning Only                              │
-│  Cost: ~$500/month (5% daily change, 30-day retention)       │
-│  Protection: Accidental deletion, overwrite                  │
-│  RTO/RPO: Seconds / Point-in-time                            │
-│   Not air-gapped, no compliance                              │
-│                                                              │
-│  Option 3: Operational Backup (Versioning + Azure Backup)    │
-│  Cost: ~$760/month                                           │
-│  Protection: Versioning + policy management                  │
-│  RTO/RPO: Minutes / Continuous                               │
-│   Data stays in source account (not air-gapped)              │
-│                                                              │
-│  Option 4: Vaulted Backup (Air-Gapped, Immutable)            │
-│  Cost: ~$8,160/month (30-day daily retention)                │
-│  Protection: Full compliance, ransomware protection          │
-│  RTO/RPO: 2-4 hours / 24 hours                               │
-│   Air-gapped, immutable, compliance-ready                    │
-│                                                              │
-│  Option 5: Vaulted Backup (Optimized Tiered Retention)       │
-│  Cost: ~$11,910/month (7D+4W+12M)                            │
-│  Protection: Full compliance, extended retention             │
-│  RTO/RPO: 2-4 hours / 24 hours                               │
-│   Best balance of cost and protection                        │
-│                                                              │
-│  Option 6: Third-Party (e.g., Commvault, Veeam)              │
-│  Cost: ~$15,000-25,000/month (varies by vendor)              │
-│  Protection: Advanced features, multi-cloud                  │
-│  RTO/RPO: Varies / Varies                                    │
-│      Additional licensing and infrastructure costs           │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
