@@ -24,6 +24,10 @@ Please select a guide from the list below:
   
 * [Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — SAML Based](./keycloak_SAML_fed_guide.md)
 
+    ---
+  
+* [Keycloak ↔ Microsoft Entra (Azure AD) Federation - Unified Single Sign-On Strategy](./Databricks_Unified_SSO_Strategy_Executive_Summary.md)
+
   ---
   
 * [Power BI Licensing & Management Comparison](./PBI-Keycloack-licensing.md)
