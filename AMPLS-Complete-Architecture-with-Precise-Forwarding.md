@@ -55,172 +55,13 @@ Advantages:
 
 ### High-Level Architecture Diagram
 
-```mermaid
-graph TB
-    subgraph OnPrem["On-Premises Environment"]
-        User[👤 User PC]
-        OnPremDNS[On-Prem DNS Server<br/>192.168.1.10]
-        User --> OnPremDNS
-    end
-    
-    subgraph PreciseForwarding["Precise DNS Forwarding Layer"]
-        OnPremDNS -->|SI Workspace Query| ForwardSI[Forward to SI DNS<br/>10.2.0.4, 10.2.0.5]
-        OnPremDNS -->|CI Workspace Query| ForwardCI[Forward to CI DNS<br/>10.1.0.4, 10.1.0.5]
-    end
-    
-    subgraph AzureSI["South India (Pune) Region"]
-        SIDNS1[SI DNS VM 1<br/>10.2.0.4]
-        SIDNS2[SI DNS VM 2<br/>10.2.0.5]
-        SIPrivateDNS[SI Private DNS Zone<br/>privatelink.*.opinsights.azure.com]
-        SIPE[SI Private Endpoint<br/>10.2.100.50]
-        SIAMPLS[AMPLS-SI]
-        SILAW[LAW-SI]
-        
-        ForwardSI --> SIDNS1
-        ForwardSI --> SIDNS2
-        SIDNS1 --> SIPrivateDNS
-        SIDNS2 --> SIPrivateDNS
-        SIPrivateDNS --> SIPE
-        SIPE --> SIAMPLS
-        SIAMPLS --> SILAW
-    end
-    
-    subgraph AzureCI["Central India (Chennai) Region"]
-        CIDNS1[CI DNS VM 1<br/>10.1.0.4]
-        CIDNS2[CI DNS VM 2<br/>10.1.0.5]
-        CIPrivateDNS[CI Private DNS Zone<br/>privatelink.*.opinsights.azure.com]
-        CIPE[CI Private Endpoint<br/>10.1.100.50]
-        CIAMPLS[AMPLS-CI]
-        CILAW[LAW-CI]
-        
-        ForwardCI --> CIDNS1
-        ForwardCI --> CIDNS2
-        CIDNS1 --> CIPrivateDNS
-        CIDNS2 --> CIPrivateDNS
-        CIPrivateDNS --> CIPE
-        CIPE --> CIAMPLS
-        CIAMPLS --> CILAW
-    end
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213016" src="https://github.com/user-attachments/assets/835f0196-9f2b-482d-a989-6c0ac1b35063" />
+
 
 ### Complete Architecture Diagram (Detailed)
 
-```mermaid
-graph TB
-    subgraph Internet["Internet / Public Network"]
-        PublicAccess[❌ Public Access Blocked]
-    end
-    
-    subgraph Corporate["Corporate Network / On-Premises"]
-        Users[👥 Corporate Users]
-        ADC[Active Directory<br/>Domain Controllers]
-        CorpDNS[Corporate DNS Servers<br/>192.168.1.10-11]
-        
-        Users --> CorpDNS
-        ADC -.DNS Role.- CorpDNS
-    end
-    
-    subgraph Connectivity["Hybrid Connectivity"]
-        ER[ExpressRoute /<br/>Site-to-Site VPN]
-        CorpDNS -->|Encrypted| ER
-    end
-    
-    subgraph HubCI["Hub VNet - Central India"]
-        HubCIVNet[Hub VNet CI<br/>10.0.0.0/16]
-        HubCIFW[Azure Firewall /<br/>NVA]
-        HubCIGW[VPN/ER Gateway]
-        
-        ER --> HubCIGW
-        HubCIGW --> HubCIFW
-    end
-    
-    subgraph HubSI["Hub VNet - South India"]
-        HubSIVNet[Hub VNet SI<br/>10.10.0.0/16]
-        HubSIFW[Azure Firewall /<br/>NVA]
-        HubSIGW[VPN/ER Gateway]
-        
-        ER --> HubSIGW
-        HubSIGW --> HubSIFW
-    end
-    
-    subgraph SpokeCI["Central India Spoke VNets"]
-        SpokeCIVNet[Spoke VNet CI<br/>10.1.0.0/16]
-        
-        subgraph DNSSubnetCI["DNS Subnet CI"]
-            CIDNS1[CI DNS VM 1<br/>10.1.0.4]
-            CIDNS2[CI DNS VM 2<br/>10.1.0.5]
-        end
-        
-        subgraph PESubnetCI["Private Endpoint Subnet CI"]
-            CIPE[CI Private Endpoint<br/>10.1.100.50<br/>For AMPLS]
-        end
-        
-        subgraph PrivateDNSCI["Private DNS Zones CI"]
-            CIDNSZone1[privatelink.monitor.azure.com]
-            CIDNSZone2[privatelink.oms.opinsights.azure.com]
-            CIDNSZone3[privatelink.ods.opinsights.azure.com]
-            CIDNSZone4[privatelink.agentsvc.azure-automation.net]
-        end
-        
-        HubCIFW -->|VNet Peering| SpokeCIVNet
-        CIDNS1 --> CIDNSZone1
-        CIDNS2 --> CIDNSZone1
-        CIDNSZone1 --> CIPE
-        CIDNSZone2 --> CIPE
-        CIDNSZone3 --> CIPE
-        CIDNSZone4 --> CIPE
-    end
-    
-    subgraph SpokeSI["South India Spoke VNets"]
-        SpokeSIVNet[Spoke VNet SI<br/>10.2.0.0/16]
-        
-        subgraph DNSSubnetSI["DNS Subnet SI"]
-            SIDNS1[SI DNS VM 1<br/>10.2.0.4]
-            SIDNS2[SI DNS VM 2<br/>10.2.0.5]
-        end
-        
-        subgraph PESubnetSI["Private Endpoint Subnet SI"]
-            SIPE[SI Private Endpoint<br/>10.2.100.50<br/>For AMPLS]
-        end
-        
-        subgraph PrivateDNSSI["Private DNS Zones SI"]
-            SIDNSZone1[privatelink.monitor.azure.com]
-            SIDNSZone2[privatelink.oms.opinsights.azure.com]
-            SIDNSZone3[privatelink.ods.opinsights.azure.com]
-            SIDNSZone4[privatelink.agentsvc.azure-automation.net]
-        end
-        
-        HubSIFW -->|VNet Peering| SpokeSIVNet
-        SIDNS1 --> SIDNSZone1
-        SIDNS2 --> SIDNSZone1
-        SIDNSZone1 --> SIPE
-        SIDNSZone2 --> SIPE
-        SIDNSZone3 --> SIPE
-        SIDNSZone4 --> SIPE
-    end
-    
-    subgraph MonitoringCI["Azure Monitor - Central India"]
-        CIAMPLS[AMPLS - Central India]
-        CILAW[Log Analytics Workspace<br/>Central India]
-        CIAppInsights[Application Insights CI]
-        
-        CIPE --> CIAMPLS
-        CIAMPLS --> CILAW
-        CIAMPLS --> CIAppInsights
-    end
-    
-    subgraph MonitoringSI["Azure Monitor - South India"]
-        SIAMPLS[AMPLS - South India]
-        SILAW[Log Analytics Workspace<br/>South India]
-        SIAppInsights[Application Insights SI]
-        
-        SIPE --> SIAMPLS
-        SIAMPLS --> SILAW
-        SIAMPLS --> SIAppInsights
-    end
-    
-    HubCIVNet -.Regional Peering.- HubSIVNet
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
+
 
 ---
 
@@ -609,63 +450,13 @@ ELSE:
 
 ### DNS Query Flow - CI Workspace Example
 
-```mermaid
-sequenceDiagram
-    participant User as 👤 User PC
-    participant CorpDNS as Corporate DNS<br/>192.168.1.10
-    participant ER as ExpressRoute
-    participant CIDNS as CI DNS VM<br/>10.1.0.4
-    participant PrivateDNS as CI Private DNS Zone
-    participant PE as CI Private Endpoint<br/>10.1.100.50
-    participant AMPLS as AMPLS-CI
-    participant LAW as LAW-CI
-    
-    User->>CorpDNS: Query: def67890.oms.opinsights.azure.com
-    CorpDNS->>CorpDNS: Check forwarding rules<br/>(def67890 = CI workspace)
-    CorpDNS->>ER: Forward to 10.1.0.4
-    ER->>CIDNS: DNS Query
-    CIDNS->>PrivateDNS: Lookup in Private DNS Zone
-    PrivateDNS-->>CIDNS: A Record: 10.1.100.50
-    CIDNS-->>ER: Response: 10.1.100.50
-    ER-->>CorpDNS: DNS Response
-    CorpDNS-->>User: IP: 10.1.100.50
-    
-    User->>ER: HTTPS to 10.1.100.50
-    ER->>PE: Traffic to Private Endpoint
-    PE->>AMPLS: Route through AMPLS
-    AMPLS->>LAW: Access LAW-CI
-    LAW-->>User: Data returned
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213125" src="https://github.com/user-attachments/assets/54ca5c58-e20c-42ec-8354-8db90f1c1c2f" />
+
 
 ### DNS Query Flow - SI Workspace Example
 
-```mermaid
-sequenceDiagram
-    participant User as 👤 User PC
-    participant CorpDNS as Corporate DNS<br/>192.168.1.10
-    participant ER as ExpressRoute
-    participant SIDNS as SI DNS VM<br/>10.2.0.4
-    participant PrivateDNS as SI Private DNS Zone
-    participant PE as SI Private Endpoint<br/>10.2.100.50
-    participant AMPLS as AMPLS-SI
-    participant LAW as LAW-SI
-    
-    User->>CorpDNS: Query: abc12345.oms.opinsights.azure.com
-    CorpDNS->>CorpDNS: Check forwarding rules<br/>(abc12345 = SI workspace)
-    CorpDNS->>ER: Forward to 10.2.0.4
-    ER->>SIDNS: DNS Query
-    SIDNS->>PrivateDNS: Lookup in SI Private DNS Zone
-    PrivateDNS-->>SIDNS: A Record: 10.2.100.50
-    SIDNS-->>ER: Response: 10.2.100.50
-    ER-->>CorpDNS: DNS Response
-    CorpDNS-->>User: IP: 10.2.100.50
-    
-    User->>ER: HTTPS to 10.2.100.50
-    ER->>PE: Traffic to Private Endpoint
-    PE->>AMPLS: Route through AMPLS
-    AMPLS->>LAW: Access LAW-SI
-    LAW-->>User: Data returned
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213146" src="https://github.com/user-attachments/assets/492ef2cd-ce65-499d-9bdd-b457de4cfc67" />
+
 
 ---
 
@@ -673,53 +464,13 @@ sequenceDiagram
 
 ### Data Ingestion Flow (Agent → LAW)
 
-```mermaid
-graph LR
-    subgraph Azure["Azure Workloads"]
-        VM[VM with<br/>Monitoring Agent]
-    end
-    
-    subgraph DNS["DNS Resolution"]
-        VM -->|1. Query workspace URL| AzureDNS[Azure DNS VM<br/>10.1.0.4]
-        AzureDNS -->|2. Returns PE IP| VM
-    end
-    
-    subgraph PE["Private Endpoint"]
-        VM -->|3. HTTPS to 10.1.100.50| PEP[Private Endpoint]
-    end
-    
-    subgraph AMPLS["AMPLS"]
-        PEP -->|4. Route via| AMPLSR[AMPLS-CI]
-    end
-    
-    subgraph LAW["Log Analytics"]
-        AMPLSR -->|5. Ingest data| LAWR[LAW-CI]
-    end
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213211" src="https://github.com/user-attachments/assets/9d2e07c8-10f5-4077-b01c-27d30c08d7e1" />
+
 
 ### Query Flow (User → LAW)
 
-```mermaid
-graph LR
-    subgraph OnPrem["On-Premises"]
-        User[👤 User Browser]
-        DNS[Corporate DNS]
-        User -->|1. Portal query| DNS
-    end
-    
-    subgraph Hybrid["Connectivity"]
-        DNS -->|2. DNS lookup| ER[ExpressRoute]
-    end
-    
-    subgraph Azure["Azure"]
-        ER -->|3. Resolve| AzDNS[Azure DNS VM]
-        AzDNS -->|4. Return PE IP| ER
-        ER -->|5. HTTPS| PE[Private Endpoint]
-        PE -->|6. Route| AMPLS
-        AMPLS -->|7. Query| LAW
-        LAW -->|8. Results| User
-    end
-```
+<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213231" src="https://github.com/user-attachments/assets/552325dc-03d1-4bb3-bad1-51db06affba3" />
+
 
 ---
 
