@@ -40,7 +40,7 @@ Place in SPOKE if:
 
 ### Architecture Philosophy
 
-<img width="800" height="389" alt="image" src="https://github.com/user-attachments/assets/12db3c23-b532-4078-a9d5-bb2a574d89ba" />
+<img width=auto height=auto alt="image" src="https://github.com/user-attachments/assets/12db3c23-b532-4078-a9d5-bb2a574d89ba" />
 
 
 ---
@@ -63,7 +63,7 @@ Place in SPOKE if:
 
 ### Detailed Decision Flow
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-212856" src="https://github.com/user-attachments/assets/0f00ef0b-2f10-4057-b5cb-c373033b8df7" />
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-212856" src="https://github.com/user-attachments/assets/0f00ef0b-2f10-4057-b5cb-c373033b8df7" />
 
 
 ---
