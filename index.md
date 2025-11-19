@@ -24,7 +24,7 @@ Please select a guide from the list below:
 
 * [Keycloak ↔ Single Sign-On How-To for Contoso360 and Power BI](./keycloak_SAML_SSO_How_To_guide.md)
 
----
+  ---
 
 <!--
   
@@ -66,17 +66,13 @@ Please select a guide from the list below:
 
   ---
 
-* [Azure LAW, AMPLS, Private Endpoint & ZTNA Integration Setup](./AMPLS-LAW-ZTNA-Setup.md)
+* [Azure CR-LB Architecture End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
 
   ---
 
-* [Azure CR-LB Architecture End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
-
- ---
-
 * [Azure CR‑LB Architecture for RC System — Component Reference](./Azure-CR-LB-Architecture-for-RC-system-ComponentReference.md)
 
- ---
+  ---
 
 * [Azure CR‑LB Architecture for RC System — Future Expansion Strategy](./Azure-CR-LB-Architecture-for-RC-system-Future-expansion.md)
 
@@ -92,21 +88,39 @@ Please select a guide from the list below:
 
 * [Azure CR‑LB Architecture for RC System (Final) — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
 
-   ---
+  ---
 
 * [Azure CR-LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
 
   ---
 
 * [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
-  
----
+
+  ---
 
 * [Active-Active DR Architecture for Drupal 10 Website](./Active-Active-DR-Architecture-for-Drupal.md)
 
----
+  ---
 
 * [Active-Passive DR Architecture for Drupal 10 Website](./Active-Passive-DR-Architecture-for-Drupal.md)
+
+  ---
+
+* [Multi-Tenant Application Architecture on Azure VMs](./Multi-Tenant-Architecure-Infra.md)
+
+  ---
+
+* [High Availability Architecture for Contoso-Fabrikam-Customer Connectivity](./HA-VPN-PrivateLink-Gateway.md)
+
+  ---
+
+* [Azure Traffic Manager (ATM) Architecture for RC System – End-to-End Communication Flow](./Azure-ATM-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
+  
+  ---
+
+<!--
+
+* [Azure LAW, AMPLS, Private Endpoint & ZTNA Integration Setup](./AMPLS-LAW-ZTNA-Setup.md)
 
 ---
 
@@ -126,18 +140,6 @@ Please select a guide from the list below:
 
 ---
 
-* [Multi-Tenant Application Architecture on Azure VMs](./Multi-Tenant-Architecure-Infra.md)
-
----
-
-* [High Availability Architecture for Contoso-Fabrikam-Customer Connectivity](./HA-VPN-PrivateLink-Gateway.md)
-
----
-
-* [Azure Traffic Manager (ATM) Architecture for RC System – End-to-End Communication Flow](./Azure-ATM-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
-  
----
-
 * [AMPLS DNS - Cross-Region Forwarding in Simple Explanation](./AMPLS-NON-DR-Cross-Region-Forwarding-Simple-Explanation.md)
   
 ---
@@ -154,21 +156,32 @@ Please select a guide from the list below:
   
 ---
 
+--->
+
+
+* [AMPLS Multi-Region Architecture with Precise DNS Forwarding](./AMPLS-Complete-Architecture-with-Precise-Forwarding.md)
+
+  ---
+
+* [AMPLS Multi-Region Component Placement Guide](./AMPLS-Component-Placement-Guide.mdd)
+
+  ---
+
 * [Azure Front Door – Best Practices, Configuration, Caching, and Logging](./Azure-Frontdoor-Best-Practices.md)
-  
----
+
+  ---
 
 * [Azure Files NFS Share Snapshot Automation](./Azure-NFS-FileShare-Snapshot-automation.md)
-  
----
+
+  ---
 
 * [Azure Blob Storage Vaulted Backup Solution](./vaulted-backup-strategy.md)
-  
----
+
+  ---
 
 * [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
-  
----
+
+  ---
 
 <!--
 ---
