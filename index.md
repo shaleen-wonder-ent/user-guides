@@ -86,6 +86,10 @@ Please select a guide from the list below:
 
   ---
 
+* [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
+  
+---
+
 * [Active-Active DR Architecture for Drupal 10 Website](./Active-Active-DR-Architecture-for-Drupal.md)
 
 ---
@@ -147,6 +151,10 @@ Please select a guide from the list below:
 ---
 
 * [Azure Blob Storage Vaulted Backup Solution](./vaulted-backup-strategy.md)
+  
+---
+
+* [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
   
 ---
 
