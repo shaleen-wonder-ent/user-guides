@@ -163,7 +163,7 @@ Please select a guide from the list below:
 
   ---
 
-* [AMPLS Multi-Region Component Placement Guide](./AMPLS-Component-Placement-Guide.mdd)
+* [AMPLS Multi-Region Component Placement Guide](./AMPLS-Component-Placement-Guide.md)
 
   ---
 
