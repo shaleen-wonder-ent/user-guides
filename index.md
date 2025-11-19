@@ -18,9 +18,13 @@ Please select a guide from the list below:
 
   ---
 
-* [Keycloak ↔ Single Sign-On Works for Contoso360 and Power BI](./keycloak_SAML_SSO_guide.md)
+* [Keycloak ↔ Single Sign-On for Contoso360 and Power BI](./keycloak_SAML_SSO_guide.md)
 
-  ---
+  --- 
+
+* [Keycloak ↔ Single Sign-On How-To for Contoso360 and Power BI](./keycloak_SAML_SSO_How_To_guide.md)
+
+---
 
 <!--
   
