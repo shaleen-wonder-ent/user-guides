@@ -55,12 +55,12 @@ Advantages:
 
 ### High-Level Architecture Diagram
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213016" src="https://github.com/user-attachments/assets/835f0196-9f2b-482d-a989-6c0ac1b35063" />
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213016" src="https://github.com/user-attachments/assets/835f0196-9f2b-482d-a989-6c0ac1b35063" />
 
 
 ### Complete Architecture Diagram (Detailed)
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
 
 
 ---
@@ -464,12 +464,12 @@ ELSE:
 
 ### Data Ingestion Flow (Agent → LAW)
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213211" src="https://github.com/user-attachments/assets/9d2e07c8-10f5-4077-b01c-27d30c08d7e1" />
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213211" src="https://github.com/user-attachments/assets/9d2e07c8-10f5-4077-b01c-27d30c08d7e1" />
 
 
 ### Query Flow (User → LAW)
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213231" src="https://github.com/user-attachments/assets/552325dc-03d1-4bb3-bad1-51db06affba3" />
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213231" src="https://github.com/user-attachments/assets/552325dc-03d1-4bb3-bad1-51db06affba3" />
 
 
 ---
