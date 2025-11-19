@@ -2,7 +2,50 @@
 
 ---
 
-## The Big Picture
+# Proposed Flow: End-Customer Authentication Flow (User vs Behind-the-Scenes)
+
+1. **User navigates to the ContosoApp Databricks/PBI workspace**  
+   *(User does it — clicks/opens the Databricks/PBI workspace URL)*  
+   ↓
+
+2. **Databricks/PBI redirects the user to Azure Entra ID for authentication**  
+   *(Behind the scenes — Databricks/PBI triggers its configured SAML redirect to Entra)*  
+   ↓
+
+3. **Azure Entra ID examines the user’s domain (e.g., @yourcompany.com)**  
+   *(Behind the scenes — Entra checks domain federation settings)*  
+   ↓
+
+4. **Azure Entra ID identifies the domain is SAML-federated and redirects the user to Keycloak**  
+   *(Behind the scenes — automatic SAML IdP redirect)*  
+   ↓
+
+5. **User enters their Keycloak credentials**  
+   *(User does it — user sees the Keycloak login page)*  
+   ↓
+
+6. **Keycloak validates the credentials and generates a SAML assertion**  
+   *(Behind the scenes)*  
+   ↓
+
+7. **Keycloak sends the SAML assertion back to Azure Entra ID**  
+   *(Behind the scenes — SAML POST/Redirect with signed assertion)*  
+   ↓
+
+8. **Azure Entra ID validates the SAML assertion and issues an Entra token (SAML/OIDC)**  
+   *(Behind the scenes — signature + certificate validation)*  
+   ↓
+
+9. **Azure Entra returns the user to Databricks/PBI with the Entra-issued token**  
+   *(Behind the scenes — automatic redirect)*  
+   ↓
+
+10. **Databricks/PBI validates the Entra token and grants access based on SCIM-provisioned roles/groups**  
+    *(Behind the scenes — RBAC + SCIM mapping)*  
+    *(User sees Databricks/PBI workspace load successfully)*
+
+---
+
 
 **Goal:** End-customers log in **once** to Contoso360 portal, then click a button to see their Power BI reports **without logging in again**.
 
