@@ -17,6 +17,12 @@ Please select a guide from the list below:
 * [Deploying the Idle VM Shutdown Solution to Production](./AZure_Idle_VM_Shutdown__Automation.md)
 
   ---
+
+* [Keycloak ↔ Single Sign-On Works for Contoso360 and Power BI](./keycloak_SAML_SSO_guide.md)
+
+  ---
+
+<!--
   
 * [Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML](./keycloak-entra-PBI-fed-guide.md)
 
@@ -29,6 +35,8 @@ Please select a guide from the list below:
 * [Keycloak ↔ Microsoft Entra (Azure AD) Federation - Unified Single Sign-On Strategy](./Databricks_Unified_SSO_Strategy_Executive_Summary.md)
 
   ---
+
+  -->
   
 * [Power BI Licensing & Management Comparison](./PBI-Keycloack-licensing.md)
 
