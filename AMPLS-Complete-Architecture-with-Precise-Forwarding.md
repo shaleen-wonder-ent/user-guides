@@ -60,8 +60,15 @@ Advantages:
 
 ### Complete Architecture Diagram (Detailed)
 
-<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
+<!--
 
+  <img width=auto height=auto alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
+
+-->
+
+<a href="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" target="_blank">
+  <img style="max-width: 100%; height: auto; cursor: pointer;" alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
+</a>
 
 ---
 
