@@ -26,20 +26,13 @@ Please select a guide from the list below:
 
   ---
 
-<!--
-  
+<!-- commented  
 * [Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML](./keycloak-entra-PBI-fed-guide.md)
-
-  ---
-  
+  ---  
 * [Keycloak ↔ Microsoft Entra (Azure AD) Federation for Power BI — SAML Based](./keycloak_SAML_fed_guide.md)
-
-    ---
-  
+    ---  
 * [Keycloak ↔ Microsoft Entra (Azure AD) Federation - Unified Single Sign-On Strategy](./Databricks_Unified_SSO_Strategy_Executive_Summary.md)
-
   ---
-
   -->
   
 * [Power BI Licensing & Management Comparison](./PBI-Keycloack-licensing.md)
@@ -52,7 +45,7 @@ Please select a guide from the list below:
   
 * [Hub-Spoke Architecture](./Hub-Spoke-transit-gateway.md)
 
- ---
+  ---
 
 * [Azure vWAN Shared Services Architecture](./Azure-vWAN-Shared-Services.md)
  
@@ -62,9 +55,9 @@ Please select a guide from the list below:
 
   ---
 
-* [Azure CR-LB Architecture End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
+* [Azure CR-LB Architecture End‑to‑End Communication Flow — (per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
 
----
+  ---
 
 * [Azure CR‑LB Architecture for RC System — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
 
@@ -108,44 +101,25 @@ Please select a guide from the list below:
   
   ---
 
-<!--
-
+<!-- commented
 * [Azure LAW, AMPLS, Private Endpoint & ZTNA Integration Setup](./AMPLS-LAW-ZTNA-Setup.md)
-
 ---
-
 * [Multi-Region Azure Monitor Architecture (Without DNS Resolver)](./AMPLS-Multi-Region-without-DNS-Resolver.md)
-
 ---
-
 * [Multi-Region Azure Monitor (Without DNS Resolver) Flow & Use Cases](./AMPLS-Multi-Region-without-DNS-Resolver-Flow.md)
-
 ---
-
 * [Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub](./AMPLS-Dual-Region-with-DNS-Resolver.md)
-
 ---
-
 * [Private, Dual-Region Log Analytics Architecture using AMPLS, Private Endpoints, and DNS Resolver Hub Flow & Use Case](./AMPLS-Dual-Region-with-DNS-Resolver-Flow.md)
-
 ---
-
-* [AMPLS DNS - Cross-Region Forwarding in Simple Explanation](./AMPLS-NON-DR-Cross-Region-Forwarding-Simple-Explanation.md)
-  
+* [AMPLS DNS - Cross-Region Forwarding in Simple Explanation](./AMPLS-NON-DR-Cross-Region-Forwarding-Simple-Explanation.md)  
 ---
-
-* [AMPLS Multi-Region DNS Resolution - Cross-Region Forwarding Architecture](./AMPLS-NON-DR-Cross-Region-Forwarding.md)
-  
+* [AMPLS Multi-Region DNS Resolution - Cross-Region Forwarding Architecture](./AMPLS-NON-DR-Cross-Region-Forwarding.md)  
 ---
-
-* [AMPLS DNS - Precise Forwarding in Simple Explanation](./AMPLS-NON-DR-Precise-Forwarding-Simple-Expalnation.md)
-  
+* [AMPLS DNS - Precise Forwarding in Simple Explanation](./AMPLS-NON-DR-Precise-Forwarding-Simple-Expalnation.md)  
 ---
-
-* [AMPLS Multi-Region DNS Resolution - Precise Forwarding Architecture](./AMPLS-NON-DR-Precise-Forwarding.md)
-  
+* [AMPLS Multi-Region DNS Resolution - Precise Forwarding Architecture](./AMPLS-NON-DR-Precise-Forwarding.md)  
 ---
-
 --->
 
 
