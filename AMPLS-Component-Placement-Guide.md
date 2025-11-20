@@ -40,7 +40,12 @@ Place in SPOKE if:
 
 ### Architecture Philosophy
 
-<img width=auto height=auto alt="image" src="https://github.com/user-attachments/assets/12db3c23-b532-4078-a9d5-bb2a574d89ba" />
+<img style="max-width: 800px; cursor: pointer; border: 0px solid #ddd; padding: 0px;" 
+     alt="Architecture" 
+     src="https://github.com/user-attachments/assets/12db3c23-b532-4078-a9d5-bb2a574d89ba"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 
 ---
