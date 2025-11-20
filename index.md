@@ -52,11 +52,7 @@ Please select a guide from the list below:
   
 * [Hub-Spoke Architecture](./Hub-Spoke-transit-gateway.md)
 
-  ---
-
-* [Azure Application Gateway Architecture - Public & Private with WAF and Header-Based Filtering](./app_gw_architecture.md)
-
-  ---
+ ---
 
 * [Azure vWAN Shared Services Architecture](./Azure-vWAN-Shared-Services.md)
  
@@ -68,35 +64,29 @@ Please select a guide from the list below:
 
 * [Azure CR-LB Architecture End‑to‑End Communication Flow — (Final, per‑Broker SLB)](./Azure-CR-LB-Architecture-for-RC-system-End-to-End-Communication-Flow.md)
 
-  ---
+---
 
+* [Azure CR‑LB Architecture for RC System — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
+
+  ---
+  
+<!-- commented
+ ---
+* [Azure Application Gateway Architecture - Public & Private with WAF and Header-Based Filtering](./app_gw_architecture.md)
+  ---
 * [Azure CR‑LB Architecture for RC System — Component Reference](./Azure-CR-LB-Architecture-for-RC-system-ComponentReference.md)
-
-  ---
-
+ ---
 * [Azure CR‑LB Architecture for RC System — Future Expansion Strategy](./Azure-CR-LB-Architecture-for-RC-system-Future-expansion.md)
-
-  ---
-
-* [Azure CR‑LB Architecture for RC System — Why This Architecture Works](./Azure-CR-LB-Architecture-for-RC-system-reasoning.md)
-
-  ---
-
+---
 * [Azure CR‑LB Architecture for RC System — Step-by-step Build Order (Azure CR‑LB → per‑Broker SLB → Brokers)](./Azure-CR-LB-Architecture-for-RC-system-resource-placement.md)
-
-  ---
-
-* [Azure CR‑LB Architecture for RC System (Final) — One SLB per Broker](./Azure-CR-LB-Architecture-for-RC-system.md)
-
-  ---
-
+---
 * [Azure CR-LB Architecture Lab Setup Guide](./Azure-CR-LB-Lab-Setup.md)
-
   ---
-
 * [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
-
   ---
+  * [Azure CR‑LB Architecture for RC System — Why This Architecture Works](./Azure-CR-LB-Architecture-for-RC-system-reasoning.md)
+  ---  
+-->
 
 * [Active-Active DR Architecture for Drupal 10 Website](./Active-Active-DR-Architecture-for-Drupal.md)
 
