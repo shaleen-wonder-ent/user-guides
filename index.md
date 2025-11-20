@@ -183,8 +183,12 @@ Please select a guide from the list below:
 
   ---
 
+* [Azure Front Door High Availability Architecture Guide](./AFD-Architecture-Optimization.md)
+
+  ---
+
 <!--
----
+
 ---
 
 * [Title](./file_name.md)
