@@ -125,8 +125,4 @@ If Central India fails completely:
 
 ---
 
-## 9. References
 
-- [Set up geo-replication for Azure Database for MySQL](https://learn.microsoft.com/en-us/azure/mysql/flexible-server/concepts-data-replication)
-- [Promote Azure DB for MySQL read replica](https://learn.microsoft.com/en-us/azure/mysql/flexible-server/how-to-read-replicas)
-- [Azure Site Recovery for Azure VMs](https://learn.microsoft.com/en-us/azure/site-recovery/azure-to-azure-quickstart)
