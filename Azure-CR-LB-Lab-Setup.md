@@ -124,14 +124,10 @@ Example:
 
 Repeat for b2, b3, b4.
 
-<details> 
-  <summary>
-       <strong>Detailed info for CR-LB Creation</strong>  
-  </summary>
- 
-  ### Step-by-Step Guide: Creating an Azure Cross-Region Load Balancer (CR-LB)
+## Detailed info for CR-LB Creatio
+### Step-by-Step Guide: Creating an Azure Cross-Region Load Balancer (CR-LB)
 
-This guide explains how to build a **fully working Cross-Region Load Balancer** for the RC system architecture.  
+This segment explains how to build a **fully working Cross-Region Load Balancer** for the RC system architecture.  
 
 ---
 
@@ -335,7 +331,6 @@ CR-LB → **regional SLBs only**.
 
 # You now have a complete CR-LB setup ready for RC system testing.
 
-</details>
 
 ---
 
