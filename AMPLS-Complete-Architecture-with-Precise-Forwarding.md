@@ -65,16 +65,6 @@ Advantages:
 
 ### Complete Architecture Diagram (Detailed)
 
-<!--
-
-  <img width=auto height=auto alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
-
-<a href="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" target="_blank">
-  <img style="max-width: 100%; height: auto; cursor: pointer;" alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
-</a>
-
--->
-
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="mermaid-diagram-2025-11-19-213048" 
      src="https://github.com/user-attachments/assets/742a0b66-a01d-442b-882f-9ae8675ddbb6"
@@ -469,12 +459,22 @@ ELSE:
 
 ### DNS Query Flow - CI Workspace Example
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213125" src="https://github.com/user-attachments/assets/54ca5c58-e20c-42ec-8354-8db90f1c1c2f" />
-
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="DNS Query Flow" 
+     src="https://github.com/user-attachments/assets/111bfd02-46ec-4fd8-a077-83bce574b4e3"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ### DNS Query Flow - SI Workspace Example
 
-<img width="2165" height="1560" alt="mermaid-diagram-2025-11-19-213146" src="https://github.com/user-attachments/assets/492ef2cd-ce65-499d-9bdd-b457de4cfc67" />
+<img style="max-width: 800px; cursor: pointer; border: 0px solid #ddd; padding: 0px;" 
+     alt="DNS Query Flow-SI" 
+     src="https://github.com/user-attachments/assets/2bb41c4a-6042-42a6-be05-c3092159a366"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
+
 
 
 ---
@@ -482,14 +482,10 @@ ELSE:
 ## Network Traffic Flow
 
 ### Data Ingestion Flow (Agent → LAW)
-
-<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213211" src="https://github.com/user-attachments/assets/9d2e07c8-10f5-4077-b01c-27d30c08d7e1" />
-
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213211" src="https://github.com/user-attachments/assets/dc234948-3e74-45bc-a45d-0b6d96cfcfcc" />
 
 ### Query Flow (User → LAW)
-
-<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213231" src="https://github.com/user-attachments/assets/552325dc-03d1-4bb3-bad1-51db06affba3" />
-
+<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213231" src="https://github.com/user-attachments/assets/dba01054-8e66-4bca-ab5d-f43eebaa3b6d" />
 
 ---
 
