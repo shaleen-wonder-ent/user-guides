@@ -141,7 +141,3 @@ If Central India fails completely:
 
 ---
 
-## 8. References
-
-- [Azure Database for MySQL - Geo-Replication](https://learn.microsoft.com/en-us/azure/mysql/flexible-server/concepts-data-replication)
-- [Promote a read replica](https://learn.microsoft.com/en-us/azure/mysql/flexible-server/how-to-read-replicas)
