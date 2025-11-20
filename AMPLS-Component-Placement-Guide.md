@@ -47,7 +47,6 @@ Place in SPOKE if:
 <br>
 <em>Click to view full size</em>
 
-
 ---
 
 ## Hub vs Spoke Decision Matrix
@@ -68,8 +67,12 @@ Place in SPOKE if:
 
 ### Detailed Decision Flow
 
-<img width=auto height=auto alt="mermaid-diagram-2025-11-19-212856" src="https://github.com/user-attachments/assets/0f00ef0b-2f10-4057-b5cb-c373033b8df7" />
-
+<img style="max-width: 800px; cursor: pointer; border: 0px solid #ddd; padding: 0px;" 
+     alt="Architecture" 
+     src="https://github.com/user-attachments/assets/0f00ef0b-2f10-4057-b5cb-c373033b8df7"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
 
