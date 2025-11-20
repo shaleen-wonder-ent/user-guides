@@ -64,11 +64,18 @@ Advantages:
 
   <img width=auto height=auto alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
 
--->
-
 <a href="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" target="_blank">
   <img style="max-width: 100%; height: auto; cursor: pointer;" alt="mermaid-diagram-2025-11-19-213048" src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf" />
 </a>
+
+-->
+
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="mermaid-diagram-2025-11-19-213048" 
+     src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
 
