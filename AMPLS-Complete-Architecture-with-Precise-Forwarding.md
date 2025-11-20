@@ -55,7 +55,12 @@ Advantages:
 
 ### High-Level Architecture Diagram
 
-<img width=auto height=auto alt="mermaid-diagram-2025-11-19-213016" src="https://github.com/user-attachments/assets/835f0196-9f2b-482d-a989-6c0ac1b35063" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="diag" 
+     src="https://github.com/user-attachments/assets/835f0196-9f2b-482d-a989-6c0ac1b35063"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 
 ### Complete Architecture Diagram (Detailed)
@@ -72,7 +77,7 @@ Advantages:
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="mermaid-diagram-2025-11-19-213048" 
-     src="https://github.com/user-attachments/assets/08059707-07dd-486a-a633-09c5e51e4ecf"
+     src="https://github.com/user-attachments/assets/742a0b66-a01d-442b-882f-9ae8675ddbb6"
      onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
 <br>
 <em>Click to view full size</em>
