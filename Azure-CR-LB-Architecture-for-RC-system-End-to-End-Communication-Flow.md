@@ -5,7 +5,12 @@ This explains how a session is established when **each Broker has its own Region
 
 ---
 
-<img width="986" height="437" alt="image" src="https://github.com/user-attachments/assets/e0e1763c-4d36-4db8-9f42-5f0e9ed7c17c" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="diag" 
+     src="https://github.com/user-attachments/assets/e0e1763c-4d36-4db8-9f42-5f0e9ed7c17c"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 
 ---
