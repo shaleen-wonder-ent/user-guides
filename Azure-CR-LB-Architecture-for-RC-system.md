@@ -25,7 +25,11 @@
 
 ## Network Flow (Controller starts on B1, Target selects B3, Controller switches to B3)
 
-<img width="802" height="530" alt="image" src="https://github.com/user-attachments/assets/8ebc7373-2dbd-446a-8a68-a29b789340b8" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="diag" 
+     src="https://github.com/user-attachments/assets/8ebc7373-2dbd-446a-8a68-a29b789340b8"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
 
 
 
