@@ -8,8 +8,12 @@
 
 ## High‑Level Architecture
 
-
-<img width="878" height="488" alt="image" src="https://github.com/user-attachments/assets/430226ba-8d87-4b8c-8d23-bb785fe0b136" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="diag" 
+     src="https://github.com/user-attachments/assets/430226ba-8d87-4b8c-8d23-bb785fe0b136"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 
 **What changed vs earlier draft:**  
