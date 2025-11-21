@@ -20,7 +20,8 @@ This document provides comprehensive technical and commercial guidance for imple
 3. [Charging for Read Operations](#3-charging-for-read-operations)
 4. [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
 5. [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
-6. [Quick answers to the questions](#6-Quick-Answers-to-the-questions)
+6. [Quick answers to the questions](#6-quick-answers-to-the-questions)
+7. [Common Misconceptions](#7-common-misconceptions)
 
 ---
 
@@ -92,6 +93,12 @@ This document provides comprehensive technical and commercial guidance for imple
 ---
 
 ## 1. Pricing Model & Worked Examples
+
+> **⚠️ PRICING DISCLAIMER:**  
+> - Prices vary by Azure region and are subject to change
+> - All pricing examples are approximate and for illustrative purposes
+> - Always verify current pricing at https://azure.microsoft.com/pricing/
+> - Document last updated: 2025-11-21
 
 ### Cost Components for Vaulted Backup:
 
@@ -324,7 +331,7 @@ Day 1: 1 GB (base) + 1 GB (snapshot) = 2 GB
 Day 2: 1 GB (base) + 1 GB + 50 MB = 2.05 GB
 Day 3: 1 GB (base) + 1 GB + 50 MB + 100 MB = 2.15 GB
 
- Efficient incremental storage at source
+✅ Efficient incremental storage at source
 ```
 
 #### At Backup Vault Level:
@@ -345,7 +352,7 @@ Day 1: 1 GB
 Day 2: 2 GB (2 × 1 GB snapshots)
 Day 3: 3 GB (3 × 1 GB snapshots)
 
- Billed for full logical snapshot size
+⚠️ Billed for full logical snapshot size
 ```
 
 ---
@@ -599,7 +606,7 @@ Example Scenario:
 │  Total Billed: $1,000/month                             │
 └─────────────────────────────────────────────────────────┘
 
- You are billed for LOGICAL size, not physical storage
+⚠️ You are billed for LOGICAL size, not physical storage
 ```
 
 ---
@@ -727,14 +734,14 @@ Billing Behavior:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 STOPS Charging:
- - Protected Instance Fee ($10/month)
- - Backup job execution costs
- - Source account snapshot creation
+✅ - Protected Instance Fee ($10/month)
+✅ - Backup job execution costs
+✅ - Source account snapshot creation
 
 CONTINUES Charging:
-  - Vault storage for retained recovery points
-  - Soft delete storage (if applicable)
-  - Vault storage redundancy (LRS/GRS/ZRS)
+⚠️  - Vault storage for retained recovery points
+⚠️  - Soft delete storage (if applicable)
+⚠️  - Vault storage redundancy (LRS/GRS/ZRS)
 
 Example Cost Evolution:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -818,10 +825,10 @@ Day 15+ (Permanent Deletion):
 
 | Scenario | Protected Instance | Vault Storage | Restore | Timeline to $0 |
 |----------|-------------------|---------------|---------|----------------|
-| **Active Protection** |  Charged |  Charged |  Available | N/A |
-| **Stop + Retain** |  Free |  Charged |  Available | 30 days (retention policy) |
-| **Stop + Delete (Soft Delete ON)** |  Free |  Charged (14 days) |  14 days only | 14 days |
-| **Stop + Delete (Soft Delete OFF)** |  Free |  Free |  Not available | Immediate |
+| **Active Protection** | ✅ Charged | ✅ Charged | ✅ Available | N/A |
+| **Stop + Retain** | ❌ Free | ✅ Charged | ✅ Available | 30 days (retention policy) |
+| **Stop + Delete (Soft Delete ON)** | ❌ Free | ⚠️ Charged (14 days) | ⚠️ 14 days only | 14 days |
+| **Stop + Delete (Soft Delete OFF)** | ❌ Free | ❌ Free | ❌ Not available | Immediate |
 
 ---
 
@@ -893,7 +900,7 @@ If Backup Policy Has Immutability Lock:
 │  Locked Retention Policy (e.g., 7-year compliance)      │
 │                                                         │
 │  Attempting to "Stop Protection + Delete Data":         │
-│   BLOCKED - Cannot delete recovery points               │
+│   ❌ BLOCKED - Cannot delete recovery points               │
 │   Must wait until retention period expires              │
 │   Can only "Stop Protection + Retain Data"              │
 │                                                         │
@@ -915,7 +922,7 @@ Stop Protection + Retain (ONLY option):
   
 Total 7-Year Cost: ~$1,260,000
 
- CRITICAL: Understand immutability implications BEFORE
+⚠️ CRITICAL: Understand immutability implications BEFORE
 enabling retention locks!
 ```
 
@@ -925,7 +932,9 @@ enabling retention locks!
 
 ### **1. Pricing Model & Worked Example**  
 **Quick Answer:**  
-Have explained in detail above. Refer  [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
+Azure Vaulted Backup pricing includes: (a) Protected Instance Fee (~$10-15/month per storage account), (b) Backup Storage in vault (major cost - billed for full logical snapshot size at ~$0.05/GB for LRS), (c) Snapshot operations, (d) Data transfer costs (free same-region, charged cross-region), (e) Source account read transaction costs during backup, and (f) Optional soft delete storage. Each recovery point is a full snapshot, so costs accumulate with retention period.
+
+**Refer to:** [Pricing Model & Worked Examples](#1-pricing-model--worked-examples)
 
 **Azure references:**  
 - Azure Backup Pricing Overview  
@@ -941,7 +950,9 @@ Have explained in detail above. Refer  [Pricing Model & Worked Examples](#1-pric
 
 ### **2. Incremental Backup & Data Movement**  
 **Quick Answer:**  
-After the initial full backup, Azure Backup only transfers changed blocks (incremental), comparing block-level deltas against the previous recovery point.
+Azure Vaulted Backup uses a snapshot-based approach. While **snapshots at the source storage account are incremental** (only changed blocks consume additional storage), each **recovery point in the backup vault is stored as a full logical copy**. The backup service reads the entire snapshot and transfers it to the vault. Azure may apply backend deduplication, but billing is based on the logical full snapshot size, not physical storage.
+
+**Refer to:** [Incremental Backup & Data Movement](#2-incremental-backup--data-movement)
 
 **Azure references:**  
 - Backup Architecture (Incremental backup behaviour)  
@@ -955,7 +966,9 @@ After the initial full backup, Azure Backup only transfers changed blocks (incre
 
 ### **3. Charging for Read Operations**  
 **Quick Answer:**  
-Backup operations do **not** incur separate read-transaction costs on the source storage account—charges apply only to backup storage and protected-instance sizing.
+Backup operations **DO** incur read-transaction costs on the source storage account when reading snapshot data for transfer to the vault. For a 10 TB daily backup from Hot tier, expect ~$1,320/month in read operation charges alone (3 billion read operations × $0.0044 per 10K operations). These costs are **in addition** to vault storage and protected instance fees. Avoid backing up from Archive tier due to extreme rehydration costs.
+
+**Refer to:** [Charging for Read Operations](#3-charging-for-read-operations)
 
 **Azure references:**  
 - Azure Storage Billing  
@@ -967,7 +980,9 @@ Backup operations do **not** incur separate read-transaction costs on the source
 
 ### **4. Compression, Deduplication & Encryption**  
 **Quick Answer:**  
-Azure Backup encrypts all data by default and applies internal compression/deduplication, but Microsoft does not provide a guaranteed compression ratio.
+Azure Backup encrypts all data by default (AES-256) with platform-managed or customer-managed keys. However, Azure does NOT apply explicit compression—you're billed for the same logical size as source data. Limited deduplication may occur internally, but Microsoft does not guarantee compression ratios and billing is based on logical snapshot size. For better TCO, compress blobs at the application level before backup.
+
+**Refer to:** [Compression, Deduplication, and Encryption](#4-compression-deduplication-and-encryption)
 
 **Azure references:**  
 - Backup Encryption  
@@ -981,7 +996,9 @@ Azure Backup encrypts all data by default and applies internal compression/dedup
 
 ### **5. Stop Protection / Retain Data Behaviour**  
 **Quick Answer:**  
-Stopping protection while retaining data continues to incur storage and protected-instance charges until recovery points are explicitly deleted.
+Stopping protection while retaining data **continues to incur vault storage charges only** (protected instance fee stops immediately). Recovery points age out according to the original retention policy. With "Stop + Delete" and soft delete enabled, vault storage charges continue for 14 days before permanent deletion. With immutability locks, you cannot delete recovery points and must wait for the retention period to expire, incurring storage costs throughout.
+
+**Refer to:** [Stop Protection / Retain Data Behaviour](#5-stop-protection--retain-data-behaviour)
 
 **Azure references:**  
 - Stop Protection Behaviour  
@@ -993,29 +1010,109 @@ Stopping protection while retaining data continues to incur storage and protecte
 
 ---
 
+## 7. Common Misconceptions
+
+### ❌ Misconception #1: "Vaulted backup only stores incremental data"
+**Reality:** While snapshots at the source are incremental (block-level), each recovery point in the vault is a **full logical snapshot**. With 30-day retention, you're storing 30 full copies of your data, not just deltas.
+
+**Impact:** For 10 TB source data with 30-day retention, you pay for 300 TB vault storage, not 10 TB + deltas.
+
+---
+
+### ❌ Misconception #2: "Backup doesn't cost anything on the source storage account"
+**Reality:** Reading snapshot data from the source storage account **incurs read transaction charges**. For large datasets, this can be significant.
+
+**Impact:** For 10 TB daily backups from Hot tier: ~$1,320/month in read operations alone.
+
+---
+
+### ❌ Misconception #3: "Stopping backup stops all charges immediately"
+**Reality:** 
+- "Stop + Retain" stops the protected instance fee but **vault storage charges continue** until retention expires
+- "Stop + Delete" with soft delete enabled continues charging for 14 days
+- With immutability locks, you **cannot delete data** and must pay storage costs until the lock period expires
+
+**Impact:** With 300 TB in vault, you'll pay ~$15,000/month in storage costs even after stopping protection.
+
+---
+
+### ❌ Misconception #4: "Azure automatically compresses and deduplicates my backups"
+**Reality:** Azure does NOT apply guaranteed compression. You're billed for the logical snapshot size. While Azure may deduplicate behind the scenes, this is not documented or guaranteed.
+
+**Impact:** If you backup 10 TB, you're billed for 10 TB per snapshot, regardless of actual changes or duplication.
+
+---
+
+### ❌ Misconception #5: "Cross-region backup is just a little more expensive"
+**Reality:** Cross-region backup adds:
+- Data transfer costs (~$0.02/GB = $200/day for 10 TB)
+- Higher vault storage costs (GRS vs LRS)
+- Cross-region restore costs
+
+**Impact:** For 10 TB with 90-day retention: ~$96,410/month vs ~$8,160/month for same-region LRS.
+
+---
+
+### ❌ Misconception #6: "I can backup Archive tier blobs cheaply"
+**Reality:** Archive tier read/rehydration costs are **extremely expensive** (~$5.50 per 10K operations).
+
+**Impact:** 10 TB daily backup from Archive tier: ~$1,650,000/month in read operations alone!
+
+---
+
+### 💡 Best Practices to Avoid Costly Surprises:
+
+1. **Choose retention carefully** - Use tiered retention (daily/weekly/monthly) instead of long daily retention
+2. **Same-region vaults** - Only use cross-region for true DR requirements
+3. **Compress before backup** - Application-level compression reduces all costs proportionally
+4. **Monitor source tier** - Keep backups on Hot/Cool tier, never Archive
+5. **Understand immutability** - Don't enable retention locks unless legally required
+6. **Test stop protection** - Verify soft delete behavior and cost implications
+7. **Calculate TCO** - Include ALL costs: instance fee, vault storage, read ops, transfers
+
+---
+
 ## **Additional Recommended References**
 
 ### **Storage Transactions & Data Access Costs**  
 - Storage Read/Write/Egress Billing  
   https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-pricing  
-- Bandwidth (Egress) Pricing  
-  https://learn.microsoft.com/en-us/azure/bandwidth-pricing  
+- Transaction Optimization  
+  https://learn.microsoft.com/en-us/azure/storage/common/storage-plan-manage-costs  
 
-### **Restore Operations**  
-- File/Folder Restore  
-  https://learn.microsoft.com/en-us/azure/backup/backup-azure-restore-files-from-vm  
-- VM Restore  
-  https://learn.microsoft.com/en-us/azure/backup/backup-azure-arm-restore-vms  
+### **Compliance & Governance**  
+- Azure Backup Compliance Offerings  
+  https://learn.microsoft.com/en-us/azure/backup/compliance-offerings  
+- Immutability Policies  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-immutable-vault  
 
-### **Backup Vault Redundancy**  
-- Redundancy Comparison  
-  https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy  
+### **Cost Management**  
+- Azure Cost Management + Billing  
+  https://learn.microsoft.com/en-us/azure/cost-management-billing/  
+- Backup Cost Optimization  
+  https://learn.microsoft.com/en-us/azure/backup/backup-azure-cost-management  
 
-- [Azure Backup for Blob Storage Overview](https://learn.microsoft.com/azure/backup/blob-backup-overview)
-- [Azure Backup Pricing](https://azure.microsoft.com/pricing/details/backup/)
-- [Blob Storage Pricing](https://azure.microsoft.com/pricing/details/storage/blobs/)
-- [Azure Backup Security Features](https://learn.microsoft.com/azure/backup/security-overview)
-- [Immutable Storage for Azure Blobs](https://learn.microsoft.com/azure/storage/blobs/immutable-storage-overview)
-
+### **Architecture & Design**  
+- Blob Backup Architecture  
+  https://learn.microsoft.com/en-us/azure/backup/blob-backup-overview  
+- Backup Center (multi-vault management)  
+  https://learn.microsoft.com/en-us/azure/backup/backup-center-overview  
 
 ---
+
+## Document Change Log
+
+| Date | Version | Changes |
+|------|---------|---------|
+| 2025-11-21 | 1.1 | Fixed Section 2, 3, 5 quick answers; Added Common Misconceptions section; Added pricing disclaimer |
+| 2025-11-17 | 1.0 | Initial document creation |
+
+---
+
+**Document Prepared By:** Technical Solutions Team  
+**Last Reviewed:** 2025-11-21  
+**Next Review Date:** 2026-02-21
+
+---
+
+**Disclaimer:** This document provides general guidance and approximate pricing based on publicly available Azure pricing as of November 2025. Actual costs may vary based on region, specific configuration, usage patterns, and Azure pricing changes. Always verify current pricing and test in your environment before production deployment.
