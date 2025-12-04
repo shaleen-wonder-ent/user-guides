@@ -9,20 +9,20 @@ Recommended architecture diagram at bottom.
 ## Table of Contents
 
 - [Context](#context)
-- [High‑Level Architectures](#high-level-architectures)
-  - [(A) Hub‑PE Architecture (per region)](#a-hub-pe-architecture-per-region)
-  - [(B) Spoke‑PE Architecture (per region)](#b-spoke-pe-architecture-per-region)
+- [High Level Architectures](#high-level-architectures)
+  - [(A) Hub-PE Architecture (per region)](#a-hub-pe-architecture-per-region)
+  - [(B) Spoke-PE Architecture (per region)](#b-spoke-pe-architecture-per-region)
 - [Comparison Table](#comparison-table)
 - [DNS Considerations](#dns-considerations)
-  - [Hub‑PE DNS Considerations](#hub-pe-dns-considerations)
-  - [Spoke‑PE DNS Considerations](#spoke-pe-dns-considerations)
-- [Hub‑PE Architecture – Technically Possible, But Not Preferred](#hub-pe-architecture--technically-possible-but-not-preferred)
-  - [Pros – Why a Hub‑PE Can Be Attractive](#pros--why-a-hub-pe-can-be-attractive)
+  - [Hub-PE DNS Considerations](#hub-pe-dns-considerations)
+  - [Spoke-PE DNS Considerations](#spoke-pe-dns-considerations)
+- [Hub-PE Architecture – Technically Possible but Not Preferred](#hub-pe-architecture--technically-possible-but-not-preferred)
+  - [Pros – Why a Hub-PE Can Be Attractive](#pros--why-a-hub-pe-can-be-attractive)
   - [Cons – Why a Monitoring Spoke PE Is Usually Preferred](#cons--why-a-monitoring-spoke-pe-is-usually-preferred)
-- [Recommended Pattern (Microsoft‑Aligned, Lower Risk)](#recommended-pattern-microsoft-aligned-lower-risk)
-- [Accessing a Spoke‑PE from Multiple Spokes](#accessing-a-spoke-pe-from-multiple-spokes)
+- [Recommended Pattern (Microsoft-Aligned, Lower Risk)](#recommended-pattern-microsoft-aligned-lower-risk)
+- [Accessing a Spoke-PE from Multiple Spokes](#accessing-a-spoke-pe-from-multiple-spokes)
 - [Final Advice](#final-advice)
-- [Architecture Diagram of Spoke‑PE](#architecture-diagram-of-spoke-pe)
+- [Architecture Diagram of Spoke-PE](#architecture-diagram-of-spoke-pe)
 
 ---
 
@@ -47,9 +47,9 @@ We compare two options:
 
 ---
 
-## High‑Level Architectures
+## High Level Architectures
 
-### (A) Hub‑PE Architecture (per region)
+### (A) Hub-PE Architecture (per region)
 
 - **Hub VNet**
   - Contains:
@@ -63,7 +63,7 @@ We compare two options:
     - LAW
     - Possibly DNS VMs (if DNS is centralized there).
 
-### (B) Spoke‑PE Architecture (per region)
+### (B) Spoke-PE Architecture (per region)
 
 - **Monitoring Spoke VNet**
   - Contains:
@@ -109,7 +109,7 @@ We compare two options:
 
 ## DNS Considerations
 
-### Hub‑PE DNS Considerations
+### Hub-PE DNS Considerations
 
 - Private DNS zone A‑records point to **Hub PE IP**.
 - All app spokes and Hub use **custom DNS** to resolve LAW workspace FQDNs.
@@ -131,7 +131,7 @@ We compare two options:
   - Transit + firewall + DNS consumer + PE host.
 - Increases Hub blast radius and complexity of Hub change management.
 
-### Spoke‑PE DNS Considerations
+### Spoke-PE DNS Considerations
 
 - Private DNS zone A‑records point to **Monitoring Spoke PE IP**.
 - DNS typically sits in the Monitoring Spoke (or dedicated DNS VNet).
@@ -155,13 +155,13 @@ We compare two options:
 
 ---
 
-## Hub‑PE Architecture – Technically Possible, But Not Preferred
+## Hub-PE Architecture – Technically Possible but Not Preferred
 
 Yes, it is technically possible to place the AMPLS PE in the Hub and have all other VNets (and on‑prem) use it as a shared service.
 
 However, **operationally and architecturally** it introduces several issues compared with placing the PE in a monitoring spoke.
 
-### Pros – Why a Hub‑PE Can Be Attractive
+### Pros – Why a Hub-PE Can Be Attractive
 
 1. **Centralized, shared access**  
    - A PE in the Hub serves as a single, obvious entry point for all spokes and subscriptions.
@@ -204,7 +204,7 @@ However, **operationally and architecturally** it introduces several issues comp
 
 ---
 
-## Recommended Pattern (Microsoft‑Aligned, Lower Risk)
+## Recommended Pattern (Microsoft-Aligned, Lower Risk)
 
 **Recommended:**  
 Place AMPLS Private Endpoints in **regional monitoring spokes** (CI‑Monitoring, SI‑Monitoring), not in the Hubs.
@@ -235,7 +235,7 @@ This approach preserves:
 
 ---
 
-## Accessing a Spoke‑PE from Multiple Spokes
+## Accessing a Spoke-PE from Multiple Spokes
 
 Even though there is **no spoke‑to‑spoke peering**, you can still share a single PE in the Monitoring Spoke:
 
@@ -271,7 +271,7 @@ In most cases, placing AMPLS PEs in regional monitoring spokes provides:
 
 ---
 
-## Architecture Diagram of Spoke‑PE 
+## Architecture Diagram of Spoke-PE 
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="Architecture" 
