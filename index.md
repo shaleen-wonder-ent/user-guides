@@ -146,6 +146,10 @@ Please select a guide from the list below:
 * [Azure Blob Storage Vaulted Backup Solution](./vaulted-backup-strategy.md)
 
   ---
+  
+* [Azure Blob Storage Backup & Resiliency Strategy](./Storage_Strategy.md)
+
+  ---
 
 * [Azure CR‑LB Architecture for RC System — TLS & mTLS Architecture FAQ](./Azure-CR-LB-Architecture-for-RC-system-tls-mTLS.md)
 
