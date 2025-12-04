@@ -131,6 +131,10 @@ Please select a guide from the list below:
 
   ---
 
+* [AMPLS Private Endpoint in Hub vs Spoke](./AMPLS_Arch_HUB-PE_vs_Spoke-PE.md)
+
+  ---
+
 * [Azure Front Door – Best Practices, Configuration, Caching, and Logging](./Azure-Frontdoor-Best-Practices.md)
 
   ---
