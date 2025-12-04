@@ -2,7 +2,28 @@
 
 This document summarizes the technical evaluation of placing AMPLS Private Endpoints (PEs) **in the Hub VNet** versus **in a Spoke VNet**, based on the dual‑region (CI/SI) hub‑and‑spoke model.
 
-Recommeded architecture diagram at bottom
+Recommended architecture diagram at bottom.
+
+---
+
+## Table of Contents
+
+- [Context](#context)
+- [High‑Level Architectures](#high-level-architectures)
+  - [(A) Hub‑PE Architecture (per region)](#a-hub-pe-architecture-per-region)
+  - [(B) Spoke‑PE Architecture (per region)](#b-spoke-pe-architecture-per-region)
+- [Comparison Table](#comparison-table)
+- [DNS Considerations](#dns-considerations)
+  - [Hub‑PE DNS Considerations](#hub-pe-dns-considerations)
+  - [Spoke‑PE DNS Considerations](#spoke-pe-dns-considerations)
+- [Hub‑PE Architecture – Technically Possible, But Not Preferred](#hub-pe-architecture--technically-possible-but-not-preferred)
+  - [Pros – Why a Hub‑PE Can Be Attractive](#pros--why-a-hub-pe-can-be-attractive)
+  - [Cons – Why a Monitoring Spoke PE Is Usually Preferred](#cons--why-a-monitoring-spoke-pe-is-usually-preferred)
+- [Recommended Pattern (Microsoft‑Aligned, Lower Risk)](#recommended-pattern-microsoft-aligned-lower-risk)
+- [Accessing a Spoke‑PE from Multiple Spokes](#accessing-a-spoke-pe-from-multiple-spokes)
+- [Final Advice](#final-advice)
+- [Architecture Diagram of Spoke‑PE](#architecture-diagram-of-spoke-pe)
+
 ---
 
 ## Context
@@ -125,7 +146,7 @@ We compare two options:
 - Regional DNS cleanly maps:
   - “Region X” → “Region X monitoring spoke PE”.
 - Easier to reason about and isolate issues:
-  - DNS/PE/Law problems are localized to the monitoring spoke.
+  - DNS/PE/LAW problems are localized to the monitoring spoke.
 
 **Cons**
 
@@ -154,9 +175,9 @@ However, **operationally and architecturally** it introduces several issues comp
 
 ### Cons – Why a Monitoring Spoke PE Is Usually Preferred
 
-1. **Hub must move to Custom DNS (if it needs PE resolution)**  
+1. **Hub may need to move to Custom DNS (if Hub components must resolve PEs)**  
    - If Hub resources (Firewall, gateways, management VMs) must resolve the PE FQDNs:
-     - Hub VNet DNS must be switched from Azure‑provided to custom DNS.
+     - Hub VNet DNS must typically be switched from Azure‑provided to custom DNS.
    - This affects:
      - Azure Firewall (FQDN rules, outbound dependencies),
      - VPN/ER gateways,
@@ -193,12 +214,12 @@ Design pattern:
 - **Hubs (CI‑Hub, SI‑Hub)**  
   - Azure Firewall / NVAs  
   - VPN/ExpressRoute gateways  
-  - DNS setting can remain Azure‑provided, or point to central Resolver if required.
+  - DNS setting can remain Azure‑provided, or point to a central Resolver if required.
 - **Monitoring Spokes (CI‑Monitoring, SI‑Monitoring)**  
   - LAW (per region)  
   - AMPLS PE(s) for LAW  
   - DNS VMs / Azure DNS Private Resolver  
-  - Private DNS zones linked here and to any VNets that must resolve AMPLS/Law FQDNs.
+  - Private DNS zones linked here and to any VNets that must resolve AMPLS/LAW FQDNs.
 - **On‑prem**  
   - Uses **precise conditional forwarding** to CI/SI DNS VMs or Resolver.
 - **App Spokes**  
@@ -229,7 +250,7 @@ Flow:
 
 So:
 
-> You can keep a **single PE in the monitoring spoke** and have all present and future spokes (and subscriptions) access it via the Hub firewall. No spoke‑to‑spoke peering is required; the Hub remains the only transit point.
+> You can keep a **single PE in the Monitoring Spoke** and have all present and future spokes (and subscriptions) access it via the Hub firewall. No spoke‑to‑spoke peering is required; the Hub remains the only transit point.
 
 ---
 
@@ -250,7 +271,7 @@ In most cases, placing AMPLS PEs in regional monitoring spokes provides:
 
 ---
 
-## Architecture Diagram of Spoke-PE 
+## Architecture Diagram of Spoke‑PE 
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="Architecture" 
@@ -258,5 +279,3 @@ In most cases, placing AMPLS PEs in regional monitoring spokes provides:
      onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
 <br>
 <em>Click to view full size</em>
-
-
