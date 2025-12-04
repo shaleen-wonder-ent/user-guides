@@ -2,6 +2,7 @@
 
 This document summarizes the technical evaluation of placing AMPLS Private Endpoints (PEs) **in the Hub VNet** versus **in a Spoke VNet**, based on the dual‑region (CI/SI) hub‑and‑spoke model.
 
+Recommeded architecture diagram at bottom
 ---
 
 ## Context
@@ -246,3 +247,16 @@ In most cases, placing AMPLS PEs in regional monitoring spokes provides:
 - Simpler Hub responsibilities,
 - Easier explanation to operations and auditors,
 - A more future‑proof and extensible monitoring architecture.
+
+---
+
+## Architecture Diagram of Spoke-PE 
+
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Architecture" 
+     src="https://github.com/user-attachments/assets/a832894a-3d6c-4c53-96c6-5015040e1536"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
+
+
