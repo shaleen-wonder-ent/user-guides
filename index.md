@@ -159,6 +159,10 @@ Please select a guide from the list below:
 
   ---
 
+  * [Azure Private Endpoint /32 Routing and HSPE Deep Dive](./pe_routing_hspe_explained.md)
+
+  ---
+
 <!--
 
 ---
