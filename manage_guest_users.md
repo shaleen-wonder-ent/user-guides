@@ -71,6 +71,13 @@ To support all of the above actions, your app requires:
 4. Click **Add permissions**
 5. On the API permissions page, click **Grant admin consent for [Org]** and confirm
 
+- **Add permissions to your application**  
+  [Configure permissions to call Graph API (Quickstart)](https://learn.microsoft.com/en-us/azure/active-directory/develop/quickstart-configure-app-access-web-apis)  
+  _See the section "Assign Microsoft Graph permissions to the app registration"._
+
+- **Grant admin consent in the Azure portal**  
+  [Grant admin consent](https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/grant-admin-consent)
+
 ---
 
 ### D. Record Application Information
@@ -97,14 +104,15 @@ You can now fully automate, via MS Graph API:
 ### Microsoft Docs Links (API References):
 
 - [Register an app (MS Learn)](https://learn.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
-- [Add/update API permissions](https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/configure-permissions-to-call-graph-api)
-- [Consent to app permissions](https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/grant-admin-consent)
+- [Add permissions to your application (Quickstart)](https://learn.microsoft.com/en-us/azure/active-directory/develop/quickstart-configure-app-access-web-apis)
+- [Grant admin consent in the Azure portal](https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/grant-admin-consent)
 - [Invite guest user](https://learn.microsoft.com/en-us/graph/api/invitation-post)
 - [Update user (disable)](https://learn.microsoft.com/en-us/graph/api/user-update)
 - [Delete user](https://learn.microsoft.com/en-us/graph/api/user-delete)
 - [Add member to group](https://learn.microsoft.com/en-us/graph/api/group-post-members)
 - [Remove member from group](https://learn.microsoft.com/en-us/graph/api/group-delete-members)
 - [Microsoft Graph permissions reference](https://learn.microsoft.com/en-us/graph/permissions-reference)
+- [Microsoft identity permissions and consent terminology](https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent)
 
 ---
 
@@ -184,10 +192,10 @@ A: For backend automation/scenarios with no user login context, use "Application
 
 ## 10. Additional References
 
-- [Graph API Application vs Delegated permissions](https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent)
+- [Permissions and consent in the Microsoft identity platform](https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent)
 - [Secure application model (best practices)](https://learn.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps)
 - [Azure Key Vault for secrets](https://learn.microsoft.com/en-us/azure/key-vault/general/basic-concepts)
 
 ---
 
-_This guide ensures your app has exactly what it needs—and nothing more—to securely provision, deprovision, disable, and group-manage Entra ID users and guests for business automation scenarios like “Contoso Application ↔️ Keycloak ↔️ Entra ↔️ Power BI”._
+_This guide ensures your app has exactly what it needs—and nothing more—to securely provision, deprovision, disable, and group-manage Entra ID users and guests for business automation scenarios like “Contoso App ↔️ Keycloak ↔️ Entra ↔️ Power BI”._
