@@ -25,6 +25,10 @@ Please select a guide from the list below:
 * [Keycloak ↔ Single Sign-On How-To for Contoso360 and Power BI](./keycloak_SAML_SSO_How_To_guide.md)
 
   ---
+  
+* [Managing B2B Guest Users & Groups with Microsoft Graph API in Azure Entra ID](./manage_guest_users.md)
+
+  ---
 
 <!-- commented  
 * [Keycloak ↔ Microsoft Entra ID Federation for Power BI Access OIDC & SAML](./keycloak-entra-PBI-fed-guide.md)
