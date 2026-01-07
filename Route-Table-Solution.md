@@ -1,4 +1,6 @@
 
+# Route-table based solution (vWAN vHub Route Tables)
+
 ## Architecture
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
@@ -8,8 +10,6 @@
 <br>
 <em>Click to view full size</em>
 
-
-# Route-table based solution (vWAN vHub Route Tables)
 
 ## Goal
 - **Block subscription-to-subscription (spoke-to-spoke) connectivity**:
