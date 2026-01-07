@@ -163,7 +163,15 @@ Please select a guide from the list below:
 
   ---
 
-  * [Azure Private Endpoint /32 Routing and HSPE Deep Dive](./pe_routing_hspe_explained.md)
+* [Azure Private Endpoint /32 Routing and HSPE Deep Dive](./pe_routing_hspe_explained.md)
+
+  ---
+
+* [Route-table based solution (vWAN vHub Route Tables)](./Route-Table-Solution.md)
+
+  ---
+
+* [Firewall-based solution (Azure Firewall in vWAN hubs)](./Firewall-Solution.md)
 
   ---
 
