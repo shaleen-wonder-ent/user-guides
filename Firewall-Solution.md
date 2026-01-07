@@ -1,3 +1,6 @@
+
+# Firewall-based solution (Azure Firewall in vWAN hubs)
+
 ## Architecture
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
@@ -8,7 +11,7 @@
 <em>Click to view full size</em>
 
 
-# Firewall-based solution (Azure Firewall in vWAN hubs)
+
 
 ## Goal
 - **Block subscription-to-subscription (spoke-to-spoke) traffic by default**
