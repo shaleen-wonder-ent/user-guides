@@ -72,6 +72,37 @@ Keycloak must issue SAML assertions that meet these requirements:
 
 **Why this matters:** Entra will map the federated assertion to the guest user object created for that email.
 
+
+**Detailed view of this :**
+## 3) Keycloak inputs you need (to configure Entra)
+
+From Keycloak you need the following values (preferably from metadata):
+
+1. **Issuer URI**  
+   Typical Keycloak realm issuer format:  
+   `https://<keycloak-host>/realms/<realm>`
+
+2. **Passive authentication endpoint** (SAML SSO endpoint)  
+   Typical Keycloak SAML endpoint format:  
+   `https://<keycloak-host>/realms/<realm>/protocol/saml`
+
+3. **Signing certificate**  
+   The public X.509 certificate used by Keycloak to sign SAML assertions/responses.
+
+4. **Metadata URL (recommended)**  
+   Typical Keycloak SAML metadata endpoint:  
+   `https://<keycloak-host>/realms/<realm>/protocol/saml/descriptor`
+
+Example (lab/ngrok):  
+- `https://b61d7161f98c.ngrok-free.app/realms/master/protocol/saml/descriptor`
+
+Example (production):  
+- `https://sso.medadv360.com/realms/<realm>/protocol/saml/descriptor`
+
+> In production, do not use ngrok. Use a stable, publicly reachable FQDN + trusted TLS certificate.
+
+**Done**
+
 ---
 
 ## 4) What you must configure in Entra (one-time + per-domain)
@@ -100,6 +131,93 @@ For each verified domain:
 
 **Outcome:** When Power BI (or any Entra-protected app) needs authentication for a user in that domain, Entra redirects to Keycloak.
 
+-
+**Detailed view of this :**
+
+## 4) Entra setup (federation + domain routing)
+
+### 4.1 Verify partner domains **DOMAIN ROUTING PREREQ**
+
+You must do domain verification in the **same Entra tenant** where you configure federation and where Power BI authenticates.
+
+Steps (per domain, e.g., `companyA.com`):
+1. In Entra admin center, go to **Domain names**.
+2. Go to **Custom domain names**.
+3. Click **Add custom domain**.
+4. Enter the domain (e.g., `companyA.com`) and click **Add**.
+5. Entra will show a **DNS TXT record** (name/value).
+6. Provide this TXT record to the domain owner (partner/customer DNS admin).
+7. After the TXT record is published, return to the portal and click **Verify**.
+
+Expected result:
+- Domain status changes to **Verified**
+
+---
+
+### 4.2 Configure Direct Federation to Keycloak (SAML IdP)  **FEDERATION SETUP**
+
+This is configured in:
+**External Identities → All identity providers → Custom → Add new → SAML/WS-Fed**
+
+
+Steps:
+1. In Entra admin center, go to **External Identities**.
+2. Select **All identity providers**.
+3. Under **Custom**, click **Add new** and select **SAML/WS-Fed**.
+4. Provide:
+   - **Display name** (e.g., `Keycloak-Federation`)
+   - **Identity provider protocol**: `SAML`
+   - **Issuer URI** (from Keycloak)
+   - **Passive authentication endpoint** (from Keycloak)
+   - **Certificate** (Keycloak signing cert)
+   - **Metadata URL** (recommended; Keycloak metadata endpoint)
+5. Save the identity provider.
+
+Expected result:
+- Identity provider appears in the list with Protocol = SAML.
+
+Notes:
+- Prefer using **Metadata URL** so Entra can ingest issuer/endpoints/cert more reliably.
+- In production, the metadata URL must be reachable via stable FQDN over HTTPS.
+
+---
+
+### 4.3 Attach domain(s) to the federating IdP (this is domain routing) **DOMAIN ROUTING CONFIG**
+
+In your tenant UI, domain routing is implemented by adding **Domain name of federating IdP** when creating the SAML/WS-Fed IdP (or adding domains later).
+
+
+Steps:
+1. In **External Identities → All identity providers → Custom → Add new → SAML/WS-Fed**, you will see a field:
+   - **Domain name of federating IdP**
+2. Enter the domain you want Entra to route (example: `companyA.com`).
+3. Complete the IdP creation (Section 4.2) and save.
+
+To add additional domains later:
+1. Go to **External Identities → All identity providers**.
+2. Open your IdP (e.g., `Keycloak-Federation`).
+3. Use the portal option to add additional domains (if available) OR create an additional routing association as per portal workflow.
+
+Expected result:
+- The IdP list shows a non-zero value in the **Domains** column (e.g., Domains = 1) and you can click to check the Domain name.
+
+Important:
+- The domain must be **Verified** (Section 4.1) to be a reliable, supported routing target.
+
+---
+
+### 4.4 Validate federation + routing (recommended)
+Test with a user at that domain:
+- Use any Entra-protected entry point (Power BI, myapps.microsoft.com, etc.)
+- Enter `user@companyA.com`
+
+Expected:
+- Entra redirects to **Keycloak** (federated IdP)
+- After Keycloak SSO, Entra completes sign-in
+- Entra sign-in logs show **Federated** authentication
+
+
+**Done**
 ---
 
 ## 5) Runtime flow 
