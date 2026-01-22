@@ -11,7 +11,7 @@ To enable Keycloak-origin users to access Microsoft Power BI (non-embedded), you
    - Users authenticate to your application (medadv360) using Keycloak SSO.
    - Keycloak will also act as the **federated IdP** for Entra ID (for those users).
 
-2. **Entra ID tenant** (customer tenant)  
+2. **Entra ID tenant** (your tenant)  
    - Power BI authenticates through Entra ID.
    - External users must exist in the tenant as **B2B guest users**.
 
@@ -23,7 +23,7 @@ To enable Keycloak-origin users to access Microsoft Power BI (non-embedded), you
    - **Domain routing** tells Entra *when to redirect* to Keycloak (based on the user’s email domain).
 
 5. **Just-in-time (JIT) guest provisioning**  
-   - When a user first clicks the Power BI link, the medadv360 backend uses Microsoft Graph to create a guest invitation and redirects the user through redemption (Option 5A).
+   - When a user first clicks the Power BI link, the medadv360 backend uses Microsoft Graph to create a guest invitation and redirects the user through redemption.
 
 ---
 
