@@ -178,7 +178,10 @@ Please select a guide from the list below:
 * [Azure Front Door Standard vs Premium](./AFD-Std_vs_Prem.md)
 
   ---
+  
+* [Azure Front Door Standard vs Premium](./KC_Entra_B2B_explain__master.md)
 
+  ---
 <!--
 
 ---
