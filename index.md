@@ -20,8 +20,12 @@ Please select a guide from the list below:
 
 * [Keycloak ↔ Single Sign-On for Contoso360 and Power BI](./keycloak_SAML_SSO_guide.md)
 
-  --- 
-
+  ---
+  
+* [Partner users accessing Power BI in MedY tenant](./KC_Entra_Fed_Opions.md)
+  
+  ---
+  
 * [Keycloak ↔ Single Sign-On How-To for Contoso360 and Power BI](./keycloak_SAML_SSO_How_To_guide.md)
 
   ---
