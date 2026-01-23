@@ -12,9 +12,9 @@ The “best” single sign-on experience would be:
 - Partner user signs in once (via partner IdP → Keycloak), and
 - Power BI automatically recognizes that session without additional prompts.
 
-However, for Entra to automatically redirect a user like `user@XXX.com` to an external IdP (Keycloak), Entra typically requires the partner domain (`XXX.com`) to be **verified** in MedY Entra. Verification is done via a DNS record in the partner domain—something the partner has stated they will not do.
+However, for Entra to automatically redirect a user like `user@XXX.com` to an external IdP (Keycloak), Entra typically requires the partner domain (`XXX.com`) to be **verified** in MedY Entra. Verification is done via a DNS record in the partner domain—something the partner may or may not do.
 
-As a result, MedY cannot configure domain-based routing for `@XXX.com`, and must choose one of the two supported alternatives below.
+As a result, MedY cannot configure domain-based routing for `@XXX.com`, and we needed to check other supported alternatives.
 
 ---
 
@@ -42,8 +42,8 @@ As a result, MedY cannot configure domain-based routing for `@XXX.com`, and must
 - Fastest to implement and support operationally.
 
 **Cons / tradeoffs**
-- Not fully seamless SSO into Power BI; users may see an extra prompt/code.
-- Potential support overhead (OTP emails delayed, code not received, re-auth prompts).
+- Not fully SSO into Power BI; users may see an extra prompt/code.
+- Potential overhead (OTP emails).
 - Sign-in frequency depends on MedY security policies (Conditional Access, session lifetime).
 
 **Best fit when**
@@ -54,7 +54,7 @@ As a result, MedY cannot configure domain-based routing for `@XXX.com`, and must
 
 ## Another production-supported option:
 
-# Option (SSO-optimized): Keycloak → Entra ID (Direct Federation + Domain Routing) → Power BI
+### Option B (SSO-optimized): Keycloak → Entra ID (Direct Federation + Domain Routing) → Power BI
 
 ## What it means
 MedY configures Microsoft Entra to:
