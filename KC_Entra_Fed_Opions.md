@@ -3,7 +3,7 @@
 
 ---
 
-## Why this problem exists (in plain terms)
+## Why this usecase/condition here (in plain terms)
 
 Power BI is protected by **Microsoft Entra ID**.  
 That means anyone who opens a Power BI report in the MedY tenant must authenticate through **MedY Entra** (because the Power BI content belongs to MedY’s tenant).
