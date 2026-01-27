@@ -186,6 +186,10 @@ Please select a guide from the list below:
 * [Production Architecture: Keycloak → Entra ID (B2B Direct Federation + Domain Routing) → Power BI](./KC_Entra_B2B_explain__master.md)
 
   ---
+
+* [Use partners.Fabrikam.com for partner access to Power BI (SSO preserved via Keycloak)](./Keycloak_SAML_SSO_PartnerDomain_guide.md)
+
+  ---
   
 * [ CAF / Azure Landing Zone (ALZ) Accelerator for Azure Virtual Desktop (AVD)](./AVD-Landing.md)
 
