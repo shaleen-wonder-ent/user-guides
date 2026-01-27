@@ -183,9 +183,14 @@ Please select a guide from the list below:
 
   ---
   
-* [Azure Front Door Standard vs Premium](./KC_Entra_B2B_explain__master.md)
+* [Production Architecture: Keycloak → Entra ID (B2B Direct Federation + Domain Routing) → Power BI](./KC_Entra_B2B_explain__master.md)
 
   ---
+  
+* [ CAF / Azure Landing Zone (ALZ) Accelerator for Azure Virtual Desktop (AVD)](./AVD-Landing.md)
+
+  ---
+ 
 <!--
 
 ---
