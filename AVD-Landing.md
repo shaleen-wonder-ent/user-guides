@@ -271,7 +271,7 @@ Azure Virtual Desktop Landing Zone architecture
 
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="Architecture" 
-     src="https://github.com/user-attachments/assets/7426df0a-a678-48f6-9ae7-c793789652ae"
+     src="https://github.com/user-attachments/assets/fb485d13-7e50-41d5-85cb-8c0bba1cffa8"
      onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
 <br>
 <em>Click to view full size</em>
