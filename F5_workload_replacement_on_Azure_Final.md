@@ -6,7 +6,7 @@
 
 ## What Contoso Currently Has (Current State Summary)
 
-Based on discovery discussions, Contoso operates a **hybrid application delivery** model with multiple F5 form factors and split traffic paths.
+Based on discovery discussions, Contoso operates a **hybrid application delivery** model with multiple F5 form factors and **two distinct access paths** (LAN and Internet).
 
 ### 1) Mixed F5 footprint
 - **F5 virtual appliances on‑prem**
@@ -17,13 +17,13 @@ This indicates both legacy and newer deployments co-exist, likely with different
 
 ### 2) Two access planes / two entry paths
 Contoso effectively maintains **two separate access planes**:
-- **LAN-facing (Internal) F5** for users inside the HCL corporate network.
-- **Internet-facing (External) F5** for users outside the HCL network (WFH/public internet).
+- **LAN-facing (Internal) F5** for users inside the corporate network.
+- **Internet-facing (External) publishing path** for users outside the corporate network (WFH/public internet).
 
-### 3) Split-horizon DNS determines whether traffic uses LAN or Internet path
-Contoso uses **DNS-based split-horizon resolution**:
-- If a user is **inside** HCL office network → DNS resolves application FQDN to a **private IP/VIP** (LAN path).
-- If a user is **outside** HCL network → DNS resolves to a **public IP/VIP** (Internet path).
+### 3) Dedicated DNS services for LAN vs Internet users (instead of split-horizon DNS)
+Contoso uses **dedicated DNS deployments** for name resolution based on user location/source:
+- **LAN users** resolve application FQDNs using **internal (LAN) DNS**, which returns **private IP/VIPs** for internal access.
+- **Internet/WFH users** resolve application FQDNs using **public (Internet) DNS**, which returns **public endpoints/VIPs** for external access.
 
 This enables the same application to be accessed either via:
 - **private network routing** (LAN) or
@@ -32,54 +32,61 @@ This enables the same application to be accessed either via:
 ### 4) Perimeter security for external users is anchored on Palo Alto
 For external access, inbound traffic flows through **Palo Alto Networks** devices as part of the perimeter enforcement chain before reaching application infrastructure.
 
-### 5) Some on‑prem applications are behind on‑prem WAF policies
+### 5) Segmentation firewall exists between F5 and web/app servers (for both LAN and Internet paths)
+Contoso has a **segmentation firewall between F5/publishing tiers and the web/app server tier** for **both**:
+- **LAN user traffic**, and
+- **Internet user traffic**.
+
+This firewall enforces segmentation policy before requests reach the backend servers.
+
+### 6) Some on‑prem applications are behind on‑prem WAF policies
 A subset of applications (and tools) are still **hosted on‑prem** and protected by **on‑prem WAF policies** (currently on F5 in at least one path).
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           CURRENT Contoso ARCHITECTURE                          │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
-│  ┌──────────────────────────────────────────────────────────────────────────┐   │
-│  │                         SPLIT-HORIZON DNS                                │   │
-│  │  ┌─────────────────────────────┐    ┌─────────────────────────────┐      │   │
-│  │  │  Internal DNS (LAN)         │    │  External DNS (Public)      │      │   │
-│  │  │  app.Contoso.internal       │    │  app.Contoso.com            │      │   │
-│  │  │  → Private IP (10.x.x.x)    │    │  → Public IP (203.x.x.x)    │      │   │
-│  │  └──────────────┬──────────────┘    └──────────────┬──────────────┘      │   │
-│  └─────────────────┼──────────────────────────────────┼─────────────────────┘   │
-│                    │                                  │                         │
-│                    ▼                                  ▼                         │
-│  ┌─────────────────────────────┐    ┌─────────────────────────────────────┐     │
-│  │     LAN-FACING F5           │    │      INTERNET-FACING F5             │     │
-│  │  (Internal Traffic)         │    │     (External Traffic)              │     │
-│  │  ┌───────────────────────┐  │    │  ┌─────────────────────────────┐    │     │
-│  │  │ • F5 Virtual (On-Prem)│  │    │  │ • F5 Virtual (On-Prem)      │    │     │
-│  │  │ • F5 Hardware         │  │    │  │ • F5 Virtual (Azure)        │    │     │
-│  │  │ • LTM + APM + WAF     │  │    │  │ • LTM + APM + WAF           │    │     │
-│  │  └───────────────────────┘  │    │  │ • Behind Palo Alto FW       │    │     │
-│  └──────────────┬──────────────┘    │  └─────────────────────────────┘    │     │
-│                 │                   └───────────────┬─────────────────────┘     │
-│                 │                                   │                           │
-│                 │                    ┌──────────────┴──────────────┐            │
-│                 │                    │      PALO ALTO NETWORKS     │            │
-│                 │                    │   (Perimeter Security)      │            │
-│                 │                    │   • WFH Users               │            │
-│                 │                    │   • External Access         │            │
-│                 │                    └──────────────┬──────────────┘            │
-│                 │                                   │                           │
-│                 │                                   │ INTERNET                  │
-│                 ▼                                   ▼                           │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │                      ON-PREMISES APPLICATIONS                           │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │    │
-│  │  │   App 1     │  │   App 2     │  │   App 3     │  │   App N     │     │    │
-│  │  │  (Behind    │  │  (Behind    │  │  (Behind    │  │  (Behind    │     │    │
-│  │  │   WAF)      │  │   WAF)      │  │   WAF)      │  │   WAF)      │     │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘     │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                           CURRENT CONTOSO ARCHITECTURE (UPDATED)                         │
+├──────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│  ┌──────────────────────────────┐                                  ┌────────────────────┐│
+│  │ DEDICATED LAN DNS (INTERNAL) │                                  │ DEDICATED INTERNET ││
+│  │ • Internal resolvers         │                                  │ DNS (PUBLIC)       ││
+│  │ • app.contoso.internal       │                                  │ • app.contoso.com  ││
+│  │   → Private VIP (10.x.x.x)   │                                  │   → Public VIP/IP  ││
+│  └──────────────┬───────────────┘                                  └──────────┬─────────┘│
+│                 │                                                             │          │
+│                 ▼                                                             ▼          │
+│  ┌──────────────────────────────────┐                         ┌─────────────────────────┐│
+│  │ INTERNAL PATH (LAN)              │                         │ EXTERNAL PATH (INTERNET)││
+│  │                                  │                         │                         ││
+│  │ Internal Users (Office Network)  │                         │ External Users (WFH /   ││
+│  │              │                   │                         │ Public Internet)        ││
+│  │              ▼                   │                         │            │            ││
+│  │ LAN‑facing F5                    │                         │            ▼            ││
+│  │ • F5 Virtual (On‑Prem)           │                         │ Palo Alto Networks      ││
+│  │ • F5 Hardware (On‑Prem)          │                         │ (Perimeter enforcement) ││
+│  │ • LTM + (APM/WAF as applicable)  │                         │            │            ││
+│  │              │                   │                         │            ▼            ││
+│  │              ▼                   │                         │ Internet‑facing F5      ││
+│  │ Segmentation Firewall            │                         │ • F5 Virtual (On‑Prem)  ││
+│  │ (between F5 and servers)         │                         │ • F5 Virtual (Azure)    ││
+│  │              │                   │                         │ • LTM+(APM/WAF as appl) ││
+│  │              ▼                   │                         │            │            ││
+│  │ On‑Prem Web/App Servers          │                         │            ▼            ││
+│  │ (some apps behind on‑prem WAF)   │                         │ Segmentation Firewall   ││
+│  │                                  │                         │ (between F5 and servers)││
+│  │                                  │                         │            │            ││
+│  │                                  │                         │            ▼            ││
+│  │                                  │                         │ On‑Prem Web/App Servers ││
+│  │                                  │                         │ (some apps behind WAF)  ││
+│  └──────────────────────────────────┘                         └─────────────────────────┘│
+│                                                                                          │
+│ Notes:                                                                                   │
+│ • DNS is implemented as dedicated LAN DNS and dedicated Internet/Public DNS.             │
+│ • Segmentation firewall exists between the publishing tier and server tier on both paths │
+│ • Exact device ordering in the external path can vary by application; validate per-app.  │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
 
 ---
 
