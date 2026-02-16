@@ -202,6 +202,10 @@ Please select a guide from the list below:
 * [Azure Load Balancing Solution for OnPrem_V2](./F5_workload_replacement_on_Azure_Final.md)
 
   ---
+  
+* [Azure Resource Manager (ARM) Migration Guidance](./ARM_Migration_Guidance.md)
+
+  ---
 <!--
 
 ---
