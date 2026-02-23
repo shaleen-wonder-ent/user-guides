@@ -206,6 +206,10 @@ Please select a guide from the list below:
 * [Azure Resource Manager (ARM) Migration Guidance](./ARM_Migration_Guidance.md)
 
   ---
+
+* [Keycloak Integration with Entra ID - Authentication Flow](./user_auth_n_flow_sow.md)
+
+  ---
 <!--
 
 ---
