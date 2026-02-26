@@ -619,14 +619,6 @@ Daily Bandwidth (MB/s) = (Total GB per day × 1024 MB) / 86400 seconds
   - `Bytes Out`
   - `Connections`
 
-**Monitoring:**
-```kql
-AzureMetrics
-| where ResourceType == "MICROSOFT.NETWORK/PRIVATEENDPOINTS"
-| where MetricName in ("BytesIn", "BytesOut")
-| summarize avg(Average), max(Maximum) by bin(TimeGenerated, 5m)
-```
-
 ---
 
 ### 6.5 Optimization Strategies
