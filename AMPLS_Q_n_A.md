@@ -660,7 +660,10 @@ Heartbeat
 
 ## 7. DNS Resolution Issues with AMPLS
 
-**TODO** : Will be updated later
+**TODO** : Will be updated later 
+<!--
+[Troubleshooting steps for DNS Resolution](https://shaleen-wonder-ent.github.io/user-guides/AMPLS_DNS_Troubleshooting.html) 
+-->
 
 ---
 
