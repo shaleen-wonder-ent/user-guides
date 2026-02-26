@@ -1,3 +1,5 @@
+## Azure Log Analytics Workspace (LAW) with AMPLS - Q&A ##
+
 ## Executive Summary
 
 This document explains the architecture, cost implications, operational behavior, and troubleshooting guidance for deploying Azure Log Analytics Workspace (LAW) using Azure Monitor Private Link Scope (AMPLS).
