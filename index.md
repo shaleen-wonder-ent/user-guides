@@ -147,6 +147,10 @@ Please select a guide from the list below:
 
   ---
 
+* [AMPL DNS Troubleshooting Guide](./AMPLS_DNS_Troubleshooting.md)
+
+  ---
+
 * [Azure Front Door – Best Practices, Configuration, Caching, and Logging](./Azure-Frontdoor-Best-Practices.md)
 
   ---
