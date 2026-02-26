@@ -633,20 +633,133 @@ Daily Bandwidth (MB/s) = (Total GB per day × 1024 MB) / 86400 seconds
 
 ---
 
-### 6.6 Bandwidth Monitoring Query
+### 6.6 Bandwidth Consumption for Entra ID Logs
+
+**Overview:**
+Entra ID (Azure AD) logs typically constitute 20-40% of total LAW ingestion volume in enterprise environments. Volume varies significantly based on user count, application integrations, and security policies.
+
+**Typical Volumes by Organization Size:**
+
+| Organization Size | Users | Daily Entra Logs | Monthly Entra Logs | Avg Bandwidth |
+|------------------|-------|------------------|-----------------------|---------------|
+| Small (100-1K users) | 100-1,000 | 1-5 GB | 30-150 GB | 10-60 KB/s |
+| Medium (1K-10K users) | 1,000-10,000 | 5-20 GB | 150-600 GB | 60-230 KB/s |
+| Large (10K-100K users) | 10,000-100,000 | 20-100 GB | 600-3,000 GB | 230 KB - 1.2 MB/s |
+| Enterprise (100K+ users) | 100,000+ | 100-500 GB | 3-15 TB | 1.2-6 MB/s |
+
+**Volume by Log Type:**
+
+| Log Type | Table Name | Avg Event Size | Typical % of Total |
+|----------|------------|----------------|-------------------|
+| Interactive Sign-ins | `SigninLogs` | 3 KB | 30-40% |
+| Non-Interactive Sign-ins | `AADNonInteractiveUserSignInLogs` | 3 KB | 15-25% |
+| Service Principal Sign-ins | `AADServicePrincipalSignInLogs` | 2 KB | 20-30% |
+| Audit Logs | `AuditLogs` | 2 KB | 10-15% |
+| Provisioning Logs | `AADProvisioningLogs` | 3 KB | 2-5% |
+| Risk Detection | `AADUserRiskEvents` | 3 KB | 1-2% |
+
+**Query to Check Your Actual Volume:**
 
 ```kql
-// Monitor ingestion volume by table
+// Current Entra ID log volume (last 30 days)
 Usage
-| where DataType != ""
-| summarize IngestedGB = sum(Quantity) / 1024 by DataType, bin(StartTime, 1d)
-| order by IngestedGB desc
-
-// Monitor bandwidth by source
-Heartbeat
-| summarize Count = count() by Computer, bin(TimeGenerated, 1h)
-| extend EstimatedMB = Count * 0.001  // Rough estimate
+| where TimeGenerated > ago(30d)
+| where DataType startswith "AAD" or DataType in ("SigninLogs", "AuditLogs")
+| summarize 
+    TotalGB = sum(Quantity) / 1024,
+    DailyAvgGB = (sum(Quantity) / 1024) / 30,
+    MonthlyProjectionGB = ((sum(Quantity) / 1024) / 30) * 30
+    by DataType
+| extend DailyAvgBandwidthKBps = (DailyAvgGB * 1024 * 1024) / 86400
+| project 
+    DataType, 
+    TotalGB = round(TotalGB, 2), 
+    DailyAvgGB = round(DailyAvgGB, 2),
+    DailyAvgBandwidthKBps = round(DailyAvgBandwidthKBps, 2)
+| order by TotalGB desc
 ```
+
+**Factors That Increase Entra Log Volume:**
+
+1. **Conditional Access Policies**: +30-50% (each policy evaluation is logged)
+2. **Multi-Factor Authentication**: +20-40% (each MFA prompt is logged)
+3. **Service Principal Activity**: Can exceed user sign-ins by 5-10x
+4. **SaaS Application Integration**: 100-500 MB per active app per day
+5. **Failed Sign-in Attempts**: +50-200% during security incidents
+6. **B2B Guest Users**: +10-30% depending on external collaboration
+7. **API/Automation**: CI/CD pipelines can generate millions of auth events
+
+**Bandwidth Calculation Example (10,000 users):**
+
+```
+Scenario: Medium organization with 10,000 users
+- 100,000 interactive sign-ins/day × 3 KB = 300 MB/day
+- 50,000 non-interactive sign-ins/day × 3 KB = 150 MB/day
+- 200,000 service principal sign-ins/day × 2 KB = 400 MB/day
+- 20,000 audit events/day × 2 KB = 40 MB/day
+- 5,000 provisioning events/day × 3 KB = 15 MB/day
+
+Total: ~905 MB/day = ~27 GB/month
+
+Average Bandwidth: 905 MB / 86,400 sec = 10.5 KB/s
+Peak Hours (8 AM - 6 PM): ~30-40 KB/s
+Off Hours: ~2-5 KB/s
+```
+
+**Query to Identify High-Volume Applications:**
+
+```kql
+// Which applications generate the most Entra logs
+SigninLogs
+| where TimeGenerated > ago(7d)
+| summarize 
+    SignInCount = count(),
+    UniqueUsers = dcount(UserPrincipalName),
+    EstimatedMB = count() * 0.003  // 3KB avg per sign-in
+    by AppDisplayName
+| extend EstimatedGB = EstimatedMB / 1024
+| extend MonthlyProjectionGB = (EstimatedGB / 7) * 30
+| order by SignInCount desc
+| take 20
+```
+
+**Query to Monitor Service Principal Activity:**
+
+```kql
+// Service principals can generate massive log volumes
+AADServicePrincipalSignInLogs
+| where TimeGenerated > ago(24h)
+| summarize 
+    SignInCount = count(),
+    EstimatedMB = count() * 0.002  // 2KB avg
+    by ServicePrincipalName, AppId
+| extend MonthlyProjectionGB = (EstimatedMB * 30) / 1024
+| where SignInCount > 1000  // Focus on high-volume SPs
+| order by SignInCount desc
+```
+
+**Cost Optimization Strategies:**
+
+1. **Use Basic Logs Tier** for SigninLogs: 50% cost reduction
+   - Keep AuditLogs in Analytics tier for security alerting
+   
+2. **Filter with DCR Transformations**: Remove successful sign-ins for non-critical apps
+   - Potential reduction: 60-70%
+   
+3. **Adjust Retention**: 30 days Analytics + 1 year Archive for non-compliance scenarios
+   - Savings: 50-60% on retention costs
+   
+4. **Export to Storage**: Archive logs older than 90 days to Storage Account
+   - Cost: $0.02/GB vs $0.12/GB in LAW (83% savings)
+
+**Bandwidth Through AMPLS:**
+
+All Entra ID log ingestion flows through your Private Endpoint when diagnostic settings send to LAW. This traffic:
+- Does NOT consume internet bandwidth (stays on Azure backbone)
+- Does NOT incur public egress charges
+- Is included in Private Endpoint data processing charges (~$0.01/GB)
+- Can be monitored via Usage table (shown above)
+
 
 ---
 
