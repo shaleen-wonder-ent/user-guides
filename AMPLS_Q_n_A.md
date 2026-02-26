@@ -76,12 +76,44 @@ The implementation ensures:
 - [Create Data Collection Rules](https://learn.microsoft.com/en-us/azure/azure-monitor/data-collection/data-collection-rule-create-edit)
 - [DCR Overview](https://learn.microsoft.com/en-us/azure/azure-monitor/data-collection/data-collection-rule-overview)
 
-**Example DCR Transformation:**
+**Example DCR Transformation (used in DCR definition, not LAW query):**
 ```kql
 source
 | where Severity in ("Error", "Critical")
 | extend Environment_CF = "Production"
 | project-away RawData
+```
+*Note: `source` is a placeholder used in DCR transformations. This query is configured in the DCR JSON, not executed directly in Log Analytics.*
+
+**Example Regular KQL Query (run in Log Analytics Workspace):**
+```kql
+// Query the Syslog table for errors
+Syslog
+| where SeverityLevel in ("err", "crit")
+| extend Environment = "Production"
+| project TimeGenerated, Computer, SeverityLevel, SyslogMessage
+| take 100
+```
+
+**How DCR Transformations Work:**
+1. Define transformation in DCR (using `source`)
+2. Azure Monitor applies transformation during ingestion
+3. Only transformed data is stored in LAW
+4. Query the stored data using actual table names
+
+**Example DCR JSON Configuration:**
+```json
+{
+  "properties": {
+    "dataFlows": [
+      {
+        "streams": ["Microsoft-Syslog"],
+        "destinations": ["myWorkspace"],
+        "transformKql": "source | where SeverityLevel in ('err', 'crit') | extend Environment_CF = 'Production'"
+      }
+    ]
+  }
+}
 ```
 
 ---
