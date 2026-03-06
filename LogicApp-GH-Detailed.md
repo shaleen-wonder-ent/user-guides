@@ -20,7 +20,7 @@
    - [Block 4B — FALSE Branch: Initialize alertId Variable](#block-4b--false-branch-initialize-alertid-variable)
    - [Block 5B — ServiceNow: List Records](#block-5b--servicenow-list-records)
    - [Block 6B — Condition: Was Incident Found?](#block-6b--condition-was-incident-found)
-   - [Block 7B — ServiceNow: Update Record (Close Incident)](#block-7b--servicenow-update-record)
+   - [Block 7B — ServiceNow: Update Record (Close Incident)](#block-7b--servicenow-update-record-close-incident)
 7. [Key Expressions Reference](#key-expressions-reference)
 8. [ServiceNow Field Mapping](#servicenow-field-mapping)
 9. [Approach Comparison: monitorCondition vs Delay](#approach-comparison)
