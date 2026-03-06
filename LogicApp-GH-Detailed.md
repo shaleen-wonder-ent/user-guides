@@ -48,23 +48,13 @@
 
 High-level end-to-end flow from Azure Monitor through to ServiceNow:
 
-```mermaid
-flowchart LR
-    A[🖥️ Azure VM\nCPU > 80%] --> B[📊 Azure Monitor\nMetric Alert]
-    B --> C[🔔 Action Group\nCommon Alert Schema ON]
-    C --> D[⚡ Logic App\nHTTP Trigger]
-    D --> E{monitorCondition}
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/14ec9e81-a537-4ea3-aa0a-47f9e9f18d1e"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-    E -->|Fired| F[Extract CPU Metric]
-    F --> G{CPU Threshold}
-    G -->|80–90%| H[🟡 Create ServiceNow\nIncident P3 - SEV2]
-    G -->|90–95%| I[🟠 Create ServiceNow\nIncident P2 - SEV1]
-    G -->|> 95%| J[🔴 Create ServiceNow\nIncident P1 - SEV0]
-
-    E -->|Resolved| K[Extract alertId]
-    K --> L[🔎 Query ServiceNow\nIncident by alertId]
-    L --> M[✏️ Update Incident\n→ Resolved / Closed]
-```
 
 > **Key**: The same Logic App handles both `Fired` and `Resolved` events. Azure Monitor sends both payloads automatically — no polling needed.
 
@@ -189,49 +179,13 @@ flowchart LR
 
 Detailed Logic App internal flow showing all decision points and actions:
 
-```mermaid
-flowchart TD
-    A([📥 TRIGGER\nWhen HTTP Request Received\nPOST from Azure Monitor]) --> B
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/89dc08aa-dcd2-41eb-9be5-fea0173453a5"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-    B[🔍 Parse JSON\nContent: triggerBody\nSchema: Common Alert Schema] --> C
-
-    C{❓ CONDITION\nCheck monitorCondition\nequals 'Fired' ?}
-
-    C -- TRUE - Alert Fired --> D1
-    C -- FALSE - Alert Resolved --> D2
-
-    %% ── FIRED BRANCH ──────────────────────────────────────
-    D1[📊 Initialize Variable\nvarCPUValue = metricValue\nfrom alertContext] --> E1
-
-    E1{❓ CONDITION\nDetermine Severity\nvarCPUValue range ?}
-
-    E1 -- ≥ 95% --> F1_P1[🔴 Set Variable\nvarSeverity = P1\nvarUrgency = 1\nvarImpact = 1]
-    E1 -- 90–95% --> F1_P2[🟠 Set Variable\nvarSeverity = P2\nvarUrgency = 2\nvarImpact = 2]
-    E1 -- 80–90% --> F1_P3[🟡 Set Variable\nvarSeverity = P3\nvarUrgency = 3\nvarImpact = 3]
-
-    F1_P1 --> G1
-    F1_P2 --> G1
-    F1_P3 --> G1
-
-    G1[➕ ServiceNow — Create Record\nTable: incident\nshort_description: Azure CPU Alert Fired\nurgency: varUrgency\nimpact: varImpact\nu_azure_alert_id: alertId ← Correlation Key] --> H1
-
-    H1([✅ Incident Created\nCorrelation Key Stored])
-
-    %% ── RESOLVED BRANCH ───────────────────────────────────
-    D2[🔡 Initialize Variable\nvarAlertId = alertId\nfrom essentials] --> E2
-
-    E2[🔎 ServiceNow — List Records\nTable: incident\nQuery: u_azure_alert_id=varAlertId\nAND state != 7] --> F2
-
-    F2{❓ CONDITION\nWas Incident Found?\nlength of result > 0 ?}
-
-    F2 -- YES → Incident Found --> G2
-    F2 -- NO → Already Closed --> H2_no
-
-    G2[✏️ ServiceNow — Update Record\nsys_id: result-0-sys_id\nstate: 6 Resolved\nclose_code: Resolved by Caller\nclose_notes: Auto-closed by Logic App] --> H2
-
-    H2([✅ Incident Closed\nAuto-Resolved])
-    H2_no([ℹ️ No Action Needed\nIncident already closed])
-```
 
 ---
 
