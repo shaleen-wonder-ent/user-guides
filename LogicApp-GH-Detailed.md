@@ -1,15 +1,16 @@
 # Azure Logic App (Consumption) — Auto-Close ServiceNow Incident on Azure Monitor Alert Resolution
-### TCS Architecture Review Document | Prepared: 2026-03-06
+
 
 ---
 
 ## 📌 Table of Contents
 
 1. [Solution Overview](#solution-overview)
-2. [Prerequisites](#prerequisites)
-3. [Complete Logic App Workflow — Block-by-Block (Azure Portal)](#complete-logic-app-workflow)
-4. [Workflow Diagram](#workflow-diagram)
-5. [Detailed Block Configuration](#detailed-block-configuration)
+2. [Architecture Overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Complete Logic App Workflow — Block-by-Block (Azure Portal)](#complete-logic-app-workflow)
+5. [Workflow Diagram](#workflow-diagram)
+6. [Detailed Block Configuration](#detailed-block-configuration)
    - [Block 1 — HTTP Trigger](#block-1--http-trigger)
    - [Block 2 — Parse JSON](#block-2--parse-json)
    - [Block 3 — Top-Level Condition (monitorCondition)](#block-3--top-level-condition)
@@ -20,10 +21,11 @@
    - [Block 5B — ServiceNow: List Records](#block-5b--servicenow-list-records)
    - [Block 6B — Condition: Was Incident Found?](#block-6b--condition-was-incident-found)
    - [Block 7B — ServiceNow: Update Record (Close Incident)](#block-7b--servicenow-update-record)
-6. [Key Expressions Reference](#key-expressions-reference)
-7. [ServiceNow Field Mapping](#servicenow-field-mapping)
-8. [Approach Comparison: monitorCondition vs Delay](#approach-comparison)
-9. [Why monitorCondition Approach Wins](#why-monitorcondition-approach-wins)
+7. [Key Expressions Reference](#key-expressions-reference)
+8. [ServiceNow Field Mapping](#servicenow-field-mapping)
+9. [Approach Comparison: monitorCondition vs Delay](#approach-comparison)
+10. [Why monitorCondition Approach Wins](#why-monitorcondition-approach-wins)
+11. [Implementation Checklist](#implementation-checklist)
 
 ---
 
@@ -39,6 +41,32 @@
 | **Severity Mapping** | 80–90% → P3 (SEV 2), 90–95% → P2 (SEV 1), >95% → P1 (SEV 0) |
 | **Auto-Close Trigger** | `monitorCondition = 'Resolved'` in Azure Monitor payload |
 | **Correlation Key** | `alertId` stored in ServiceNow custom field `u_azure_alert_id` |
+
+---
+
+## Architecture Overview
+
+High-level end-to-end flow from Azure Monitor through to ServiceNow:
+
+```mermaid
+flowchart LR
+    A[🖥️ Azure VM\nCPU > 80%] --> B[📊 Azure Monitor\nMetric Alert]
+    B --> C[🔔 Action Group\nCommon Alert Schema ON]
+    C --> D[⚡ Logic App\nHTTP Trigger]
+    D --> E{monitorCondition}
+
+    E -->|Fired| F[Extract CPU Metric]
+    F --> G{CPU Threshold}
+    G -->|80–90%| H[🟡 Create ServiceNow\nIncident P3 - SEV2]
+    G -->|90–95%| I[🟠 Create ServiceNow\nIncident P2 - SEV1]
+    G -->|> 95%| J[🔴 Create ServiceNow\nIncident P1 - SEV0]
+
+    E -->|Resolved| K[Extract alertId]
+    K --> L[🔎 Query ServiceNow\nIncident by alertId]
+    L --> M[✏️ Update Incident\n→ Resolved / Closed]
+```
+
+> **Key**: The same Logic App handles both `Fired` and `Resolved` events. Azure Monitor sends both payloads automatically — no polling needed.
 
 ---
 
@@ -74,7 +102,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  BLOCK 1 ── TRIGGER                                                     │
-│  📥  When a HTTP request is received                                    │
+│       When a HTTP request is received                                   │
 │       Method: POST                                                      │
 │       (Azure Monitor Action Group posts here)                           │
 └───────────────────────────┬─────────────────────────────────────────────┘
@@ -82,7 +110,7 @@
                             ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  BLOCK 2 ── DATA OPERATION                                              │
-│  🔍  Parse JSON                                                         │
+│      Parse JSON                                                         │
 │       Content : triggerBody()                                           │
 │       Schema  : Common Alert Schema (Azure Monitor)                     │
 └───────────────────────────┬─────────────────────────────────────────────┘
@@ -90,18 +118,18 @@
                             ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  BLOCK 3 ── CONTROL                                                     │
-│  ❓  Condition                                                          │
+│      Condition                                                          │
 │       Name   : "Check monitorCondition"                                 │
 │       Expression:                                                       │
 │       @equals(triggerBody()?['data']?['essentials']                     │
 │               ?['monitorCondition'], 'Fired')                           │
-└────────────┬──────────────────────────────┬────────────────────────────┘
+└────────────┬───────────────────────────────┬────────────────────────────┘
              │ TRUE                          │ FALSE
              │ (Alert Fired)                 │ (Alert Resolved)
              ▼                               ▼
 ┌────────────────────────┐     ┌─────────────────────────────────────────┐
 │ BLOCK 4A               │     │ BLOCK 4B                                │
-│ 📊  Initialize Variable│     │ 🔡  Initialize Variable                 │
+│     Initialize Variable│     │     Initialize Variable                 │
 │  Name : varCPUValue    │     │  Name : varAlertId                      │
 │  Type : Float          │     │  Type : String                          │
 │  Value:                │     │  Value:                                 │
@@ -113,10 +141,10 @@
 │  ?['metricValue']      │                    ▼
 └────────────┬───────────┘     ┌─────────────────────────────────────────┐
              │                 │ BLOCK 5B                                │
-             ▼                 │ 🔎  ServiceNow — List Records           │
+             ▼                 │     ServiceNow — List Records           │
 ┌────────────────────────┐     │  Table : incident                       │
 │ BLOCK 5A               │     │  Query :                                │
-│ ❓  Condition          │     │  u_azure_alert_id=@{variables           │
+│     Condition          │     │  u_azure_alert_id=@{variables           │
 │  Name:"Determine       │     │  ('varAlertId')}^state!=7               │
 │  Severity"             │     │                                         │
 │                        │     │  (Finds open incidents matching         │
@@ -126,7 +154,7 @@
 │                        │                    ▼
 │  Branch 2:             │     ┌─────────────────────────────────────────┐
 │  varCPUValue >= 90     │     │ BLOCK 6B                                │
-│  AND < 95              │     │ ❓  Condition                           │
+│  AND < 95              │     │     Condition                           │
 │  → P2 (SEV 1)          │     │  Name : "Was Incident Found?"           │
 │                        │     │  Expression:                            │
 │  Branch 3 (else):      │     │  @greater(length(body('List_Records')   │
@@ -137,8 +165,8 @@
              │                        ▼
              ▼            ┌─────────────────────────────────────────┐
 ┌────────────────────────┐│ BLOCK 7B                                │
-│ BLOCK 6A               ││ ✏️  ServiceNow — Update Record          │
-│ ➕  ServiceNow —       ││  Table  : incident                      │
+│ BLOCK 6A               ││     ServiceNow — Update Record          │
+│     ServiceNow —       ││  Table  : incident                      │
 │     Create Record      ││  Record ID:                             │
 │                        ││  body('List_Records')?['result'][0]     │
 │  Table: incident       ││  ?['sys_id']                            │
@@ -158,6 +186,8 @@
 ---
 
 ## Workflow Diagram
+
+Detailed Logic App internal flow showing all decision points and actions:
 
 ```mermaid
 flowchart TD
@@ -282,7 +312,7 @@ This uses **Switch** or nested **Conditions** in Azure Portal:
 | ServiceNow Field | Value / Expression |
 |------------------|--------------------|
 | `short_description` | `Azure Monitor Alert: CPU utilization exceeded threshold` |
-| `description` | `CPU metric value: @{variables('varCPUValue')}% on resource: @{triggerBody()?['data']?['essentials']?['configurationItems'][0]}` |
+| `description` | CPU value + resource name | From alert payload |
 | `urgency` | `@{variables('varUrgency')}` |
 | `impact` | `@{variables('varImpact')}` |
 | `category` | `infrastructure` |
@@ -413,6 +443,7 @@ By storing `alertId` in `u_azure_alert_id` at incident creation time, the Resolv
 Each Logic App run completes in seconds (Fired) or a few seconds (Resolved). There are no long-running instances, no idle wait time, and no unnecessary Azure resource consumption.
 
 ### ✅ Handles Edge Cases
+
 | Scenario | Behavior |
 |----------|----------|
 | Alert resolves, incident already manually closed | `List Records` returns empty → no action (graceful skip) |
@@ -442,13 +473,13 @@ BLOCK 3  →  Condition: monitorCondition == 'Fired'?
                 BLOCK 4B  →  Initialize Variable: varAlertId
                 BLOCK 5B  →  ServiceNow: List Records
                               └── Query: u_azure_alert_id=varAlertId AND state!=7
-                BLOCK 6B  →  Condition: length(result) > 0?
+                BLOCK 6B  →  Condition: Was Incident Found?
                               └── TRUE:
                                   BLOCK 7B  →  ServiceNow: Update Record
                                                 └── state=6, close_notes=auto-close msg
-```
+``` 
 
 ---
 
-*Document prepared for TCS Architecture Review — 2026-03-06*  
+
 *Logic App: Consumption (Multi-tenant) | Azure Monitor Common Alert Schema | ServiceNow ITSM*
