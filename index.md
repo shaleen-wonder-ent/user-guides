@@ -146,6 +146,10 @@ Please select a guide from the list below:
 * [AMPLS Q&A](./AMPLS_Q_n_A.md)
 
   ---
+  
+* [AMPLS - Traffic Routing & Bandwidth Guide](./AMPLS_Traffic_Flow.md)
+
+  ---
 
 * [AMPL DNS Troubleshooting Guide](./AMPLS_DNS_Troubleshooting.md)
 
