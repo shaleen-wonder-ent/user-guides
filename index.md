@@ -222,6 +222,10 @@ Please select a guide from the list below:
 * [Keycloak Integration with Entra ID - Authentication Flow](./user_auth_n_flow_sow.md)
 
   ---
+
+* [Azure Logic App (Consumption) — Auto-Close ServiceNow Incident on Azure Monitor Alert Resolution](./LogicApp-GH-Detailed.md)
+
+  ---
 <!--
 
 ---
