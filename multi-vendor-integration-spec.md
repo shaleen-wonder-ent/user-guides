@@ -7,9 +7,6 @@
 
 | Property | Value |
 |----------|-------|
-| **Version** | 1.0 |
-| **Last Updated** | 2026-02-24 |
-| **Status** | Draft |
 | **Audience** | Technical Architects, DevOps Engineers, Integration Developers |
 | **Purpose** | Detailed technical specification for AI agent integration with Palo Alto, F5, and Infoblox |
 
