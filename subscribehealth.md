@@ -1,4 +1,4 @@
-# Azure Service Health Alerts — Configuration Guide (Validated & Production-Ready)
+# Azure Service Health Alerts — Configuration Guide
 
 ## Table of Contents
 
