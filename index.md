@@ -226,6 +226,11 @@ Please select a guide from the list below:
 * [Azure Logic App (Consumption) — Auto-Close ServiceNow Incident on Azure Monitor Alert Resolution](./LogicApp-GH-Detailed.md)
 
   ---
+
+* [Azure Files SMB — AKS Persistent Volume IOPS Troubleshooting Guide](./AzureFileIssue.md)
+
+  ---
+  
 <!--
 
 ---
