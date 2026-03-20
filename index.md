@@ -231,6 +231,10 @@ Please select a guide from the list below:
 
   ---
   
+* [Azure Service Health Alerts — Configuration Guide](./subscribehealth.md)
+
+  ---
+  
 <!--
 
 ---
