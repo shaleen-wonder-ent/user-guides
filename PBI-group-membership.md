@@ -210,7 +210,7 @@ Redirect to intermediate "Please Wait" page
 Frontend/Backend: Poll Graph API (checkMemberGroups)
   ┌─────┴─────┐
   │           │
-  ▼            ▼
+  ▼           ▼
  Active      Not Yet
   │            │
   ▼            ▼
