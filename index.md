@@ -235,6 +235,10 @@ Please select a guide from the list below:
 
   ---
   
+* [Power BI – Entra ID Group Assignment Propagation Delay Guide](./PBI-group-membership.md)
+
+  ---
+  
 <!--
 
 ---
