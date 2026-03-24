@@ -250,3 +250,353 @@ to Power BI  & Retry
 - [Power BI REST API: Add Group User](https://learn.microsoft.com/en-us/rest/api/power-bi/groups/add-group-user)
 - [Power BI REST API: Get Group Users](https://learn.microsoft.com/en-us/rest/api/power-bi/groups/get-group-users)
 - [Entra ID Group Membership Propagation](https://learn.microsoft.com/en-us/entra/fundamentals/groups-view-azure-portal)
+
+
+## Troubleshooting
+
+Here's code to test both:
+
+## Test Scenario 1: Power BI Authorization Cache
+
+```js
+/**
+ * Test if Power BI's internal cache has updated
+ * by attempting to access the workspace via Power BI API
+ */
+async function testPowerBICache(workspaceId, userAccessToken) {
+    console.log('\n=== TEST 1: Power BI Authorization Cache ===');
+    
+    try {
+        const response = await axios.get(
+            `https://api.powerbi.com/v1.0/myorg/groups/${workspaceId}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${userAccessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        console.log('✅ Power BI Cache Test: SUCCESS');
+        console.log(`   Status: ${response.status}`);
+        console.log(`   Workspace Name: ${response.data.name}`);
+        console.log('   → User CAN access workspace via API');
+        console.log('   → Power BI cache HAS been updated');
+        return true;
+        
+    } catch (error) {
+        if (error.response?.status === 403) {
+            console.log('❌ Power BI Cache Test: DENIED (403 Forbidden)');
+            console.log('   → User CANNOT access workspace via API');
+            console.log('   → Power BI cache NOT updated yet');
+            console.log('   → Need to wait longer for cache refresh');
+            return false;
+        } else if (error.response?.status === 404) {
+            console.log('⚠️  Power BI Cache Test: NOT FOUND (404)');
+            console.log('   → Workspace might not exist or user has no access');
+            return false;
+        } else {
+            console.log('⚠️  Power BI Cache Test: ERROR');
+            console.log(`   Status: ${error.response?.status}`);
+            console.log(`   Error: ${error.message}`);
+            throw error;
+        }
+    }
+}
+```
+
+## Test Scenario 2: Token Claims
+
+```js
+/**
+ * Test if user's token contains the required group claim
+ * by decoding the JWT token
+ */
+async function testTokenClaims(userAccessToken, expectedGroupId) {
+    console.log('\n=== TEST 2: Token Claims ===');
+    
+    try {
+        const tokenParts = userAccessToken.split('.');
+        if (tokenParts.length !== 3) {
+            throw new Error('Invalid JWT token format');
+        }
+        
+        const payload = JSON.parse(
+            Buffer.from(tokenParts[1], 'base64').toString('utf-8')
+        );
+        
+        console.log('Token Payload Info:');
+        console.log(`   User: ${payload.name || payload.preferred_username}`);
+        console.log(`   UPN: ${payload.upn || payload.preferred_username}`);
+        console.log(`   OID: ${payload.oid}`);
+        console.log(`   Issued At: ${new Date(payload.iat * 1000).toISOString()}`);
+        console.log(`   Expires At: ${new Date(payload.exp * 1000).toISOString()}`);
+        
+        if (payload.groups && Array.isArray(payload.groups)) {
+            console.log(`\n   Groups in token (${payload.groups.length} total):`);
+            payload.groups.forEach((groupId, index) => {
+                const marker = groupId === expectedGroupId ? '✅ TARGET GROUP' : '';
+                console.log(`   ${index + 1}. ${groupId} ${marker}`);
+            });
+            
+            if (payload.groups.includes(expectedGroupId)) {
+                console.log('\n✅ Token Claims Test: SUCCESS');
+                console.log('   → Token CONTAINS the required group');
+                console.log('   → Token has been refreshed with new membership');
+                return true;
+            } else {
+                console.log('\n❌ Token Claims Test: MISSING GROUP');
+                console.log('   → Token does NOT contain the required group');
+                console.log('   → Token needs to be refreshed');
+                return false;
+            }
+        } else if (payload.wids) {
+            console.log('\n⚠️  Token uses role claims (wids) instead of groups');
+            console.log('   → Token might be using different claim type');
+            console.log(`   → Roles in token: ${payload.wids.join(', ')}`);
+            return null;
+        } else {
+            console.log('\n⚠️  Token Claims Test: NO GROUP CLAIMS');
+            console.log('   → Token does not contain "groups" claim');
+            console.log('   → Might be using group overage scenario');
+            console.log('   → Check "_claim_names" and "_claim_sources" in token');
+            
+            if (payload._claim_names || payload._claim_sources) {
+                console.log('   → Token uses group overage (too many groups)');
+                console.log('   → Groups must be retrieved via Graph API instead');
+            }
+            return null;
+        }
+        
+    } catch (error) {
+        console.log('⚠️  Token Claims Test: ERROR');
+        console.log(`   Error: ${error.message}`);
+        throw error;
+    }
+}
+```
+
+## Combined Test Function
+
+```js
+/**
+ * Run both tests and provide diagnosis
+ */
+async function diagnoseAccessIssue(workspaceId, groupId, userAccessToken) {
+    console.log('╔════════════════════════════════════════════════╗');
+    console.log('║  Power BI Access Issue Diagnostic Test        ║');
+    console.log('╚════════════════════════════════════════════════╝');
+    console.log(`\nWorkspace ID: ${workspaceId}`);
+    console.log(`Expected Group ID: ${groupId}`);
+    console.log(`Token Length: ${userAccessToken.length} chars`);
+    
+    const cacheReady = await testPowerBICache(workspaceId, userAccessToken);
+    const tokenHasGroup = await testTokenClaims(userAccessToken, groupId);
+    
+    console.log('\n╔════════════════════════════════════════════════╗');
+    console.log('║  DIAGNOSIS                                     ║');
+    console.log('╚════════════════════════════════════════════════╝');
+    
+    if (cacheReady === true && tokenHasGroup === true) {
+        console.log('✅ BOTH READY: User should have access');
+        console.log('   → Power BI cache is updated ✅');
+        console.log('   → Token contains group ✅');
+        console.log('   → Access should work now');
+        return 'READY';
+    } else if (cacheReady === false && tokenHasGroup === true) {
+        console.log('⚠️  ISSUE: Power BI Authorization Cache');
+        console.log('   → Token is correct ✅');
+        console.log('   → Power BI cache NOT updated yet ❌');
+        console.log('   → ROOT CAUSE: Power BI cache delay');
+        console.log('   → SOLUTION: Wait 3-5 minutes for cache refresh');
+        return 'CACHE_ISSUE';
+    } else if (cacheReady === false && tokenHasGroup === false) {
+        console.log('⚠️  ISSUE: BOTH not ready');
+        console.log('   → Token does NOT have group ❌');
+        console.log('   → Power BI cache NOT updated ❌');
+        console.log('   → ROOT CAUSE: Both token and cache need refresh');
+        console.log('   → SOLUTION: Force token refresh AND wait for cache');
+        return 'BOTH_ISSUE';
+    } else if (cacheReady === true && tokenHasGroup === false) {
+        console.log('⚠️  ISSUE: Token Claims (Unusual)');
+        console.log('   → Power BI cache is ready ✅');
+        console.log('   → Token does NOT have group ❌');
+        console.log('   → ROOT CAUSE: Token needs refresh');
+        console.log('   → SOLUTION: Force token refresh');
+        return 'TOKEN_ISSUE';
+    } else {
+        console.log('⚠️  INCONCLUSIVE');
+        console.log('   → Unable to determine root cause');
+        console.log('   → Check logs above for details');
+        return 'UNKNOWN';
+    }
+}
+```
+
+## Helper: Get User's Power BI Token
+
+```js
+/**
+ * Get access token for user to call Power BI API
+ */
+async function getUserPowerBIToken(userId) {
+    const tokenResponse = await axios.post(
+        `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`,
+        new URLSearchParams({
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET,
+            grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            assertion: userToken,
+            requested_token_use: 'on_behalf_of',
+            scope: 'https://analysis.windows.net/powerbi/api/.default'
+        })
+    );
+    
+    return tokenResponse.data.access_token;
+}
+```
+
+## Usage Example
+
+```js
+async function runDiagnostics() {
+    const workspaceId = 'YOUR-WORKSPACE-ID';
+    const groupId = 'YOUR-GROUP-ID';
+    const userEmail = 'user@domain.com';
+    
+    try {
+        console.log('Step 1: Checking Entra membership...');
+        const user = await getUserByEmail(userEmail);
+        const isMemberInEntra = await checkUserInGroup(user.id, groupId);
+        console.log(`Entra Membership: ${isMemberInEntra ? '✅ Confirmed' : '❌ Not found'}`);
+        
+        if (!isMemberInEntra) {
+            console.log('ERROR: User not in Entra group yet. Wait for propagation.');
+            return;
+        }
+        
+        console.log('\nStep 2: Getting user access token...');
+        const userToken = await getUserPowerBIToken(user.id);
+        console.log('Token acquired ✅');
+        
+        console.log('\nStep 3: Running diagnostic tests...\n');
+        const diagnosis = await diagnoseAccessIssue(workspaceId, groupId, userToken);
+        
+        console.log('\n╔════════════════════════════════════════════════╗');
+        console.log('║  RESULT                                        ║');
+        console.log('╚════════════════════════════════════════════════╝');
+        console.log(`Diagnosis: ${diagnosis}`);
+        
+    } catch (error) {
+        console.error('Diagnostic failed:', error.message);
+        console.error(error);
+    }
+}
+
+runDiagnostics();
+```
+
+## Simpler Test Scripts
+
+### Quick Test 1: Check Power BI Cache
+
+```js
+const axios = require('axios');
+
+async function quickTestPowerBICache() {
+    const workspaceId = 'YOUR-WORKSPACE-ID';
+    const userAccessToken = 'USER-ACCESS-TOKEN';
+    
+    try {
+        const response = await axios.get(
+            `https://api.powerbi.com/v1.0/myorg/groups/${workspaceId}`,
+            { headers: { 'Authorization': `Bearer ${userAccessToken}` } }
+        );
+        
+        console.log('✅ SUCCESS: Power BI cache is ready');
+        console.log('User CAN access the workspace');
+        return true;
+    } catch (error) {
+        if (error.response?.status === 403) {
+            console.log('❌ DENIED: Power BI cache NOT ready yet');
+            console.log('ROOT CAUSE: Power BI authorization cache delay');
+            console.log('SOLUTION: Wait 3-5 more minutes');
+        } else {
+            console.log(`ERROR: ${error.message}`);
+        }
+        return false;
+    }
+}
+
+quickTestPowerBICache();
+```
+
+### Quick Test 2: Check Token Claims
+
+```js
+function quickTestTokenClaims() {
+    const userAccessToken = 'USER-ACCESS-TOKEN';
+    const expectedGroupId = 'YOUR-GROUP-ID';
+    
+    const payload = JSON.parse(
+        Buffer.from(userAccessToken.split('.')[1], 'base64').toString()
+    );
+    
+    console.log('Token Info:');
+    console.log(`  User: ${payload.preferred_username}`);
+    console.log(`  Groups in token: ${payload.groups?.length || 0}`);
+    
+    if (payload.groups?.includes(expectedGroupId)) {
+        console.log('✅ SUCCESS: Token contains the group');
+        console.log('ROOT CAUSE: Power BI cache delay (not token)');
+        return true;
+    } else {
+        console.log('❌ MISSING: Token does NOT contain the group');
+        console.log('ROOT CAUSE: Token needs refresh');
+        return false;
+    }
+}
+
+quickTestTokenClaims();
+```
+
+## Expected Test Results
+
+### Scenario A: Power BI Cache Issue (Most Likely)
+
+| Test | Result |
+|------|--------|
+| ✅ Entra Membership | Confirmed |
+| ✅ Token Claims | Group present |
+| ❌ Power BI Cache | Access denied (403) |
+
+> → **ROOT CAUSE:** Power BI authorization cache
+> → **SOLUTION:** Wait 3-5 minutes
+
+### Scenario B: Token Issue
+
+| Test | Result |
+|------|--------|
+| ✅ Entra Membership | Confirmed |
+| ❌ Token Claims | Group missing |
+| ❌ Power BI Cache | Access denied (403) |
+
+> → **ROOT CAUSE:** Token needs refresh
+> → **SOLUTION:** Force new token with fresh claims
+
+## How to Get User Access Token for Testing
+
+```js
+// If you're using Express session-based auth
+const userToken = req.session.accessToken;
+
+// If you're using MSAL
+const tokenResponse = await msalClient.acquireTokenSilent({
+    scopes: ['https://analysis.windows.net/powerbi/api/.default'],
+    account: userAccount
+});
+const userToken = tokenResponse.accessToken;
+
+// If using Keycloak
+const userToken = req.kauth.grant.access_token.token;
+```
