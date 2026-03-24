@@ -237,5 +237,4 @@ For Contoso team members new to Azure Landing Zones, we recommend reading the re
 
 ---
 
-## 
 
