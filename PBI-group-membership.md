@@ -571,7 +571,7 @@ quickTestTokenClaims();
 | ❌ Power BI Cache | Access denied (403) |
 
 > → **ROOT CAUSE:** Power BI authorization cache
-> → **SOLUTION:** Wait 3-5 minutes
+> → **SOLUTION:** Wait 30-60 minutes
 
 ### Scenario B: Token Issue
 
