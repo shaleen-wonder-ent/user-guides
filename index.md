@@ -238,6 +238,10 @@ Please select a guide from the list below:
 * [Power BI – Entra ID Group Assignment Propagation Delay Guide](./PBI-group-membership.md)
 
   ---
+  
+* [Power BI Cache Timing Test — Polling Logic](./PBI-Polling-Logic-Tests.md)
+
+  ---
 
 * [Azure Landing Zone — Contoso Multi-Tenant SaaS Contact Center Platform Guide](./Contoso-LandingZone-Summary.md)
 
