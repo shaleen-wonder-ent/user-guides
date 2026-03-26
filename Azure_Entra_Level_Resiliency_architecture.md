@@ -1,4 +1,4 @@
-# 🏗️ Cross-Tenant Disaster Recovery Reference Architecture
+# 🏗️ Cross-Tenant Disaster Recovery Reference Architecture — Final
 
 ## Aligned to Microsoft Cloud Adoption Framework (CAF) & Azure Well-Architected Framework (WAF)
 
@@ -32,6 +32,7 @@
   - [5.8 Governance State Machine](#58-governance-state-machine)
 - [6. Landing Zone Design](#6-landing-zone-design)
 - [7. Identity & Access Architecture](#7-identity--access-architecture)
+  - [7A. Identity Recovery Deep-Dive: Solving the Tenant-Bound Identity Breakage Problem](#7a-identity-recovery-deep-dive-solving-the-tenant-bound-identity-breakage-problem)
 - [8. Data Protection & Backup Strategy](#8-data-protection--backup-strategy)
 - [9. Application Recovery by Tier](#9-application-recovery-by-tier)
 - [10. Pre-Requisites Checklist](#10-pre-requisites-checklist)
@@ -47,9 +48,19 @@
 
 ### Scenario
 
-> **Trigger:** HCL's primary Azure tenant is compromised and locked down for forensic investigation (15–30 days).
+> **Trigger:** Contoso's primary Azure tenant is compromised and locked down for forensic investigation (15–30 days).
 > **Constraint:** Backups reside in a **separate, isolated Azure tenant**.
 > **Goal:** Restore mission-critical applications using the fastest supported approach.
+
+### Core Design Principle
+
+> **You do not restore a tenant — you rebuild workloads in a clean tenant.**
+>
+> Azure does not support tenant-level rollback. Recovery must be:
+> - Workload-centric
+> - Pre-designed
+> - Automated
+> - Identity-aware (all RBACs, SPNs, and Managed Identities will break and must be reconstructed)
 
 ### Design Principles Applied
 
@@ -69,6 +80,8 @@ This reference architecture is built on the intersection of two Microsoft framew
 | ASR + IaC hybrid approach | Balances RTO with cost | Cost Optimization, Reliability | Manage |
 | Break-glass accounts with FIDO2 | Ensures access when primary Entra ID is unavailable | Security | Govern |
 | Immutable storage (WORM) | Prevents backup tampering by compromised identities | Security, Reliability | Ready |
+| Identity Mapping Registry | Solves tenant-bound SPN/RBAC/Managed Identity breakage | Security, Reliability | Govern |
+| IaC uses display-name lookups (not hard-coded Object IDs) | Ensures RBAC reconstruction works with new Object IDs in recovery tenant | Operational Excellence | Govern |
 
 ---
 
@@ -104,6 +117,7 @@ graph TB
         A4["Network<br/>Topology"]
         A5["Recovery<br/>Automation"]
         A6["Governance &<br/>Compliance"]
+        A7["Identity<br/>Reconstruction"]
     end
 
     CAF --> ARCH
@@ -155,6 +169,9 @@ mindmap
       Certificates (TLS/SSL)
       Conditional Access Policies
       PIM Role Assignments
+      Service Principals & App Registrations
+      Managed Identities (System & User-Assigned)
+      RBAC Role Assignments (all scopes)
     Tier 1: Core Data
       Azure SQL Databases
       Cosmos DB Accounts
@@ -187,6 +204,8 @@ mindmap
 | Entra ID Administration | Expert | [MS Learn: Entra ID](https://learn.microsoft.com/en-us/entra/identity/) |
 | Incident Response | Expert | [NIST SP 800-61](https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final) |
 | Azure Networking | Advanced | [MS Learn: Networking](https://learn.microsoft.com/en-us/azure/networking/) |
+| Cross-Tenant Identity & SPN Management | Expert | [Azure Doctor: Cross-Tenant SPNs](https://www.azuredoctor.com/posts/how-to-share-service-principals-across-entra-tenant/) |
+| Workload Identity Federation | Advanced | [MS Learn: Workload Identity](https://learn.microsoft.com/en-us/entra/workload-id/) |
 
 ---
 
@@ -219,7 +238,7 @@ This maps directly to **Landing Zone Design** — see [Section 6](#6-landing-zon
 | **Cost Management** | Tag all DR resources with `purpose:disaster-recovery`; monthly cost review |
 | **Security Baseline** | Zero standing access; WORM storage; private endpoints; no legacy auth |
 | **Resource Consistency** | All resources deployed via IaC; Azure Policy enforces compliance |
-| **Identity Baseline** | Break-glass accounts with FIDO2; PIM for all privileged access |
+| **Identity Baseline** | Break-glass accounts with FIDO2; PIM for all privileged access; Identity Mapping Registry maintained |
 | **Deployment Acceleration** | CI/CD pipelines for IaC; automated backup validation |
 
 ---
@@ -236,6 +255,8 @@ This maps directly to **Landing Zone Design** — see [Section 6](#6-landing-zon
 | IaC drift detection | Daily (automated) | Platform Engineering |
 | RTO/RPO validation | Quarterly | Cloud Ops + Business |
 | Architecture review | Annually | Architecture Board |
+| Identity Mapping Registry sync & validation | Weekly (automated) | Platform Engineering |
+| Mirror App Registration verification | Monthly | Security + Platform Engineering |
 
 ---
 
@@ -292,6 +313,7 @@ graph TD
 | R-05 | Use cross-region backup (CRR) within backup tenant | High | RE:05 |
 | R-06 | Design recovery flows to be idempotent and re-runnable | Medium | RE:07 |
 | R-07 | Implement circuit-breaker patterns for cross-tenant operations | Medium | RE:07 |
+| R-08 | Validate Identity Mapping Registry weekly to prevent stale RBAC reconstruction | Critical | RE:09 |
 
 #### Failure Mode Analysis (FMA)
 
@@ -303,6 +325,9 @@ graph TD
 | IaC state drift | Recovery deploys incorrect config | Automated drift detection; state locked in immutable blob | Daily Terraform plan |
 | DNS failover fails | Users cannot reach recovered apps | Pre-configured Traffic Manager with health probes; manual DNS override procedure | Synthetic monitoring |
 | ExpressRoute to recovery tenant unavailable | On-prem cannot reach recovery | Pre-provisioned VPN as backup path | Network monitoring |
+| **Identity Mapping Registry stale/incomplete** | **RBAC assignments fail; apps can't authenticate to Key Vault, SQL, Storage** | **Automated weekly sync of identity inventory from primary tenant; validate completeness in every DR drill** | **Pre-drill identity audit script; automated diff against live Entra ID** |
+| **Managed Identity Object IDs mismatch after recreation** | **Key Vault access policies, SQL AAD auth, Storage RBAC all broken** | **Post-deployment identity re-binding automation script; never hard-code Object IDs in IaC** | **Smoke tests include identity-dependent operations (Key Vault read, SQL query, Blob access)** |
+| **App Registration Client IDs change in recovery tenant** | **OAuth flows break; downstream API integrations fail** | **Pre-create mirror App Registrations in recovery tenant; maintain Client ID mapping; update redirect URIs via IaC** | **OAuth smoke tests in DR drill** |
 
 ---
 
@@ -383,12 +408,12 @@ quadrantChart
     title Cost vs Recovery Time Trade-off
     x-axis Low Cost --> High Cost
     y-axis Slow Recovery --> Fast Recovery
-    quadrant-1 Ideal (Fast & Cheap)
-    quadrant-2 Premium (Fast & Expensive)
-    quadrant-3 Budget (Slow & Cheap)
-    quadrant-4 Avoid (Slow & Expensive)
+    quadrant-1 Ideal - Fast and Cheap
+    quadrant-2 Premium - Fast and Expensive
+    quadrant-3 Budget - Slow and Cheap
+    quadrant-4 Avoid - Slow and Expensive
     IaC Rebuild Only: [0.25, 0.3]
-    ASR + IaC Hybrid (Recommended): [0.45, 0.7]
+    ASR plus IaC Hybrid - Recommended: [0.45, 0.7]
     Pilot Light: [0.55, 0.65]
     Full Warm Standby: [0.85, 0.9]
     Manual Rebuild: [0.3, 0.15]
@@ -418,6 +443,7 @@ quadrantChart
 | Testing | DR drills completed on schedule | 4 per year |
 | Recovery Time | Actual RTO vs. target RTO in drills | Within 120% of target |
 | Team Readiness | % of team trained on DR procedures | 100% of primary + backup |
+| Identity Reconstruction | % of SPNs/RBAC auto-reconstructed in drill | 100% |
 
 ---
 
@@ -450,7 +476,7 @@ quadrantChart
 
 ```mermaid
 graph TB
-    subgraph PRIMARY_TENANT["🔴 PRIMARY TENANT (HCL) — LOCKED DOWN"]
+    subgraph PRIMARY_TENANT["🔴 PRIMARY TENANT (Contoso) — LOCKED DOWN"]
         direction TB
         PT_Apps["App Services"]
         PT_AKS["AKS Clusters"]
@@ -470,6 +496,7 @@ graph TB
         BT_ACR["Mirror ACR<br/>(Container Images)"]
         BT_IaC["IaC State Files<br/>(Terraform/Bicep)"]
         BT_Entra["Entra ID<br/>(Break-Glass Accounts)"]
+        BT_IDMap["Identity Mapping<br/>Registry"]
     end
 
     subgraph RECOVERY_TENANT["🔵 RECOVERY TENANT (CAF: Application LZ)"]
@@ -478,9 +505,10 @@ graph TB
         RT_DB["Restored Databases"]
         RT_KV["Restored Key Vaults"]
         RT_DNS["New/Mapped DNS"]
-        RT_Entra["Emergency Entra ID"]
+        RT_Entra["Emergency Entra ID<br/>(New SPNs, Managed IDs)"]
         RT_Net["Network (VNets/NSGs)"]
         RT_Mon["Monitoring & Sentinel"]
+        RT_RBAC["Reconstructed RBAC<br/>(New Object IDs)"]
     end
 
     BACKUP_TENANT -- "🔄 Restore Data & Config" --> RECOVERY_TENANT
@@ -530,18 +558,19 @@ flowchart TD
     G --> G1["ASR Failover VMs"]
     G --> G2["Restore AKS:<br/>Deploy Cluster, Pull Images,<br/>Apply GitOps Manifests"]
     G --> G3["Restore App Services /<br/>Functions via IaC"]
-    G --> G4["Re-bind Managed Identities<br/>& Service Principals"]
-    G --> G5["Update App Config to<br/>Restored Endpoints"]
+    G --> G4["🔑 IDENTITY RECONSTRUCTION<br/>Re-create SPNs, Managed IDs<br/>Apply RBAC with new Object IDs<br/>Re-bind Key Vault Access Policies<br/>Re-bind SQL AAD Auth"]
+    G --> G5["Update App Config to<br/>Restored Endpoints &<br/>New Identity References"]
 
     G1 & G2 & G3 & G4 & G5 --> H["Phase 4: VALIDATION & CUTOVER<br/>(T+16 to T+24 hrs)<br/>WAF: OE:07 — Observability"]
 
     H --> H1["Smoke Test All<br/>Mission-Critical Apps"]
     H --> H2["Validate End-to-End<br/>Data Flow"]
-    H --> H3["Switch DNS / Traffic Manager"]
-    H --> H4["Enable Monitoring<br/>(Azure Monitor, Sentinel)"]
-    H --> H5["Notify Users of Recovery"]
+    H --> H3["🔑 Validate Identity-Dependent<br/>Operations (KV Read, SQL Query,<br/>Blob Access, OAuth Flows)"]
+    H --> H4["Switch DNS / Traffic Manager"]
+    H --> H5["Enable Monitoring<br/>(Azure Monitor, Sentinel)"]
+    H --> H6["Notify Users of Recovery"]
 
-    H1 & H2 & H3 & H4 & H5 --> I{"Apps Validated<br/>& Healthy?"}
+    H1 & H2 & H3 & H4 & H5 & H6 --> I{"Apps Validated<br/>& Healthy?"}
 
     I -- "Yes" --> J["✅ Recovery Complete<br/>Operate from Recovery Tenant"]
     I -- "No" --> K["Triage Failures<br/>Re-execute Specific Phase"]
@@ -558,6 +587,8 @@ flowchart TD
     style G fill:#e2d5f1,stroke:#6f42c1,stroke-width:2px
     style H fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style J fill:#28a745,stroke:#155724,color:#fff
+    style G4 fill:#ffab00,stroke:#ff6f00,color:#000
+    style H3 fill:#ffab00,stroke:#ff6f00,color:#000
 ```
 
 ---
@@ -580,6 +611,7 @@ graph LR
             B3["Certificate Backups (PFX)"]
             B4["IaC State Files"]
             B5["Container Image Tarballs"]
+            B6["Identity Mapping Registry<br/>(JSON)"]
         end
         subgraph ASR["Azure Site Recovery Vault<br/>WAF: RE:05"]
             A1["Continuous VM Replication"]
@@ -591,6 +623,7 @@ graph LR
             K2["TLS/SSL Certificates"]
             K3["DB Connection Strings"]
             K4["API Keys & Secrets"]
+            K5["Mirror App Registration<br/>Client Secrets"]
         end
     end
 
@@ -635,15 +668,20 @@ gantt
     ASR Failover VMs                        :p3a, 08:00, 120min
     Restore AKS (GitOps)                    :p3b, 08:00, 240min
     Restore App Services / Functions        :p3c, 09:00, 180min
-    Re-bind Identities & SPs               :p3d, 12:00, 120min
-    Update App Config                       :p3e, 14:00, 60min
+    🔑 Re-create SPNs & App Registrations   :crit, p3d, 10:00, 120min
+    🔑 Re-create Managed Identities         :crit, p3e, 10:00, 60min
+    🔑 Apply RBAC with New Object IDs       :crit, p3f, 12:00, 120min
+    🔑 Re-bind Key Vault Access Policies    :crit, p3g, 12:00, 60min
+    🔑 Re-bind SQL AAD Auth                 :crit, p3h, 13:00, 60min
+    Update App Config (endpoints + identity):p3i, 14:00, 60min
 
     section Phase 4 - Validation (WAF: OE:07)
     Smoke Test All Apps                     :p4a, 16:00, 120min
-    Validate E2E Data Flow                  :p4b, 16:00, 120min
-    Switch DNS / Traffic Manager            :p4c, 18:00, 60min
-    Enable Monitoring                       :p4d, 18:00, 120min
-    Notify Users                            :p4e, 20:00, 30min
+    🔑 Validate Identity-Dependent Ops      :crit, p4b, 16:00, 120min
+    Validate E2E Data Flow                  :p4c, 16:00, 120min
+    Switch DNS / Traffic Manager            :p4d, 18:00, 60min
+    Enable Monitoring                       :p4e, 18:00, 120min
+    Notify Users                            :p4f, 20:00, 30min
 ```
 
 ---
@@ -673,7 +711,7 @@ graph TB
         HUB <-->|"Peering"| SPOKE2
     end
 
-    ONPREM["🏢 On-Premises /<br/>HCL Data Centers"] <-->|"ExpressRoute / VPN"| VPN
+    ONPREM["🏢 On-Premises /<br/>Contoso Data Centers"] <-->|"ExpressRoute / VPN"| VPN
 
     DNS_PVT["Azure Private DNS Zones<br/>(Re-created via IaC)"]
     DNS_PUB["Public DNS:<br/>Traffic Manager / Front Door<br/>(Failover Endpoint)"]
@@ -700,6 +738,7 @@ graph LR
         P_KV["Key Vault (CMK/Secrets)"]
         P_ACR["ACR Images"]
         P_IaC["IaC State (Terraform/Bicep)"]
+        P_ID["Identity Inventory<br/>(SPNs, Managed IDs, RBAC)"]
     end
 
     subgraph BACKUP["BACKUP TENANT"]
@@ -708,6 +747,8 @@ graph LR
         B_KV["Isolated Key Vault<br/>(HSM-backed)"]
         B_ACR["Mirror ACR"]
         B_Blob["Immutable Blob<br/>(Versioned)"]
+        B_IDMap["Identity Mapping<br/>Registry (JSON)"]
+        B_MirrorApps["Mirror App<br/>Registrations"]
     end
 
     PRIMARY <-->|"Azure Lighthouse /<br/>Cross-Tenant SPN<br/>(CAF: Govern)"| BACKUP
@@ -715,6 +756,7 @@ graph LR
     P_KV -->|"Key Export (Automated)"| B_KV
     P_ACR -->|"Geo-Replication"| B_ACR
     P_IaC -->|"Blob Sync"| B_Blob
+    P_ID -->|"Weekly Automated<br/>Identity Export"| B_IDMap
 
     style PRIMARY fill:#ffcccc,stroke:#cc0000,stroke-width:2px
     style BACKUP fill:#ccffcc,stroke:#009900,stroke-width:2px
@@ -733,7 +775,7 @@ mindmap
       FIDO2 + PIN in physical safe
       PIM with time-bound activation
       Approval workflow required
-    Network Security — SE:04
+    Network Security �� SE:04
       Deny all public endpoints
       Private Endpoints for all PaaS
       No cross-tenant trust FROM backup TO primary
@@ -751,6 +793,11 @@ mindmap
       Separate billing and subscription
       MFA enforced everywhere
       No legacy auth protocols
+    Identity Resilience — SE:05
+      Identity Mapping Registry in WORM blob
+      Mirror App Registrations pre-created
+      IaC never hard-codes Object IDs
+      Post-deploy identity re-binding automated
     Governance — CAF Govern
       Azure Policy enforcement
       Regulatory compliance DORA SOC2 ISO27001
@@ -782,8 +829,8 @@ stateDiagram-v2
         [*] --> Phase0: Immediate (T+0 to T+1hr)
         Phase0 --> Phase1: Foundation (T+1 to T+4hrs)
         Phase1 --> Phase2: Data Tier (T+4 to T+8hrs)
-        Phase2 --> Phase3: Compute & App (T+8 to T+16hrs)
-        Phase3 --> Phase4: Validation (T+16 to T+24hrs)
+        Phase2 --> Phase3: Compute & App + Identity Reconstruction (T+8 to T+16hrs)
+        Phase3 --> Phase4: Validation incl. Identity Smoke Tests (T+16 to T+24hrs)
         Phase4 --> [*]
     }
 
@@ -822,7 +869,7 @@ graph TB
             ROOT --> SANDBOX
 
             PLATFORM --> CONN["Connectivity<br/>(Hub VNet, FW, VPN)"]
-            PLATFORM --> IDENTITY["Identity<br/>(Break-Glass, PIM)"]
+            PLATFORM --> IDENTITY["Identity<br/>(Break-Glass, PIM,<br/>Mirror App Regs)"]
             PLATFORM --> MGMT["Management<br/>(Sentinel, Monitor)"]
 
             APP --> TIER0["Tier 0 — Identity Recovery"]
@@ -843,8 +890,8 @@ graph TB
 | Subscription | Tenant | Purpose | CAF Archetype |
 |---|---|---|---|
 | `sub-backup-platform` | Backup Tenant | Connectivity, Identity, Management | Platform |
-| `sub-backup-storage` | Backup Tenant | Backup Vaults, Immutable Blobs, ACR Mirror | Platform |
-| `sub-recovery-tier0` | Recovery Tenant | Identity recovery (Entra ID, Key Vaults) | Application LZ |
+| `sub-backup-storage` | Backup Tenant | Backup Vaults, Immutable Blobs, ACR Mirror, Identity Mapping Registry | Platform |
+| `sub-recovery-tier0` | Recovery Tenant | Identity recovery (Entra ID, Key Vaults, SPNs, RBAC) | Application LZ |
 | `sub-recovery-tier1` | Recovery Tenant | Data tier (SQL, Cosmos, Storage) | Application LZ |
 | `sub-recovery-tier2` | Recovery Tenant | Compute tier (AKS, VMs, App Services) | Application LZ |
 | `sub-recovery-sandbox` | Recovery Tenant | DR drill environment | Sandbox |
@@ -873,11 +920,393 @@ graph TB
 |---|---|---|---|
 | **Break-Glass Accounts** | ✅ Pre-created Global Admin accounts (MFA with hardware FIDO2 keys stored in physical safe) | Activate immediately | SE:05 |
 | **Emergency Entra ID Tenant** | ✅ Skeleton tenant with core groups, roles, Conditional Access policies as IaC | Deploy full identity config via pipeline | SE:05 |
-| **Service Principals / Managed Identities** | ✅ Documented App Registrations & secrets in isolated Key Vault | Re-create via IaC; rotate all secrets | SE:05 |
+| **Service Principals / Managed Identities** | ✅ Documented App Registrations & secrets in isolated Key Vault; **Identity Mapping Registry** maintained | Re-create via IaC using mapping registry; rotate all secrets; apply RBAC with new Object IDs | SE:05 |
 | **B2B/B2C Identity** | ✅ Configuration exported as IaC | Redeploy; update redirect URIs | SE:05 |
 | **Conditional Access & PIM** | ✅ Policies stored as JSON/Bicep | Apply to recovery tenant | SE:05 |
+| **Identity Mapping Registry** | ✅ Automated weekly export of all SPNs, Managed IDs, RBAC assignments, Key Vault policies, SQL AAD roles | Used by recovery IaC to reconstruct all identity bindings in recovery tenant | SE:05 |
+| **Mirror App Registrations** | ✅ Pre-created in recovery tenant with documented Client IDs | Activate; update redirect URIs; issue new client secrets | SE:05 |
 
 > **Key Decision:** Use a **pre-provisioned recovery Entra ID tenant** (not the backup tenant itself) to maintain isolation of backups during recovery. This aligns with WAF SE:04 (Segmentation).
+
+---
+
+### 7A. Identity Recovery Deep-Dive: Solving the Tenant-Bound Identity Breakage Problem
+
+> **⚠️ This is the #1 recovery blocker in cross-tenant DR scenarios.**
+>
+> When you rebuild workloads in a new tenant, **every identity object gets a new Object ID**. This breaks all RBAC role assignments, Key Vault access policies, SQL AAD authentication, Storage RBAC, and OAuth flows. This section provides the concrete patterns to solve this.
+
+#### 7A.1 The Problem: What Breaks and Why
+
+```mermaid
+graph TD
+    subgraph PROBLEM["🚨 WHAT BREAKS WHEN YOU MOVE TO A NEW TENANT"]
+        direction TB
+
+        subgraph IDENTITY["Tenant-Bound Identity Objects"]
+            ID1["Service Principals (SPNs)<br/>Object ID is tenant-specific"]
+            ID2["System-Assigned Managed Identities<br/>Tied to resource + tenant"]
+            ID3["User-Assigned Managed Identities<br/>Object ID is tenant-specific"]
+            ID4["App Registrations<br/>Application ID is tenant-bound"]
+            ID5["Entra ID Groups<br/>Object ID is tenant-specific"]
+        end
+
+        subgraph DOWNSTREAM["What References These Object IDs"]
+            DS1["RBAC Role Assignments<br/>(all scopes: MG, Sub, RG, Resource)"]
+            DS2["Key Vault Access Policies<br/>(get/list/set secrets, keys, certs)"]
+            DS3["SQL AAD Authentication<br/>(server admin + contained DB users)"]
+            DS4["Storage Account RBAC<br/>(Blob/Queue/Table data roles)"]
+            DS5["Cosmos DB RBAC"]
+            DS6["AKS AAD Integration<br/>(cluster admin groups)"]
+            DS7["App Service Auth<br/>(EasyAuth config)"]
+            DS8["API Management<br/>(Managed Identity for backends)"]
+            DS9["OAuth Redirect URIs<br/>(client IDs in app config)"]
+        end
+
+        ID1 --> DS1
+        ID1 --> DS2
+        ID1 --> DS3
+        ID2 --> DS2
+        ID2 --> DS4
+        ID2 --> DS5
+        ID3 --> DS1
+        ID3 --> DS4
+        ID4 --> DS9
+        ID5 --> DS1
+        ID5 --> DS6
+    end
+
+    style PROBLEM fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style IDENTITY fill:#ffcdd2,stroke:#c62828
+    style DOWNSTREAM fill:#fff3e0,stroke:#e65100
+```
+
+#### 7A.2 Detailed Breakage Matrix
+
+| Identity Object | Tenant-Bound? | What Breaks in Recovery Tenant | Recovery Complexity |
+|---|---|---|---|
+| **Service Principals (SPNs)** | ✅ Yes — Object ID is tenant-specific | All RBAC role assignments referencing old Object IDs → **invalid** | High — must re-create SPN, re-apply all RBAC |
+| **System-Assigned Managed Identities** | ✅ Yes — tied to resource + tenant | Cannot exist in new tenant; auto-created with new resource but with **new Object ID** → Key Vault access, Storage RBAC, SQL auth all **broken** | High — must re-bind every access policy post-deploy |
+| **User-Assigned Managed Identities** | ✅ Yes — Object ID is tenant-specific | Same breakage as system-assigned; new Object IDs in recovery tenant | High — same re-binding required |
+| **App Registrations** | ✅ Yes — Application ID is tenant-bound | OAuth redirect URIs, client IDs in downstream configs all change; API permissions must be re-granted | Very High — affects every OAuth/OIDC integration |
+| **RBAC Role Assignments** | ✅ Yes — reference principal Object IDs | Every `az role assignment` pointing to old IDs → **assignment is orphaned/invalid** | Medium — automated via Identity Mapping + IaC |
+| **Key Vault Access Policies** | ✅ Yes — reference Object IDs | Apps lose access to secrets, keys, certs | High — must re-apply with new Object IDs |
+| **SQL AAD Auth** | ✅ Yes — references Entra Object IDs | Database admins and contained users → **cannot authenticate** | High — must re-set AAD admin, re-create contained users |
+| **Conditional Access Policies** | ✅ Yes — reference group/user Object IDs | Policies referencing old groups won't match any subjects | Medium — re-create groups first, then apply policies |
+| **AKS Cluster Admin Groups** | ✅ Yes — references Entra Group Object IDs | Kubernetes RBAC bound to AAD groups breaks | Medium — update AKS AAD config with new group IDs |
+
+#### 7A.3 Solution Architecture: Identity Reconstruction Pipeline
+
+```mermaid
+flowchart TD
+    subgraph PRE["PRE-REQUISITE (Steady State — Before Incident)"]
+        P1["Weekly Automated Export:<br/>All SPNs, Managed IDs, RBAC,<br/>KV Policies, SQL AAD Roles"]
+        P2["Identity Mapping Registry<br/>stored in WORM Blob"]
+        P3["Mirror App Registrations<br/>pre-created in Recovery Tenant"]
+        P4["IaC templates use<br/>display-name lookups<br/>(NEVER hard-coded Object IDs)"]
+        P1 --> P2
+    end
+
+    subgraph RECOVERY["DURING RECOVERY (Phase 3)"]
+        R1["Step 1: Load Identity Mapping<br/>Registry from WORM Blob"]
+        R2["Step 2: Create SPNs via IaC<br/>(same display names,<br/>new Object IDs generated)"]
+        R3["Step 3: Create User-Assigned<br/>Managed Identities via IaC"]
+        R4["Step 4: Deploy Resources<br/>(VMs, AKS, App Services)<br/>System-Assigned MIs auto-created"]
+        R5["Step 5: Collect all new Object IDs<br/>(SPNs + System MI + User MI)"]
+        R6["Step 6: Apply RBAC Role<br/>Assignments using new Object IDs"]
+        R7["Step 7: Apply Key Vault<br/>Access Policies using new Object IDs"]
+        R8["Step 8: Set SQL AAD Admin &<br/>re-create contained DB users"]
+        R9["Step 9: Update App Config<br/>(connection strings, client IDs,<br/>redirect URIs)"]
+        R10["Step 10: Activate Mirror<br/>App Registrations<br/>(issue new client secrets)"]
+
+        R1 --> R2 --> R3 --> R4 --> R5
+        R5 --> R6
+        R5 --> R7
+        R5 --> R8
+        R6 & R7 & R8 --> R9
+        R9 --> R10
+    end
+
+    subgraph VALIDATE["VALIDATION (Phase 4)"]
+        V1["Smoke Test: SPN can<br/>read Key Vault secret"]
+        V2["Smoke Test: Managed ID<br/>can access Storage blob"]
+        V3["Smoke Test: SQL AAD auth<br/>works for app identity"]
+        V4["Smoke Test: OAuth flow<br/>completes end-to-end"]
+        V5["Smoke Test: AKS AAD<br/>group-based RBAC works"]
+    end
+
+    PRE --> RECOVERY --> VALIDATE
+
+    style PRE fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style RECOVERY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style VALIDATE fill:#fff3e0,stroke:#e65100,stroke-width:2px
+```
+
+#### 7A.4 Identity Mapping Registry — Schema & Automation
+
+The Identity Mapping Registry is the **key artifact** that enables automated identity reconstruction. It is an automated, continuously-synced JSON file that maps every identity object from the primary tenant to its planned equivalent in the recovery tenant.
+
+**Schema:**
+
+```json
+{
+  "metadata": {
+    "exported_at": "2026-03-25T14:00:00Z",
+    "source_tenant_id": "aaaa-bbbb-cccc-dddd",
+    "recovery_tenant_id": "eeee-ffff-gggg-hhhh",
+    "version": "1.0"
+  },
+  "service_principals": [
+    {
+      "display_name": "api-backend-sp",
+      "primary_tenant_object_id": "11111111-aaaa-bbbb-cccc-dddddddddddd",
+      "primary_tenant_app_id": "22222222-aaaa-bbbb-cccc-dddddddddddd",
+      "recovery_tenant_mirror_app_id": "33333333-aaaa-bbbb-cccc-dddddddddddd",
+      "type": "AppRegistration",
+      "rbac_assignments": [
+        {
+          "scope": "/subscriptions/xxx/resourceGroups/rg-app",
+          "role_definition_name": "Contributor"
+        },
+        {
+          "scope": "/subscriptions/xxx/resourceGroups/rg-data",
+          "role_definition_name": "Storage Blob Data Contributor"
+        }
+      ],
+      "key_vault_access": [
+        {
+          "vault_name": "kv-prod",
+          "permissions_to_secrets": ["get", "list"],
+          "permissions_to_keys": ["get", "wrapKey", "unwrapKey"],
+          "permissions_to_certificates": ["get", "list"]
+        }
+      ],
+      "sql_aad_roles": [
+        {
+          "server": "sql-prod.database.windows.net",
+          "database": "appdb",
+          "roles": ["db_datareader", "db_datawriter"]
+        }
+      ]
+    }
+  ],
+  "managed_identities": [
+    {
+      "display_name": "mi-webapp-prod",
+      "type": "UserAssigned",
+      "primary_tenant_object_id": "44444444-aaaa-bbbb-cccc-dddddddddddd",
+      "primary_tenant_resource_id": "/subscriptions/xxx/resourceGroups/rg-identity/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi-webapp-prod",
+      "rbac_assignments": [
+        {
+          "scope": "/subscriptions/xxx/resourceGroups/rg-data/providers/Microsoft.Storage/storageAccounts/stprod",
+          "role_definition_name": "Storage Blob Data Reader"
+        }
+      ],
+      "key_vault_access": [
+        {
+          "vault_name": "kv-prod",
+          "permissions_to_secrets": ["get", "list"]
+        }
+      ]
+    },
+    {
+      "display_name": "mi-aks-system",
+      "type": "SystemAssigned",
+      "primary_tenant_object_id": "55555555-aaaa-bbbb-cccc-dddddddddddd",
+      "primary_tenant_resource_id": "/subscriptions/xxx/resourceGroups/rg-aks/providers/Microsoft.ContainerService/managedClusters/aks-prod",
+      "note": "System-assigned MI will get new Object ID when AKS cluster is recreated; capture new ID post-deploy",
+      "rbac_assignments": [
+        {
+          "scope": "/subscriptions/xxx/resourceGroups/rg-aks",
+          "role_definition_name": "Network Contributor"
+        }
+      ]
+    }
+  ],
+  "entra_groups": [
+    {
+      "display_name": "sg-aks-cluster-admins",
+      "primary_tenant_object_id": "66666666-aaaa-bbbb-cccc-dddddddddddd",
+      "members": ["user1@Contoso.com", "user2@Contoso.com"],
+      "used_by": ["AKS AAD Integration — clusterAdmin group"]
+    },
+    {
+      "display_name": "sg-sql-admins",
+      "primary_tenant_object_id": "77777777-aaaa-bbbb-cccc-dddddddddddd",
+      "members": ["dba1@Contoso.com", "dba2@Contoso.com"],
+      "used_by": ["SQL AAD Admin group"]
+    }
+  ],
+  "conditional_access_group_references": [
+    {
+      "policy_name": "CA-001-Require-MFA-Admins",
+      "referenced_group": "sg-global-admins",
+      "primary_tenant_group_id": "88888888-aaaa-bbbb-cccc-dddddddddddd"
+    }
+  ]
+}
+```
+
+**Automation Script (conceptual — Azure CLI + PowerShell):**
+
+```powershell
+# Weekly Identity Export — runs as Azure Automation Runbook
+# Exports all identity objects from primary tenant to WORM blob
+
+# 1. Export all App Registrations
+$apps = Get-MgApplication -All
+# 2. Export all Service Principals
+$spns = Get-MgServicePrincipal -All
+# 3. Export all RBAC Role Assignments (all subscription scopes)
+$rbac = Get-AzRoleAssignment -Scope "/subscriptions/$subId"
+# 4. Export all Key Vault Access Policies
+$kvPolicies = foreach ($kv in Get-AzKeyVault) {
+    Get-AzKeyVault -VaultName $kv.VaultName
+}
+# 5. Export all Managed Identities
+$managedIds = Get-AzUserAssignedIdentity -ResourceGroupName "*"
+# 6. Export SQL AAD admin settings
+$sqlAdmins = foreach ($server in Get-AzSqlServer) {
+    Get-AzSqlServerActiveDirectoryAdministrator `
+        -ServerName $server.ServerName `
+        -ResourceGroupName $server.ResourceGroupName
+}
+# 7. Export Entra groups and memberships
+$groups = Get-MgGroup -All
+
+# Build mapping JSON and upload to WORM blob
+$mapping = @{
+    metadata = @{
+        exported_at = (Get-Date -Format o)
+        version = "1.0"
+    }
+    service_principals = $spns
+    # ... build full schema
+}
+$mapping | ConvertTo-Json -Depth 10 |
+    Set-AzStorageBlobContent `
+        -Container "identity-registry" `
+        -Blob "mapping-$(Get-Date -Format yyyy-MM-dd).json" `
+        -Context $wormStorageContext
+```
+
+#### 7A.5 IaC Pattern: Display-Name Lookups (Never Hard-Code Object IDs)
+
+**❌ Anti-Pattern (will break in cross-tenant recovery):**
+
+```Contoso
+resource "azurerm_role_assignment" "example" {
+  scope                = azurerm_resource_group.app.id
+  role_definition_name = "Contributor"
+  principal_id         = "11111111-aaaa-bbbb-cccc-dddddddddddd"  # HARD-CODED — WILL BREAK!
+}
+```
+
+**✅ Correct Pattern (works across tenants):**
+
+```Contoso
+# Lookup the SPN by display name in whichever tenant we're deploying to
+data "azuread_service_principal" "api_backend" {
+  display_name = "api-backend-sp"
+}
+
+resource "azurerm_role_assignment" "api_backend_contributor" {
+  scope                = azurerm_resource_group.app.id
+  role_definition_name = "Contributor"
+  principal_id         = data.azuread_service_principal.api_backend.object_id
+}
+```
+
+**✅ Key Vault Access Policy — Lookup Pattern:**
+
+```Contoso
+data "azuread_service_principal" "webapp" {
+  display_name = "webapp-prod-sp"
+}
+
+resource "azurerm_key_vault_access_policy" "webapp" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azuread_service_principal.webapp.object_id
+
+  secret_permissions      = ["Get", "List"]
+  key_permissions         = ["Get", "WrapKey", "UnwrapKey"]
+  certificate_permissions = ["Get", "List"]
+}
+```
+
+**✅ Post-Deploy Managed Identity Re-binding (for System-Assigned):**
+
+```Contoso
+# System-assigned MI is auto-created when resource is deployed
+# Capture the new Object ID and use it for RBAC
+resource "azurerm_role_assignment" "aks_network" {
+  scope                = azurerm_resource_group.aks.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "appservice_storage" {
+  scope                = azurerm_storage_account.data.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_linux_web_app.main.identity[0].principal_id
+}
+```
+
+#### 7A.6 SQL AAD Authentication Re-binding Procedure
+
+SQL databases with AAD authentication require special handling:
+
+```sql
+-- Step 1: Set the new Entra AD admin (recovery tenant) on the SQL Server
+-- (done via Terraform/Bicep or Azure CLI)
+-- az sql server ad-admin create --resource-group rg-data --server sql-recovery \
+--   --display-name "sg-sql-admins" --object-id <NEW-GROUP-OBJECT-ID>
+
+-- Step 2: After DB restore, re-create contained database users
+-- Connect to each restored database and execute:
+
+-- Drop old user (if exists with old SID)
+IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'api-backend-sp')
+    DROP USER [api-backend-sp];
+
+-- Create new contained user mapped to new SPN in recovery tenant
+CREATE USER [api-backend-sp] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [api-backend-sp];
+ALTER ROLE db_datawriter ADD MEMBER [api-backend-sp];
+
+-- Repeat for Managed Identities
+IF EXISTS (SELECT * FROM sys.database_principals WHERE name = 'mi-webapp-prod')
+    DROP USER [mi-webapp-prod];
+
+CREATE USER [mi-webapp-prod] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [mi-webapp-prod];
+```
+
+#### 7A.7 Microsoft Entra ID Backup & Recovery (Preview — March 2026)
+
+> **Note:** Microsoft launched **Entra ID Backup & Recovery** in public preview in March 2026. This provides native automated backup of tenant configuration objects (Users, Groups, Applications, Service Principals, Conditional Access policies, etc.) with point-in-time restore capability.
+
+| Feature | Capability | Relevance to This Architecture |
+|---|---|---|
+| **Automatic Daily Backups** | Backs up supported objects daily; 5-day retention | Defense-in-depth for same-tenant recovery scenarios |
+| **Granular Restore** | Restore all objects, by type, or by individual Object ID (up to 100/job) | Useful if primary tenant is recovered (not locked for forensics) |
+| **Difference Reports** | Compare current state to any backup snapshot before restoring | Aids forensic investigation once primary tenant is accessible |
+| **Immutable & Secure** | Backups cannot be deleted or altered by any admin, including Global Admin | Protects against insider threat or compromised admin |
+| **Supported Objects** | Users, Groups, Applications, Service Principals, CA Policies, Named Locations, Auth Method/Authorization Policies | Covers most identity objects needed |
+
+**⚠️ Important Limitation:** Entra Backup & Recovery restores **within the same tenant**. It does **not** support cross-tenant identity restoration. For our scenario (primary tenant locked for forensics), the Identity Mapping Registry + IaC approach described above remains the primary recovery mechanism. Enable Entra Backup & Recovery as **defense-in-depth** — it will be invaluable when the primary tenant is eventually returned to Contoso after forensics.
+
+**Recommendation:** Enable this preview feature on both the primary and backup tenants immediately.
+
+#### 7A.8 Multi-Tenant Managed Identity (Emerging — 2025/2026)
+
+Microsoft has begun enabling **cross-tenant managed identity federation**, where a user-assigned managed identity in one tenant can authenticate to resources in another tenant via federated credentials. This is relevant for:
+
+- **Backup automation:** A managed identity in the backup tenant could access primary tenant resources for automated backup sync (without storing secrets)
+- **Recovery validation:** A managed identity in the recovery tenant could validate backup integrity in the backup tenant
+
+**Current Status:** Available for user-assigned managed identities via federated credential configuration. Monitor [Microsoft Entra Workload ID documentation](https://learn.microsoft.com/en-us/entra/workload-id/) for GA timeline and expanded support.
 
 ---
 
@@ -894,6 +1323,7 @@ graph TB
 | **P2** | **Immutable Blob + Geo-Replication** | ~15 min | **2-6 hours** | Unstructured data, DB exports | RE:06, SE:03 |
 | **P3** | **Container Registry Geo-Replication** | ~minutes | **1-2 hours** | Container images (ACR) | RE:05 |
 | **P4** | **IaC Rebuild (Terraform/Bicep)** | N/A (config) | **4-12 hours** | Stateless infrastructure | OE:05 |
+| **P5** | **Identity Mapping Registry** | Weekly export | **2-4 hours** | SPN/RBAC/MI reconstruction | SE:05 |
 
 ### Data Classification & Protection Matrix
 
@@ -902,6 +1332,7 @@ graph TB
 | **Confidential** | Customer PII, financial data | Every 15 min (ASR) | 90 days | CMK (HSM) | SE:03, SE:06 |
 | **Internal** | Application config, logs | Hourly | 30 days | CMK | SE:03 |
 | **Public** | Static web content | Daily | 14 days | Platform-managed | SE:03 |
+| **Identity** | SPNs, RBAC, KV policies, SQL AAD roles | Weekly (automated) | 90 days | CMK (HSM) | SE:05 |
 
 ---
 
@@ -914,8 +1345,8 @@ graph TB
 | **Phase 0** | Immediate (Identity) | T+0 to T+1 hr | None | Manage | Security |
 | **Phase 1** | Foundation (Network) | T+1 to T+4 hrs | Phase 0 | Ready | Reliability |
 | **Phase 2** | Data Tier | T+4 to T+8 hrs | Phase 1 | Adopt | Reliability |
-| **Phase 3** | Compute & App | T+8 to T+16 hrs | Phase 2 | Adopt | Reliability |
-| **Phase 4** | Validation & Cutover | T+16 to T+24 hrs | Phase 3 | Manage | Op. Excellence |
+| **Phase 3** | Compute, App & **Identity Reconstruction** | T+8 to T+16 hrs | Phase 2 | Adopt | Reliability, Security |
+| **Phase 4** | Validation, **Identity Smoke Tests** & Cutover | T+16 to T+24 hrs | Phase 3 | Manage | Op. Excellence |
 
 ---
 
@@ -938,6 +1369,13 @@ graph TB
 | 13 | Azure Policy assignments applied | Azure Policy | Govern | Security | ⬜ |
 | 14 | Management group hierarchy created | Management Groups | Ready | Op. Excellence | ⬜ |
 | 15 | Subscription quota pre-allocated | Azure Subscriptions | Plan | Performance | ⬜ |
+| 16 | **Identity Mapping Registry automated** | **Entra ID + Azure Automation + WORM Blob** | **Govern** | **Security** | ⬜ |
+| 17 | **Mirror App Registrations pre-created in recovery tenant** | **Entra ID** | **Ready** | **Security** | ⬜ |
+| 18 | **IaC uses display-name lookups (not hard-coded Object IDs)** | **Terraform/Bicep** | **Govern** | **Op. Excellence** | ⬜ |
+| 19 | **Post-deployment identity re-binding scripts tested** | **Azure Automation / PowerShell / SQL Scripts** | **Manage** | **Security** | ⬜ |
+| 20 | **Entra Backup & Recovery enabled (preview)** | **Entra ID** | **Govern** | **Security** | ⬜ |
+| 21 | **SQL AAD contained user re-creation scripts tested** | **Azure SQL / Scripts** | **Manage** | **Security** | ⬜ |
+| 22 | **Identity-dependent smoke tests included in DR drill** | **Internal Process** | **Manage** | **Op. Excellence** | ⬜ |
 
 ---
 
@@ -952,11 +1390,12 @@ graph TB
 
 ### 🥇 Recommended: Hybrid ASR + IaC Approach
 
-For HCL's scenario, combine:
+For Contoso's scenario, combine:
 
 - **ASR** for stateful VMs (databases, legacy apps) → aligns with **RE:05**
 - **IaC + GitOps** for cloud-native workloads (AKS, App Services) → aligns with **OE:05**
 - **Immutable Blob Restore** for data-tier recovery → aligns with **RE:06 + SE:03**
+- **Identity Mapping Registry + IaC display-name lookups** for identity reconstruction → aligns with **SE:05**
 
 This balances **cost (CO:05)** vs. **recovery speed (RE:09)** and avoids the expense of a full warm standby.
 
@@ -966,7 +1405,7 @@ This balances **cost (CO:05)** vs. **recovery speed (RE:09)** and avoids the exp
 
 | Application Tier | Example | Backup Method | Target RPO | Target RTO | WAF Code |
 |---|---|---|---|---|---|
-| **Tier 0 – Identity** | Entra ID, Key Vault | IaC + Key Backup | 0 (config) | < 1 hour | SE:05, RE:01 |
+| **Tier 0 – Identity** | Entra ID, Key Vault, SPNs, RBAC | IaC + Key Backup + Identity Mapping Registry | 0 (config) / 1 week (identity inventory) | < 1 hour (base) / +2 hrs (RBAC reconstruction) | SE:05, RE:01 |
 | **Tier 1 – Core Data** | SQL DB, Cosmos DB | Cross-Tenant Backup + Immutable Blob | < 1 hour | 4-8 hours | RE:06 |
 | **Tier 2 – Compute** | AKS, VMs, App Services | ASR + IaC + ACR Mirror | < 5 min (ASR) | 2-8 hours | RE:05 |
 | **Tier 3 – Integration** | API Management, Service Bus | IaC Rebuild + Config Restore | < 1 hour | 8-12 hours | OE:05 |
@@ -999,6 +1438,19 @@ Use this checklist to assess the architecture against the Well-Architected Frame
 - [ ] Sentinel deployed independently in backup tenant
 - [ ] WORM/immutability policy applied to all backup storage
 - [ ] Conditional Access policies enforced (no legacy auth)
+
+### Identity Reconstruction Assessment ⚡ NEW
+
+- [ ] Identity Mapping Registry automated and running weekly
+- [ ] Identity Mapping Registry stored in WORM blob (immutable)
+- [ ] Mirror App Registrations pre-created in recovery tenant
+- [ ] All IaC templates use display-name lookups (no hard-coded Object IDs)
+- [ ] Post-deployment identity re-binding scripts exist and are tested
+- [ ] SQL AAD contained user re-creation scripts exist and are tested
+- [ ] Identity-dependent smoke tests included in every DR drill
+- [ ] Entra Backup & Recovery (preview) enabled on primary and backup tenants
+- [ ] Multi-tenant managed identity federation evaluated for backup automation
+- [ ] Identity Mapping Registry completeness validated against live Entra ID monthly
 
 ### Cost Optimization Assessment
 
@@ -1049,6 +1501,7 @@ Use this checklist to assess the architecture against the Well-Architected Frame
 | Break-Glass Activation | R | A | I | I | I |
 | Infrastructure Recovery | R | C | A | C | I |
 | Data Restoration | A/R | C | C | I | I |
+| **Identity Reconstruction** | R | A | **A/R** | C | I |
 | Application Recovery | R | C | A | C | I |
 | Validation & Cutover | A/R | R | C | C | A |
 | Post-Incident Review | R | A/R | R | R | C |
@@ -1077,41 +1530,55 @@ gantt
     Application Tiering               :p2, 2026-04-22, 14d
     Skills Gap Analysis               :p3, 2026-04-22, 14d
     Subscription & LZ Design          :p4, 2026-05-01, 14d
+    Identity Inventory & Mapping      :crit, p5, 2026-04-22, 21d
 
     section CAF: Ready (Month 2-3)
     Backup Tenant Provisioning        :r1, 2026-05-15, 14d
     Landing Zone Deployment (IaC)     :r2, 2026-05-22, 21d
     Network & Connectivity Setup      :r3, 2026-05-29, 14d
     Key Vault & Identity Setup        :r4, 2026-06-01, 14d
+    Mirror App Registrations          :crit, r5, 2026-06-01, 14d
 
     section CAF: Adopt (Month 3-4)
     ASR Configuration                 :a1, 2026-06-15, 14d
     Cross-Tenant Backup Setup         :a2, 2026-06-15, 21d
     ACR Geo-Replication               :a3, 2026-06-22, 7d
     IaC Pipeline Development          :a4, 2026-06-22, 21d
+    Identity Mapping Registry Automation :crit, a5, 2026-06-22, 14d
+    Identity Re-binding Scripts       :crit, a6, 2026-07-01, 14d
 
     section CAF: Govern (Month 4-5)
     Azure Policy Assignments          :g1, 2026-07-15, 14d
     Security Baseline Enforcement     :g2, 2026-07-15, 14d
     Compliance Documentation          :g3, 2026-07-22, 14d
     Break-Glass Procedure Seal        :g4, 2026-07-29, 7d
+    Enable Entra Backup & Recovery    :crit, g5, 2026-07-15, 7d
 
     section CAF: Manage (Month 5-6)
-    First DR Drill                    :m1, 2026-08-15, 5d
+    First DR Drill (incl. Identity)   :m1, 2026-08-15, 5d
     Runbook Finalization              :m2, 2026-08-20, 7d
     Monitoring & Alerting Setup       :m3, 2026-08-15, 14d
-    Post-Drill Retrospective          :m4, 2026-08-25, 3d
-    Go-Live Readiness Review          :m5, 2026-08-28, 3d
+    Identity Smoke Test Validation    :crit, m4, 2026-08-20, 3d
+    Post-Drill Retrospective          :m5, 2026-08-25, 3d
+    Go-Live Readiness Review          :m6, 2026-08-28, 3d
 ```
 
 ### Action Items
 
 - [ ] **Strategy:** Complete Business Impact Analysis and secure executive sponsorship
 - [ ] **Plan:** Inventory all mission-critical applications and classify by tier
+- [ ] **Plan:** Complete full identity inventory (SPNs, Managed IDs, RBAC, KV policies, SQL AAD roles)
 - [ ] **Ready:** Provision backup tenant with CAF landing zone architecture
+- [ ] **Ready:** Pre-create Mirror App Registrations in recovery tenant
 - [ ] **Adopt:** Implement cross-tenant backup, ASR replication, and IaC pipelines
+- [ ] **Adopt:** Implement Identity Mapping Registry automation (weekly export to WORM blob)
+- [ ] **Adopt:** Develop and test identity re-binding scripts (RBAC, KV, SQL AAD)
+- [ ] **Adopt:** Refactor all IaC to use display-name lookups (eliminate hard-coded Object IDs)
 - [ ] **Govern:** Apply Azure Policy, security baselines, and compliance controls
-- [ ] **Manage:** Conduct first DR drill, finalize runbook, establish quarterly cadence
+- [ ] **Govern:** Enable Microsoft Entra Backup & Recovery (preview) on all tenants
+- [ ] **Manage:** Conduct first DR drill **including identity reconstruction validation**
+- [ ] **Manage:** Finalize runbook with identity reconstruction procedures
+- [ ] **Manage:** Establish quarterly cadence with identity smoke tests as mandatory pass/fail criteria
 
 ---
 
@@ -1127,12 +1594,19 @@ gantt
 | Azure Immutable Blob Storage | [https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-storage-overview](https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-storage-overview) |
 | Zero Trust Architecture | [https://learn.microsoft.com/en-us/security/zero-trust/](https://learn.microsoft.com/en-us/security/zero-trust/) |
 | NIST SP 800-61 (Incident Response) | [https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final](https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final) |
+| Cross-Tenant Service Principal Management | [https://www.azuredoctor.com/posts/how-to-share-service-principals-across-entra-tenant/](https://www.azuredoctor.com/posts/how-to-share-service-principals-across-entra-tenant/) |
+| Multi-Tenant Managed Identity Federation | [https://svrooij.io/2024/12/24/multi-tenant-managed-identity-finally/](https://svrooij.io/2024/12/24/multi-tenant-managed-identity-finally/) |
+| Entra Workload Identity Federation | [https://learn.microsoft.com/en-us/entra/workload-id/](https://learn.microsoft.com/en-us/entra/workload-id/) |
+| Microsoft Entra Backup & Recovery (Preview) | [https://techcommunity.microsoft.com/blog/microsoft-entra-blog/strengthen-identity-resilience-recover-with-confidence-using-microsoft-entra-bac/4462426](https://techcommunity.microsoft.com/blog/microsoft-entra-blog/strengthen-identity-resilience-recover-with-confidence-using-microsoft-entra-bac/4462426) |
+| Securing Service Principals in Entra ID | [https://learn.microsoft.com/en-us/entra/architecture/service-accounts-principal](https://learn.microsoft.com/en-us/entra/architecture/service-accounts-principal) |
+| ASR RBAC Management | [https://learn.microsoft.com/en-us/azure/site-recovery/site-recovery-role-based-linked-access-control](https://learn.microsoft.com/en-us/azure/site-recovery/site-recovery-role-based-linked-access-control) |
 
 ---
 
-> **Document Owner:** HCL Cloud Infrastructure & Security Team
+> **Document Owner:** Contoso Cloud Infrastructure & Security Team
 > **Architecture Review Board:** Microsoft CAF + WAF Aligned
-> **Last Updated:** 2026-03-18
+> **Last Updated:** 2026-03-26
 > **Review Cadence:** Quarterly
 > **Classification:** Internal — Confidential
-> **Version:** 2.0 (CAF + WAF Aligned)
+> **Version:** 3.0 (Final — CAF + WAF Aligned + Identity Recovery Deep-Dive)
+> **Change from v2.0:** Added Section 7A (Identity Recovery Deep-Dive) addressing tenant-bound RBAC/SPN/Managed Identity breakage; expanded FMA, pre-requisites, timeline, checklists, and roadmap; incorporated Microsoft Entra Backup & Recovery (Preview) and multi-tenant managed identity federation references.
