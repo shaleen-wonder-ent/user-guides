@@ -243,8 +243,8 @@ Before finalizing the architecture, Contoso should formally resolve these founda
 
 For Contoso team members new to Azure Landing Zones, we recommend reading the resources in this order:
 
-| Step | Read This | Time | Purpose |
-| - | - | - | - |
+| Step | Read This  | Purpose |
+| - | - |  - |
 | 1️⃣ | [What is an Azure Landing Zone?](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/)  | Understand core concepts |
 | 2️⃣ | [Landing Zone Design Areas](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas)  | Learn the 8 pillars to address |
 | 3️⃣ | [SaaS and Multitenant Solution Architecture](https://learn.microsoft.com/en-us/azure/architecture/guide/saas-multitenant-solution-architecture/) ⭐  | Understand SaaS vs. multitenancy, B2B patterns, and the full decision framework |
