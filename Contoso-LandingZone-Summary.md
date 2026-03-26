@@ -6,11 +6,11 @@
 
 ## 1. Executive Summary
 
-Contoso operates an **agent-based contact center application** for the airline industry, currently serving one customer deployed across two Azure regions (West Europe & North Europe) in an Active-Active configuration.
+Contoso operates an **agent-based contact center application**, currently serving one customer deployed across two Azure regions (West Europe & North Europe) in an Active-Active configuration.
 
 ### The Challenge
 
-As Contoso looks to **onboard new airline customers** in potentially different geographies, the current approach of building infrastructure from scratch for each customer is not sustainable. Contoso needs a **repeatable, scalable, and compliant foundation** that allows rapid tenant onboarding without re-engineering.
+As Contoso looks to **onboard new customers** in potentially different geographies, the current approach of building infrastructure from scratch for each customer is not sustainable. Contoso needs a **repeatable, scalable, and compliant foundation** that allows rapid tenant onboarding without re-engineering.
 
 ### The Solution: Azure Landing Zone + Deployment Stamps
 
