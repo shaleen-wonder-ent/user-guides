@@ -1,3 +1,867 @@
+
+# 🛡️ Azure Tenant Security Hardening Baseline
+
+## Proactive Controls to Prevent Tenant-Level Compromise
+
+### Aligned to Microsoft Cloud Adoption Framework (CAF) & Azure Well-Architected Framework (WAF)
+
+---
+
+## Table of Contents
+
+- [1. Executive Summary](#1-executive-summary)
+- [2. Threat Model: How Azure Tenants Get Compromised](#2-threat-model-how-azure-tenants-get-compromised)
+- [3. Identity Hardening (The #1 Priority)](#3-identity-hardening-the-1-priority)
+  - [3.1 Phishing-Resistant MFA](#31-phishing-resistant-mfa)
+  - [3.2 Privileged Access Management](#32-privileged-access-management)
+  - [3.3 Break-Glass Account Hardening](#33-break-glass-account-hardening)
+  - [3.4 Conditional Access Baseline](#34-conditional-access-baseline)
+  - [3.5 Legacy Authentication Elimination](#35-legacy-authentication-elimination)
+- [4. Workload Identity Security (SPNs & Managed Identities)](#4-workload-identity-security-spns--managed-identities)
+- [5. Detection & Monitoring](#5-detection--monitoring)
+  - [5.1 Microsoft Sentinel Rules](#51-microsoft-sentinel-rules)
+  - [5.2 Entra ID Protection](#52-entra-id-protection)
+  - [5.3 Continuous Access Evaluation](#53-continuous-access-evaluation)
+- [6. Blast Radius Containment](#6-blast-radius-containment)
+  - [6.1 Administrative Units](#61-administrative-units)
+  - [6.2 Protected Actions](#62-protected-actions)
+  - [6.3 Restricted Management Administrative Units](#63-restricted-management-administrative-units)
+- [7. Application & Consent Governance](#7-application--consent-governance)
+- [8. External Attack Surface Reduction](#8-external-attack-surface-reduction)
+- [9. Data Protection & Exfiltration Prevention](#9-data-protection--exfiltration-prevention)
+- [10. Network Security Baseline](#10-network-security-baseline)
+- [11. Supply Chain & Third-Party Risk](#11-supply-chain--third-party-risk)
+- [12. Entra ID Backup & Self-Healing](#12-entra-id-backup--self-healing)
+- [13. Why Active-Active Does NOT Work for Cyber-DR](#13-why-active-active-does-not-work-for-cyber-dr)
+- [14. NIST CSF Alignment](#14-nist-csf-alignment)
+- [15. Implementation Checklist](#15-implementation-checklist)
+- [16. Implementation Roadmap](#16-implementation-roadmap)
+- [17. References](#17-references)
+
+---
+
+## 1. Executive Summary
+
+### Purpose
+
+This document defines the **proactive security controls** that must be in place to prevent an Azure tenant compromise. It is the **prevention-side companion** to the [Cross-Tenant DR Architecture (final.md)](./final.md), which covers recovery after a compromise.
+
+### How These Documents Work Together
+
+```mermaid
+graph LR
+    subgraph NIST["NIST Cybersecurity Framework"]
+        direction LR
+        N1["IDENTIFY"]
+        N2["PROTECT"]
+        N3["DETECT"]
+        N4["RESPOND"]
+        N5["RECOVER"]
+        N1 --> N2 --> N3 --> N4 --> N5
+    end
+
+    subgraph DOCS["Contoso Architecture Documents"]
+        direction TB
+        D1["📋 precaution.md<br/>(THIS DOCUMENT)<br/>Covers: IDENTIFY, PROTECT, DETECT"]
+        D2["🏗️ final.md<br/>(DR Architecture)<br/>Covers: RESPOND, RECOVER"]
+    end
+
+    N1 & N2 & N3 --> D1
+    N4 & N5 --> D2
+
+    style D1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style D2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style NIST fill:#f5f5f5,stroke:#616161
+```
+
+### Key Principle
+
+> **Identity is the perimeter.** In Azure, there is no network perimeter to breach — the attacker's goal is to compromise an identity with sufficient privileges to control the tenant. Every control in this document exists to make that as difficult as possible, detect it as fast as possible, and limit the damage if it happens.
+
+---
+
+## 2. Threat Model: How Azure Tenants Get Compromised
+
+Understanding the attack paths is essential to placing the right controls.
+
+```mermaid
+flowchart TD
+    ATTACKER["🎭 Threat Actor"] --> A1["Phishing / AiTM<br/>(Adversary-in-the-Middle)"]
+    ATTACKER --> A2["Token Theft / Replay<br/>(Session Hijacking)"]
+    ATTACKER --> A3["Illicit Consent Grant<br/>(Malicious OAuth App)"]
+    ATTACKER --> A4["Compromised SPN<br/>(Leaked Credential / Over-Privileged)"]
+    ATTACKER --> A5["Supply Chain Attack<br/>(Compromised Vendor / Partner)"]
+    ATTACKER --> A6["Insider Threat<br/>(Malicious or Negligent Admin)"]
+    ATTACKER --> A7["Password Spray<br/>(Targeting Legacy Auth)"]
+
+    A1 --> B1["Steal Global Admin<br/>Session Token"]
+    A2 --> B1
+    A3 --> B2["App with<br/>Directory.ReadWrite.All"]
+    A4 --> B3["SPN with<br/>Owner rights or<br/>high-priv API permissions"]
+    A5 --> B3
+    A6 --> B1
+    A7 --> B4["Account with<br/>weak/no MFA"]
+
+    B1 --> C["TENANT COMPROMISE"]
+    B2 --> C
+    B3 --> C
+    B4 --> B1
+
+    C --> D1["Delete Conditional Access Policies"]
+    C --> D2["Add Attacker as Global Admin"]
+    C --> D3["Exfiltrate Data"]
+    C --> D4["Deploy Ransomware"]
+    C --> D5["Modify DNS / Redirect Traffic"]
+    C --> D6["Create Persistent Backdoor SPNs"]
+
+    style ATTACKER fill:#ff6666,stroke:#cc0000,color:#fff
+    style C fill:#ff0000,stroke:#cc0000,color:#fff
+    style D1 fill:#ffcccc,stroke:#cc0000
+    style D2 fill:#ffcccc,stroke:#cc0000
+    style D3 fill:#ffcccc,stroke:#cc0000
+    style D4 fill:#ffcccc,stroke:#cc0000
+    style D5 fill:#ffcccc,stroke:#cc0000
+    style D6 fill:#ffcccc,stroke:#cc0000
+```
+
+### Attack Path → Control Mapping
+
+| Attack Path | Primary Control | Secondary Control | This Document Section |
+|---|---|---|---|
+| Phishing / AiTM | Phishing-Resistant MFA (FIDO2) | Token Protection, CAE | [3.1](#31-phishing-resistant-mfa) |
+| Token Theft / Replay | Continuous Access Evaluation (CAE) | Conditional Access (compliant device) | [5.3](#53-continuous-access-evaluation) |
+| Illicit Consent Grant | Admin Consent Workflow | App Governance, Sentinel alerts | [7](#7-application--consent-governance) |
+| Compromised SPN | Workload Identity Protection | Credential rotation, least privilege | [4](#4-workload-identity-security-spns--managed-identities) |
+| Supply Chain | Cross-Tenant Access Settings | Vendor access reviews | [11](#11-supply-chain--third-party-risk) |
+| Insider Threat | PIM + Approval Workflows | Protected Actions, Sentinel | [3.2](#32-privileged-access-management), [6.2](#62-protected-actions) |
+| Password Spray | Block Legacy Auth | Entra ID Protection risk policies | [3.5](#35-legacy-authentication-elimination) |
+
+---
+
+## 3. Identity Hardening (The #1 Priority)
+
+> **WAF Pillar:** Security (SE:05 — Identity and access management)
+> **CAF Phase:** Govern — Security Baseline
+
+### 3.1 Phishing-Resistant MFA
+
+> **This is the single most impactful control.** AiTM phishing can bypass SMS, phone call, and push-notification MFA. Only phishing-resistant methods are safe.
+
+| MFA Method | Phishing Resistant? | Recommendation |
+|---|---|---|
+| **FIDO2 Security Keys** | ✅ Yes | **Required** for all Global Admins, break-glass, and Tier 0 admins |
+| **Windows Hello for Business** | ✅ Yes | **Required** for all admin workstations |
+| **Passkeys (device-bound)** | ✅ Yes | **Recommended** for all users (emerging) |
+| **Certificate-based Auth (CBA)** | ✅ Yes | **Acceptable** alternative for smartcard environments |
+| Microsoft Authenticator (push) | ❌ No — vulnerable to MFA fatigue | **Phase out** for privileged users |
+| Microsoft Authenticator (number matching) | ⚠️ Partial — resists fatigue but not AiTM | **Acceptable** for non-admin users (transitional) |
+| SMS / Phone call | ❌ No — SIM swap, SS7 attacks | **Block immediately** via Authentication Methods policy |
+
+#### Conditional Access Policy: Enforce Phishing-Resistant MFA for Admins
+
+```json
+{
+  "displayName": "CA-001: Require Phishing-Resistant MFA for Admins",
+  "state": "enabled",
+  "conditions": {
+    "users": {
+      "includeRoles": [
+        "Global Administrator",
+        "Privileged Role Administrator",
+        "Security Administrator",
+        "Exchange Administrator",
+        "SharePoint Administrator",
+        "Intune Administrator",
+        "Application Administrator",
+        "Cloud Application Administrator",
+        "Authentication Administrator",
+        "Privileged Authentication Administrator"
+      ]
+    },
+    "applications": {
+      "includeApplications": ["All"]
+    }
+  },
+  "grantControls": {
+    "operator": "AND",
+    "builtInControls": ["mfa"],
+    "authenticationStrength": {
+      "id": "phishing-resistant-mfa"
+    }
+  }
+}
+```
+
+---
+
+### 3.2 Privileged Access Management
+
+```mermaid
+graph TD
+    subgraph PIM["🔐 PRIVILEGED ACCESS MODEL"]
+        direction TB
+
+        subgraph TIER0["Tier 0 — Control Plane (Entra ID)"]
+            T0_1["Global Administrator"]
+            T0_2["Privileged Role Administrator"]
+            T0_3["Security Administrator"]
+            T0_4["Privileged Authentication Administrator"]
+        end
+
+        subgraph TIER1["Tier 1 — Management Plane (Azure Resources)"]
+            T1_1["Subscription Owner"]
+            T1_2["Resource Group Contributor"]
+            T1_3["Key Vault Administrator"]
+            T1_4["Network Contributor"]
+        end
+
+        subgraph TIER2["Tier 2 — Workload (Applications)"]
+            T2_1["Application Administrator"]
+            T2_2["Cloud App Administrator"]
+            T2_3["Service Principal Owners"]
+        end
+    end
+
+    style TIER0 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style TIER1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style TIER2 fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+```
+
+| PIM Setting | Tier 0 | Tier 1 | Tier 2 |
+|---|---|---|---|
+| **Maximum activation duration** | 1 hour | 4 hours | 8 hours |
+| **Require approval** | ✅ Yes (2 approvers) | ✅ Yes (1 approver) | ❌ No (self-activate with justification) |
+| **Require MFA on activation** | ✅ Phishing-resistant only | ✅ Any MFA | ✅ Any MFA |
+| **Require justification** | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Require ticket number** | ✅ Yes | ✅ Yes | ❌ No |
+| **Maximum eligible assignments** | 2-3 people | 5-10 people | As needed |
+| **Permanent active assignments** | ❌ Never (except break-glass) | ❌ Never | ❌ Never |
+| **Alert on activation** | ✅ Sentinel + email + Teams | ✅ Sentinel + email | ✅ Sentinel |
+| **Access review cadence** | Monthly | Quarterly | Semi-annually |
+
+---
+
+### 3.3 Break-Glass Account Hardening
+
+Break-glass accounts are the **#1 target** for attackers because they bypass PIM.
+
+| Control | Implementation |
+|---|---|
+| **Count** | Exactly 2 (no more, no less) |
+| **Naming** | Non-obvious names (not `admin@`, `breakglass@`, `emergency@`) |
+| **MFA** | FIDO2 hardware key ONLY — no phone, no email, no Authenticator app |
+| **FIDO2 key storage** | Physical safe (fireproof); 2 separate geographic locations |
+| **Password** | 64+ character random; printed and sealed in tamper-evident envelope in safe |
+| **Conditional Access exclusion** | Exclude from all CA policies EXCEPT: require phishing-resistant MFA |
+| **Licensing** | Entra ID P2 for sign-in risk detection |
+| **Monitoring** | **Sentinel alert fires on ANY sign-in attempt** (successful or failed) |
+| **Usage policy** | Used ONLY for true emergencies; every use requires post-incident review |
+| **Testing cadence** | Semi-annually; document the test; re-seal credentials |
+| **PIM** | NOT enrolled in PIM (must be permanently active — that's the point) |
+| **Group membership** | NOT a member of any group that has standing access to resources |
+
+#### Sentinel Alert Rule: Break-Glass Sign-In
+
+```kusto
+SigninLogs
+| where UserPrincipalName in ("bg-account-01@Contoso.onmicrosoft.com", "bg-account-02@Contoso.onmicrosoft.com")
+| project TimeGenerated, UserPrincipalName, ResultType, IPAddress, Location, AppDisplayName, DeviceDetail
+| extend AlertSeverity = "Critical"
+// This should NEVER fire outside of a planned test or declared emergency
+```
+
+---
+
+### 3.4 Conditional Access Baseline
+
+The following is a **minimum baseline** set of Conditional Access policies:
+
+| Policy ID | Policy Name | Target | Grant/Block | WAF Code |
+|---|---|---|---|---|
+| CA-001 | Require phishing-resistant MFA for admins | All admin roles | Grant: Phishing-resistant MFA | SE:05 |
+| CA-002 | Require MFA for all users | All users | Grant: MFA (any method) | SE:05 |
+| CA-003 | Block legacy authentication | All users | Block | SE:05 |
+| CA-004 | Require compliant device for admins | All admin roles | Grant: Compliant device + MFA | SE:05, SE:08 |
+| CA-005 | Block sign-in from untrusted locations (admins) | All admin roles | Block: Untrusted named locations | SE:05 |
+| CA-006 | Require MFA for risky sign-ins | All users | Grant: MFA (when risk = medium/high) | SE:05 |
+| CA-007 | Block high-risk users | All users | Block: When user risk = high | SE:05 |
+| CA-008 | Require MFA for Azure Management | All users accessing Azure portal/CLI/PS | Grant: MFA | SE:05 |
+| CA-009 | Block unknown device platforms | All users | Block: Unknown/unmanaged platforms | SE:08 |
+| CA-010 | Session: Sign-in frequency for admins | All admin roles | Session: 4-hour sign-in frequency | SE:05 |
+| CA-011 | Require app protection for mobile | All users on iOS/Android | Grant: Approved app + app protection policy | SE:08 |
+| CA-012 | Block non-admin consent | All users | Block: Apps requesting admin-level permissions | SE:05 |
+
+#### Conditional Access Protection: Prevent Policy Deletion
+
+> **Critical:** An attacker's first action after gaining Global Admin is often to **delete all CA policies**. Use **Protected Actions** to prevent this.
+
+```mermaid
+graph LR
+    A["Attacker gains<br/>Global Admin"] --> B["Attempts to delete<br/>CA policies"]
+    B --> C{"Protected Actions<br/>enabled?"}
+    C -- "No" --> D["❌ CA policies deleted<br/>Tenant exposed"]
+    C -- "Yes" --> E["Requires phishing-resistant<br/>MFA re-authentication<br/>from compliant device"]
+    E --> F{"Attacker has<br/>FIDO2 key + compliant device?"}
+    F -- "No (likely)" --> G["✅ Action blocked<br/>Attacker frustrated"]
+    F -- "Yes (unlikely)" --> D
+
+    style D fill:#ffcccc,stroke:#cc0000
+    style G fill:#ccffcc,stroke:#009900
+```
+
+---
+
+### 3.5 Legacy Authentication Elimination
+
+Legacy authentication protocols (IMAP, POP3, SMTP, ActiveSync basic auth, legacy EWS) **bypass MFA entirely**.
+
+| Action | Timeline | Owner |
+|---|---|---|
+| Enable CA policy to block legacy auth (report-only mode) | Week 1 | Identity Team |
+| Analyze sign-in logs for legacy auth usage | Week 2-4 | Identity Team + App Owners |
+| Migrate identified applications to modern auth (OAuth 2.0) | Week 4-12 | Application Teams |
+| Switch CA policy to enforced mode | Week 12 | Identity Team |
+| Monitor for breakage; remediate | Week 12-16 | Identity Team + Support |
+
+#### Detection Query: Who Still Uses Legacy Auth?
+
+```kusto
+SigninLogs
+| where ClientAppUsed in ("Exchange ActiveSync", "IMAP4", "MAPI Over HTTP",
+    "Offline Address Book", "Other clients", "Outlook Anywhere (RPC over HTTP)",
+    "POP3", "Reporting Web Services", "SMTP", "Exchange Web Services")
+| summarize Count = count() by UserPrincipalName, ClientAppUsed, AppDisplayName
+| sort by Count desc
+```
+
+---
+
+## 4. Workload Identity Security (SPNs & Managed Identities)
+
+> **This is the most overlooked attack surface.** SPNs with `Directory.ReadWrite.All` or `RoleManagement.ReadWrite.Directory` are equivalent to Global Admin.
+
+```mermaid
+mindmap
+  root((Workload Identity<br/>Security))
+    Inventory
+      Catalog all SPNs and Managed IDs
+      Map permissions to business need
+      Identify over-privileged identities
+      Flag SPNs with credentials expiring more than 1 year
+    Least Privilege
+      Remove Directory.ReadWrite.All where possible
+      Use application-specific permissions
+      Prefer Managed Identities over SPNs with secrets
+      Use certificate credentials not client secrets
+    Credential Hygiene
+      Automate credential rotation every 90 days
+      Alert on new credential added to SPN
+      Remove unused credentials immediately
+      Never store credentials in code or config files
+    Monitoring
+      Enable Workload Identity Protection
+      Alert on anomalous SPN sign-in
+      Alert on new high-privilege API permission grant
+      Alert on SPN credential modification
+    Governance
+      Require owner for every App Registration
+      Quarterly access review of SPN permissions
+      Tag SPNs with business owner and purpose
+      Disable unused SPNs after 90 days inactivity
+```
+
+### High-Risk SPN Permissions to Audit Immediately
+
+| Permission | Risk Level | Why It's Dangerous |
+|---|---|---|
+| `Directory.ReadWrite.All` | 🔴 Critical | Can modify any directory object — equivalent to Global Admin |
+| `RoleManagement.ReadWrite.Directory` | 🔴 Critical | Can assign itself Global Admin role |
+| `Application.ReadWrite.All` | 🔴 Critical | Can create new apps with any permissions |
+| `AppRoleAssignment.ReadWrite.All` | 🟠 High | Can grant permissions to other apps |
+| `Mail.ReadWrite` | 🟠 High | Can read/modify any user's email |
+| `Files.ReadWrite.All` | 🟠 High | Can access any user's OneDrive/SharePoint |
+| `User.ReadWrite.All` | 🟡 Medium | Can modify user properties |
+| `Group.ReadWrite.All` | 🟡 Medium | Can modify group memberships including security groups |
+
+#### Detection Query: Over-Privileged SPNs
+
+```kusto
+// Find SPNs with high-risk API permissions in Entra ID audit logs
+AuditLogs
+| where OperationName == "Add app role assignment to service principal"
+| extend AppRoleValue = tostring(TargetResources[0].modifiedProperties[1].newValue)
+| where AppRoleValue has_any ("Directory.ReadWrite.All", "RoleManagement.ReadWrite.Directory",
+    "Application.ReadWrite.All", "AppRoleAssignment.ReadWrite.All")
+| project TimeGenerated, InitiatedBy, TargetResources, AppRoleValue
+```
+
+---
+
+## 5. Detection & Monitoring
+
+> **WAF Pillar:** Security (SE:10 — Monitor and detect threats)
+> **CAF Phase:** Manage
+
+### 5.1 Microsoft Sentinel Rules
+
+| Rule Name | Severity | What It Detects | MITRE ATT&CK |
+|---|---|---|---|
+| Break-glass account sign-in | Critical | Any sign-in to break-glass accounts | T1078 — Valid Accounts |
+| Global Admin role activated outside PIM | Critical | GA activation without PIM workflow | T1098 — Account Manipulation |
+| Conditional Access policy deleted | Critical | Attacker removing security controls | T1562 — Impair Defenses |
+| New credential added to SPN | High | Attacker establishing persistence via SPN | T1098.001 — Additional Cloud Credentials |
+| Bulk user/group deletion | Critical | Mass destruction of directory objects | T1485 — Data Destruction |
+| New federation trust created | Critical | Attacker creating backdoor authentication path | T1484.002 — Trust Modification |
+| OAuth app granted admin consent | High | Illicit consent grant attack | T1550.001 — Application Access Token |
+| Impossible travel for admin account | High | Credential compromise (account used from 2 distant locations simultaneously) | T1078 — Valid Accounts |
+| Legacy auth sign-in succeeded | Medium | Bypassing MFA controls | T1078 — Valid Accounts |
+| PIM settings modified | High | Attacker weakening privileged access controls | T1098 — Account Manipulation |
+| Custom domain added | High | Attacker preparing for phishing or tenant takeover | T1484.002 — Trust Modification |
+| New SPN with high-risk permissions | High | Attacker creating persistent high-privilege identity | T1136.003 — Cloud Account |
+| Mass CA policy creation/modification | High | Attacker modifying tenant security posture | T1562 — Impair Defenses |
+| Azure Key Vault purge operation | Critical | Attacker destroying encryption keys | T1485 — Data Destruction |
+
+### 5.2 Entra ID Protection
+
+| Policy | Risk Level | Action | Notes |
+|---|---|---|---|
+| **Risky sign-in policy** | Medium or above | Require MFA | Catches: impossible travel, anonymous IP, malware-linked IP |
+| **Risky sign-in policy** | High | Block sign-in | Catches: token replay, verified threat intelligence |
+| **Risky user policy** | Medium | Require password change + MFA | Catches: leaked credentials (dark web) |
+| **Risky user policy** | High | Block until admin review | Catches: confirmed compromise indicators |
+| **Risky workload identity** | Any | Alert to SOC | Catches: anomalous SPN behavior |
+
+### 5.3 Continuous Access Evaluation (CAE)
+
+> **Traditional token lifetime:** 1 hour. An attacker who steals a token has up to 1 hour of access.
+> **With CAE:** Token is revoked in **near-real-time** when risk changes.
+
+| CAE Trigger | What Happens |
+|---|---|
+| User account disabled | Active sessions terminated within minutes |
+| Password changed/reset | All existing tokens revoked |
+| MFA enforced (new CA policy) | Current sessions challenged immediately |
+| Admin revokes all refresh tokens | All sessions terminated |
+| Network location changes to untrusted | Session re-evaluation triggered |
+| User risk level changes | Evaluated against CA policies in real-time |
+
+**Enable CAE:** It's on by default for supported applications (Office 365, Azure Portal). Ensure Conditional Access policies don't use "Sign-in frequency" with a short window, as this can conflict with CAE.
+
+---
+
+## 6. Blast Radius Containment
+
+> **Principle:** Even if an attacker compromises a privileged identity, limit what they can do with it.
+
+### 6.1 Administrative Units
+
+```mermaid
+graph TD
+    subgraph TENANT["ENTRA ID TENANT"]
+        direction TB
+        subgraph AU1["Administrative Unit:<br/>AU-Finance-Users"]
+            U1["Finance users"]
+            U2["Finance groups"]
+        end
+        subgraph AU2["Administrative Unit:<br/>AU-Engineering-Users"]
+            U3["Engineering users"]
+            U4["Engineering groups"]
+        end
+        subgraph AU3["Administrative Unit:<br/>AU-Executives"]
+            U5["C-Suite users"]
+            U6["Executive groups"]
+        end
+    end
+
+    ADMIN1["Helpdesk Admin<br/>(scoped to AU1)"] --> AU1
+    ADMIN2["Helpdesk Admin<br/>(scoped to AU2)"] --> AU2
+    ADMIN1 -.-x AU2
+    ADMIN2 -.-x AU1
+    ADMIN1 -.-x AU3
+    ADMIN2 -.-x AU3
+
+    style AU3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style TENANT fill:#f5f5f5,stroke:#616161
+```
+
+| Without Administrative Units | With Administrative Units |
+|---|---|
+| Helpdesk admin can reset passwords for ANY user | Helpdesk admin can only reset passwords for users in their AU |
+| Compromised helpdesk admin → reset CEO password → escalation | Compromised helpdesk admin → limited to their AU → CEO is in separate AU |
+
+### 6.2 Protected Actions
+
+Protected Actions require **re-authentication with phishing-resistant MFA** before performing destructive operations.
+
+| Protected Action | Why It Matters |
+|---|---|
+| Delete Conditional Access policy | Prevents attacker from disabling security controls |
+| Modify PIM role settings | Prevents attacker from weakening privileged access |
+| Delete/modify authentication methods policy | Prevents attacker from enabling weak MFA |
+| Modify cross-tenant access settings | Prevents attacker from creating trust to external tenant |
+| Modify authorization policy | Prevents attacker from changing tenant-wide settings |
+
+### 6.3 Restricted Management Administrative Units
+
+> **The strongest containment control available.** Even Global Admins cannot modify objects inside a Restricted Management AU.
+
+| Capability | Regular AU | Restricted Management AU |
+|---|---|---|
+| Scoped admin can manage objects | ✅ | ✅ |
+| Global Admin can manage objects | ✅ | ❌ (Blocked!) |
+| Protects against compromised GA | ❌ | ✅ |
+| Use case | General delegation | Protecting critical accounts (break-glass, C-suite, security team) |
+
+**Recommendation:** Place break-glass accounts, security team accounts, and C-suite accounts in Restricted Management AUs.
+
+---
+
+## 7. Application & Consent Governance
+
+> **WAF Pillar:** Security (SE:05)
+
+| Control | Implementation | Why |
+|---|---|---|
+| **Disable user consent** | Entra ID → Enterprise Apps → Consent and permissions → Users can consent = No | Prevents illicit consent grant attacks |
+| **Enable admin consent workflow** | Users request; admins approve/deny | Maintains productivity while preventing unauthorized app access |
+| **Block risky permissions in consent** | Block apps requesting `Directory.ReadWrite.All`, `Mail.ReadWrite`, etc. without review | Prevents stealth privilege escalation |
+| **App Governance (Defender for Cloud Apps)** | Enable app governance policies to detect anomalous OAuth app behavior | Detects compromised third-party apps |
+| **Quarterly app access review** | Review all enterprise apps with active permissions | Removes stale/unnecessary app access |
+| **Limit who can register apps** | Only allow specific roles to create app registrations | Reduces sprawl and unmanaged identities |
+
+#### Detection: Illicit Consent Grant
+
+```kusto
+AuditLogs
+| where OperationName == "Consent to application"
+| extend ConsentedPermissions = tostring(TargetResources[0].modifiedProperties)
+| where ConsentedPermissions has_any ("Directory.ReadWrite.All", "Mail.ReadWrite",
+    "Files.ReadWrite.All", "RoleManagement.ReadWrite.Directory")
+| project TimeGenerated, InitiatedBy, TargetResources, ConsentedPermissions
+```
+
+---
+
+## 8. External Attack Surface Reduction
+
+| Control | Implementation |
+|---|---|
+| **Cross-Tenant Access Settings** | Default: Block all inbound/outbound cross-tenant access. Explicitly allow only verified partner tenants |
+| **External collaboration settings** | Limit guest invitations to specific admin roles only |
+| **B2B direct connect** | Disable unless explicitly needed; review quarterly |
+| **Domain allowlist for B2B** | Only allow invitations from verified partner domains |
+| **External user access reviews** | Quarterly review; auto-remove guests not accessed in 90 days |
+| **Disable email one-time passcode** for unauthorized domains | Prevent unknown external users from accessing shared resources |
+
+---
+
+## 9. Data Protection & Exfiltration Prevention
+
+| Control | Implementation | WAF Code |
+|---|---|---|
+| **Purview Information Protection** | Classify and label sensitive data; apply encryption automatically | SE:03 |
+| **DLP Policies (Data Loss Prevention)** | Block/warn when sensitive data is shared externally via Teams, SharePoint, Exchange | SE:03 |
+| **Sensitivity Labels on Containers** | Apply labels to Teams, SharePoint sites, M365 Groups — enforce access controls | SE:03 |
+| **Key Vault Purge Protection** | Enable purge protection on ALL Key Vaults (90-day retention) | SE:06 |
+| **Key Vault Soft Delete** | Enable soft delete on ALL Key Vaults | SE:06 |
+| **Storage Account Soft Delete** | Enable blob/container soft delete (14-day minimum) | RE:06 |
+| **SQL Threat Detection** | Enable Advanced Threat Protection on all SQL databases | SE:10 |
+| **Azure Defender for Storage** | Detect unusual access patterns, data exfiltration attempts | SE:10 |
+
+---
+
+## 10. Network Security Baseline
+
+| Control | Implementation | WAF Code |
+|---|---|---|
+| **Private Endpoints for all PaaS** | No public endpoints for Key Vault, Storage, SQL, Cosmos DB, ACR | SE:04, SE:08 |
+| **Azure Firewall / NVA** | Centralized egress filtering; TLS inspection for suspicious traffic | SE:04 |
+| **NSG Flow Logs** | Enable on all subnets; feed to Sentinel for anomaly detection | SE:10 |
+| **DDoS Protection Standard** | Enable on all VNets with public-facing resources | RE:05 |
+| **Azure Bastion** | No RDP/SSH from public internet; all admin access via Bastion | SE:08 |
+| **Just-in-Time VM access** | Require JIT for all VM RDP/SSH ports | SE:05, SE:08 |
+| **DNS Private Zones** | Use private DNS resolution for all Azure PaaS services | SE:04 |
+| **Web Application Firewall (WAF)** | Protect all public-facing web apps via Application Gateway or Front Door | SE:08 |
+
+---
+
+## 11. Supply Chain & Third-Party Risk
+
+```mermaid
+graph TD
+    subgraph SUPPLY["SUPPLY CHAIN RISK VECTORS"]
+        direction TB
+        V1["Compromised Azure<br/>Marketplace Image"]
+        V2["Malicious npm / NuGet /<br/>PyPI Package"]
+        V3["Compromised Partner<br/>Tenant (B2B)"]
+        V4["Vulnerable Third-Party<br/>SaaS OAuth App"]
+        V5["Compromised CI/CD<br/>Pipeline"]
+    end
+
+    subgraph CONTROLS["MITIGATION CONTROLS"]
+        direction TB
+        C1["Use only Microsoft-verified<br/>or internally-tested images"]
+        C2["Dependency scanning in CI/CD<br/>(Dependabot, Snyk, Mend)"]
+        C3["Cross-Tenant Access Settings:<br/>explicit allowlist only"]
+        C4["App Governance policies;<br/>consent restrictions"]
+        C5["Signed commits; branch protection;<br/>OIDC auth (no stored secrets)"]
+    end
+
+    V1 --> C1
+    V2 --> C2
+    V3 --> C3
+    V4 --> C4
+    V5 --> C5
+
+    style SUPPLY fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style CONTROLS fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+```
+
+---
+
+## 12. Entra ID Backup & Self-Healing
+
+> **Microsoft Entra Backup & Recovery** (Preview — March 2026) provides native backup for tenant configuration objects.
+
+| Feature | What It Protects Against |
+|---|---|
+| **Automatic daily backups** | Admin error (accidental CA policy deletion, user deletion) |
+| **5-day point-in-time restore** | Rapid recovery from misconfiguration within same tenant |
+| **Difference reports** | Compare current state vs. backup before restoring |
+| **Immutable backups** | Even compromised Global Admin cannot delete backups |
+| **Granular restore** | Restore specific objects without full tenant rollback |
+
+| Configuration | Recommended Setting |
+|---|---|
+| **Enable** | Yes — on primary tenant AND backup tenant |
+| **Monitor** | Alert when difference report shows unexpected changes |
+| **Test** | Include in quarterly DR drill — practice restoring a deleted CA policy |
+
+**⚠️ Limitation:** Entra Backup restores **within the same tenant only**. If the tenant is locked for forensics (your DR scenario), you need the cross-tenant architecture in [final.md](./final.md).
+
+---
+
+## 13. Why Active-Active Does NOT Work for Cyber-DR
+
+> **This section addresses a common misconception.** Active-active multi-region/multi-site is excellent for infrastructure failure DR. It is **dangerous** for cyber-resilience DR.
+
+```mermaid
+graph TD
+    subgraph SCENARIO_A["❌ ACTIVE-ACTIVE: Same Tenant, Multi-Region"]
+        SA1["Region A<br/>(Active)"] <--> SA2["Region B<br/>(Active)"]
+        SA3["Shared Entra ID Tenant"] --> SA1
+        SA3 --> SA2
+        SA4["🎭 Attacker compromises<br/>Entra ID"] --> SA3
+        SA4 -.->|"Both regions<br/>compromised instantly"| SA1
+        SA4 -.->|"Both regions<br/>compromised instantly"| SA2
+    end
+
+    subgraph SCENARIO_B["❌ ACTIVE-ACTIVE: Cross-Tenant with Trust"]
+        SB1["Tenant A<br/>(Active)"] <-->|"Cross-tenant sync<br/>Lighthouse / Federation"| SB2["Tenant B<br/>(Active)"]
+        SB3["🎭 Attacker compromises<br/>Tenant A"] --> SB1
+        SB3 -.->|"Lateral movement<br/>via trust channel"| SB2
+    end
+
+    subgraph SCENARIO_C["✅ CORRECT: Air-Gapped Backup + Recovery Tenant"]
+        SC1["Tenant A<br/>(Primary — Active)"]
+        SC2["Tenant B<br/>(Backup — No Trust)"]
+        SC3["Tenant C<br/>(Recovery — Dormant)"]
+        SC4["🎭 Attacker compromises<br/>Tenant A"]
+        SC4 --> SC1
+        SC4 -.-x|"NO trust relationship<br/>NO sync channel<br/>NO lateral movement"| SC2
+        SC4 -.-x|"Dormant — nothing<br/>to attack"| SC3
+        SC2 -->|"Restore<br/>(manual activation)"| SC3
+    end
+
+    style SCENARIO_A fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style SCENARIO_B fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style SCENARIO_C fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style SA4 fill:#ff6666,stroke:#cc0000,color:#fff
+    style SB3 fill:#ff6666,stroke:#cc0000,color:#fff
+    style SC4 fill:#ff6666,stroke:#cc0000,color:#fff
+```
+
+### The Core Issue: Trust = Attack Path
+
+| Architecture | Trust Relationship | Attacker Lateral Movement | Verdict |
+|---|---|---|---|
+| Active-active, same tenant | Inherent (same Entra ID) | **Guaranteed** — one compromised identity controls all regions | ❌ Useless for cyber-DR |
+| Active-active, cross-tenant with sync | Federation, Lighthouse, cross-tenant SPNs | **Highly likely** — sync channel becomes attack path | ❌ Dangerous for cyber-DR |
+| Active-active, air-gapped tenants | None | **Impossible** — but you lose active-active benefits (no shared identity, no seamless failover, no real-time data sync) | ⚠️ Not really active-active anymore |
+| **Air-gapped backup + dormant recovery** | **None** | **Impossible** — backup tenant has no inbound trust; recovery tenant doesn't exist until activated | **✅ Correct for cyber-DR** |
+
+### When Active-Active IS Appropriate
+
+| Scenario | Active-Active? | Why |
+|---|---|---|
+| Region failure (East US goes down) | ✅ Yes | No identity compromise; both regions share healthy Entra ID |
+| Hardware/infra failure | ✅ Yes | Same — Entra ID is unaffected |
+| Natural disaster | ✅ Yes | Same — Entra ID is unaffected |
+| **Tenant compromise (cyber attack)** | **❌ No** | **Entra ID IS the compromised component — active-active makes it worse** |
+
+### Recommendation
+
+> **Use active-active for infrastructure DR** (region failures, hardware failures).
+> **Use air-gapped backup + dormant recovery tenant for cyber-resilience DR** (tenant compromise).
+>
+> These are complementary, not competing strategies. You need both.
+
+---
+
+## 14. NIST CSF Alignment
+
+| NIST CSF Function | Controls in This Document | Reference Section |
+|---|---|---|
+| **IDENTIFY (ID)** | Threat model, attack path mapping, asset inventory (SPNs, apps, permissions) | [2](#2-threat-model-how-azure-tenants-get-compromised), [4](#4-workload-identity-security-spns--managed-identities) |
+| **PROTECT (PR)** | Phishing-resistant MFA, PIM, Conditional Access, legacy auth block, network security, data protection | [3](#3-identity-hardening-the-1-priority), [9](#9-data-protection--exfiltration-prevention), [10](#10-network-security-baseline) |
+| **DETECT (DE)** | Sentinel rules, Entra ID Protection, CAE, workload identity monitoring | [5](#5-detection--monitoring) |
+| **RESPOND (RS)** | Covered in [final.md](./final.md) — DR declaration, break-glass activation, recovery flow | final.md Sections 5.2, 5.8 |
+| **RECOVER (RC)** | Covered in [final.md](./final.md) — Cross-tenant restoration, identity reconstruction | final.md Sections 7, 7A, 9 |
+
+---
+
+## 15. Implementation Checklist
+
+### Identity Hardening — Critical Priority
+
+- [ ] FIDO2/Passkeys enforced for all admin roles via Conditional Access
+- [ ] PIM enabled for ALL privileged roles (no permanent active assignments except break-glass)
+- [ ] Break-glass accounts hardened (FIDO2 only, Sentinel alert, physical safe storage)
+- [ ] Legacy authentication blocked tenant-wide
+- [ ] All 12 baseline Conditional Access policies deployed
+- [ ] Protected Actions enabled for destructive operations (CA policy deletion, PIM modification)
+- [ ] SMS/Phone MFA methods disabled for admin roles
+- [ ] Sign-in frequency set to 4 hours for admin sessions
+
+### Workload Identity — Critical Priority
+
+- [ ] Full inventory of all SPNs and App Registrations completed
+- [ ] All SPNs with `Directory.ReadWrite.All` or `RoleManagement.ReadWrite.Directory` reviewed and remediated
+- [ ] Managed Identities used instead of SPNs with client secrets wherever possible
+- [ ] SPN credential rotation automated (90-day maximum lifetime)
+- [ ] Sentinel alerts configured for new SPN credentials and high-risk permission grants
+- [ ] Workload Identity Protection enabled
+- [ ] Every App Registration has a documented owner
+
+### Detection & Monitoring — High Priority
+
+- [ ] All 14 Sentinel detection rules deployed and tested
+- [ ] Entra ID Protection risk policies enabled (sign-in risk + user risk)
+- [ ] Continuous Access Evaluation (CAE) verified as active
+- [ ] Defender for Cloud Apps — App Governance enabled
+- [ ] SOC runbook includes Entra ID compromise response playbook
+- [ ] Alert response SLAs defined (Critical: 15 min, High: 1 hour)
+
+### Blast Radius Containment — High Priority
+
+- [ ] Administrative Units created for major business units
+- [ ] Restricted Management AUs created for break-glass, C-suite, and security team accounts
+- [ ] Protected Actions configured and tested
+- [ ] Helpdesk admin roles scoped to Administrative Units (not tenant-wide)
+
+### Application Governance — Medium Priority
+
+- [ ] User consent disabled; admin consent workflow enabled
+- [ ] Quarterly app access review established
+- [ ] Cross-Tenant Access Settings: default block; explicit allowlist for partners
+- [ ] Guest user access reviews configured (quarterly, auto-remove after 90 days)
+
+### Data & Network — Medium Priority
+
+- [ ] Private Endpoints for all PaaS services (Key Vault, Storage, SQL, Cosmos)
+- [ ] Key Vault purge protection and soft delete enabled on ALL vaults
+- [ ] Storage account soft delete enabled (14-day minimum)
+- [ ] Azure Bastion deployed; no direct RDP/SSH from internet
+- [ ] JIT VM access enabled for all VMs
+- [ ] DLP policies configured for Teams, SharePoint, Exchange
+
+### Backup & Self-Healing — Medium Priority
+
+- [ ] Microsoft Entra Backup and Recovery (preview) enabled
+- [ ] Backup difference report reviewed weekly
+- [ ] Entra Backup restore tested in quarterly DR drill
+
+---
+
+## 16. Implementation Roadmap
+
+```mermaid
+gantt
+    title Tenant Security Hardening Roadmap
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+
+    section Phase 1 - Critical (Month 1-2)
+    Deploy CA baseline policies (report-only)  :p1a, 2026-04-01, 14d
+    Enable PIM for all privileged roles         :p1b, 2026-04-01, 14d
+    Harden break-glass accounts                 :p1c, 2026-04-01, 7d
+    Block legacy authentication (report-only)   :p1d, 2026-04-08, 7d
+    Deploy Sentinel detection rules             :p1e, 2026-04-08, 14d
+    SPN high-risk permission audit              :crit, p1f, 2026-04-15, 14d
+    Enable Entra ID Protection risk policies    :p1g, 2026-04-15, 7d
+    Enable Protected Actions                    :p1h, 2026-04-22, 7d
+
+    section Phase 2 - High Priority (Month 2-3)
+    Enforce CA policies (switch from report-only)  :p2a, 2026-05-01, 7d
+    Block legacy auth (enforce)                    :p2b, 2026-05-01, 7d
+    Create Administrative Units                    :p2c, 2026-05-01, 14d
+    Create Restricted Management AUs               :p2d, 2026-05-15, 7d
+    Deploy Workload Identity Protection            :p2e, 2026-05-08, 14d
+    SPN credential rotation automation             :p2f, 2026-05-15, 14d
+    Enable App Governance                          :p2g, 2026-05-22, 7d
+
+    section Phase 3 - Medium Priority (Month 3-4)
+    Disable user consent / enable admin workflow   :p3a, 2026-06-01, 7d
+    Configure Cross-Tenant Access Settings         :p3b, 2026-06-01, 14d
+    Deploy Private Endpoints for all PaaS          :p3c, 2026-06-08, 21d
+    Enable DLP policies                            :p3d, 2026-06-15, 14d
+    Enable Entra Backup and Recovery               :p3e, 2026-06-15, 7d
+    JIT VM access rollout                          :p3f, 2026-06-22, 14d
+
+    section Phase 4 - Ongoing (Month 4+)
+    Quarterly SPN access reviews                   :p4a, 2026-07-01, 7d
+    Quarterly guest user access reviews            :p4b, 2026-07-01, 7d
+    Semi-annual break-glass account test           :p4c, 2026-07-15, 1d
+    Monthly Entra Backup difference report review  :p4d, 2026-07-01, 3d
+    Continuous Sentinel rule tuning                :p4e, 2026-07-01, 30d
+```
+
+---
+
+## 17. References
+
+| Resource | Link |
+|---|---|
+| Microsoft Entra ID Security Operations Guide | [https://learn.microsoft.com/en-us/entra/architecture/security-operations-introduction](https://learn.microsoft.com/en-us/entra/architecture/security-operations-introduction) |
+| Securing Privileged Access | [https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-planning](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-planning) |
+| Conditional Access Policies | [https://learn.microsoft.com/en-us/entra/identity/conditional-access/](https://learn.microsoft.com/en-us/entra/identity/conditional-access/) |
+| Privileged Identity Management | [https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/) |
+| Phishing-Resistant MFA | [https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths](https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths) |
+| Protected Actions | [https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/protected-actions-overview](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/protected-actions-overview) |
+| Administrative Units | [https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/administrative-units](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/administrative-units) |
+| Workload Identity Protection | [https://learn.microsoft.com/en-us/entra/identity-protection/concept-workload-identity-risk](https://learn.microsoft.com/en-us/entra/identity-protection/concept-workload-identity-risk) |
+| Microsoft Sentinel for Entra ID | [https://learn.microsoft.com/en-us/azure/sentinel/connect-azure-active-directory](https://learn.microsoft.com/en-us/azure/sentinel/connect-azure-active-directory) |
+| Continuous Access Evaluation | [https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-continuous-access-evaluation](https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-continuous-access-evaluation) |
+| Entra Backup and Recovery (Preview) | [https://techcommunity.microsoft.com/blog/microsoft-entra-blog/strengthen-identity-resilience-recover-with-confidence-using-microsoft-entra-bac/4462426](https://techcommunity.microsoft.com/blog/microsoft-entra-blog/strengthen-identity-resilience-recover-with-confidence-using-microsoft-entra-bac/4462426) |
+| NIST Cybersecurity Framework | [https://www.nist.gov/cyberframework](https://www.nist.gov/cyberframework) |
+| MITRE ATT&CK for Azure | [https://attack.mitre.org/matrices/enterprise/cloud/azuread/](https://attack.mitre.org/matrices/enterprise/cloud/azuread/) |
+| Zero Trust Deployment Guide | [https://learn.microsoft.com/en-us/security/zero-trust/](https://learn.microsoft.com/en-us/security/zero-trust/) |
+
+---
+
+> **Document Owner:** Contoso Cloud Infrastructure & Security Team
+> **Companion Document:** [Cross-Tenant DR Architecture (final.md)](./final.md)
+> **Last Updated:** 2026-03-26
+> **Review Cadence:** Quarterly
+> **Classification:** Internal — Confidential
+> **Version:** 1.0
+> **NIST CSF Coverage:** IDENTIFY, PROTECT, DETECT (RESPOND and RECOVER covered in final.md)
+
+
+---
+---
+---
+
 # 🏗️ Cross-Tenant Disaster Recovery Reference Architecture — Final
 
 ## Aligned to Microsoft Cloud Adoption Framework (CAF) & Azure Well-Architected Framework (WAF)
