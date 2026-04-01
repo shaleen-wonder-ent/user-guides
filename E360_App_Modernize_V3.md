@@ -14,6 +14,10 @@
 8. [Microsoft Reference Architectures Closest to E360](#closest-refs)
 
 ---
+> ### Microsoft's Recommendation
+> **Azure Native (Microsoft Fabric + Azure PaaS) is the recommended architecture for E360.** Fabric delivers the fastest path to a production-grade, multi-tenant analytics SaaS platform — with built-in AI, governance, security certifications, and enterprise SLAs that would take years to replicate on a self-managed stack. For the ~80% of Contoso's client base that can use Azure, this approach maximises value delivery while minimising operational risk. For the remaining ~20% requiring non-Azure deployment, **Azure Arc** provides a unified management plane to extend Azure services to any infrastructure. The document presents both options for completeness, but **Option 1 (Azure Native) is the strongly recommended path**.
+
+---
 
 <a name="current-state"></a>
 ## 0. E360 Current State & Proposed Vision
@@ -381,39 +385,48 @@ Microsoft supports three main tenancy models in Fabric:
 
 ### Side-by-Side Comparison
 
-| Dimension | Option 1: Azure Native (Fabric) | Option 2: Cloud-Agnostic (K8s) |
-|---|---|---|
-| **Cloud Lock-in** | High – Microsoft Fabric is Azure-only | Low – deploy anywhere |
-| **Multi-Tenancy** | Native workspace isolation + OneLake RBAC | Namespace / node pool / cluster isolation |
-| **Time-to-Value** | Fast – Fabric has analytics built-in | Slower – more custom build required |
-| **Operational Complexity** | Low – Microsoft manages infrastructure | High – team manages K8s and all layers |
-| **Configurability per Tenant** | Moderate – Fabric APIs + config DB | High – Helm values, config maps, feature flags |
-| **Analytics Depth** | Very High – Lakehouse, Notebooks, Power BI, Copilot | Needs integration (Spark, Trino, Superset etc.) |
-| **AI/ML Integration** | Native – Azure OpenAI + Fabric Copilot | Bring-your-own (Azure AI, Hugging Face, etc.) |
-| **Data Residency / Sovereignty** | Supported via Fabric Multi-Geo | Supported via cloud region selection |
-| **SSO / Identity** | Entra ID + B2B federation (Okta via SAML/OIDC) | Keycloak / OIDC proxy + Okta integration |
-| **Cost Model** | Predictable – F SKU capacity pricing | Variable – compute + ops labor cost |
-| **Compliance / Certifications** | Microsoft holds certs (SOC2, ISO 27001, HIPAA) | Must certify per cloud provider / per deployment |
-| **Disaster Recovery** | Built-in Fabric reliability + Azure SLAs | Requires bespoke DR strategy |
-| **Customization (client-specific logic)** | Config DB + API parameters + Power BI personalisation | Feature flags, per-tenant Helm overrides, custom code branches |
-| **Vendor Risk** | Medium – Microsoft Fabric is strategic & heavily invested | Low – open-source stack, portable |
+| Dimension | Option 1: Azure Native (Fabric) | Option 2: Cloud-Agnostic (K8s) | Advantage |
+|---|---|---|---|
+| **Cloud Lock-in** | Azure-first (Azure Arc for non-Azure) | Deploy anywhere | Option 2 |
+| **Multi-Tenancy** | Native workspace isolation + OneLake RBAC | Namespace / node pool / cluster isolation | **Option 1** |
+| **Time-to-Value** | Fast – Fabric has analytics built-in | Slower – more custom build required | **Option 1** |
+| **Operational Complexity** | Low – Microsoft manages infrastructure | High – team manages K8s and all layers | **Option 1** |
+| **Configurability per Tenant** | Moderate – Fabric APIs + config DB | High – Helm values, config maps, feature flags | Option 2 |
+| **Analytics Depth** | Very High – Lakehouse, Notebooks, Power BI, Copilot | Needs integration (Spark, Trino, Superset etc.) | **Option 1** |
+| **AI/ML Integration** | Native – Azure OpenAI + Fabric Copilot | Bring-your-own (Azure AI, Hugging Face, etc.) | **Option 1** |
+| **Data Residency / Sovereignty** | Supported via Fabric Multi-Geo | Supported via cloud region selection | Tie |
+| **SSO / Identity** | Entra ID + B2B federation (Okta via SAML/OIDC) | Keycloak / OIDC proxy + Okta integration | **Option 1** |
+| **Cost Model** | Predictable – F SKU capacity pricing | Variable – compute + ops labor cost | **Option 1** |
+| **Compliance / Certifications** | Microsoft holds certs (SOC2, ISO 27001, HIPAA) | Must certify per cloud provider / per deployment | **Option 1** |
+| **Disaster Recovery** | Built-in Fabric reliability + Azure SLAs | Requires bespoke DR strategy | **Option 1** |
+| **Customization (client-specific logic)** | Config DB + API parameters + Power BI personalisation | Feature flags, per-tenant Helm overrides, custom code branches | Option 2 |
+| **Vendor Risk** | Low – Microsoft is strategic partner & heavily invested | Low – open-source stack, portable | Tie |
+
+> **Score: Option 1 wins 9 of 14 dimensions.** Option 2 leads only on cloud portability and per-tenant customisation — both addressable via Azure Arc and configuration patterns respectively.
+
 
 ### Recommended Decision Framework
 
 Use this to guide the Contoso conversation:
 
 ```
-Is cloud agnosticism a HARD requirement?
-    YES ──► Option 2 (K8s) is the only viable path
-    NO  ──► Is Microsoft Azure the primary cloud?
-              YES ──► Option 1 (Fabric) for analytics-heavy workloads
-              MAYBE ──► Hybrid: Option 1 core + Option 2 escape hatch (Azure Arc)
+Start with Option 1 (Azure Native / Fabric) as the default.
+
+Does the client require Azure? (80% of Contoso's clients = YES)
+    YES ──► Option 1 (Fabric) – full platform value, AI, analytics, governance
+    NO  ──► Can Azure Arc bridge the gap?
+              YES ──► Option 1 + Azure Arc (extend Azure management to any infra)
+              NO  ──► Option 2 (K8s) as a constrained fallback for that client only
 ```
 
-### Hybrid Path (Worth Discussing)
-A pragmatic middle ground:
-- **Azure Arc** enables running AKS workloads anywhere (on-prem, GCP, AWS) under a single Azure management plane
-- Fabric handles analytics; containerised services handle compute-heavy or cloud-neutral workloads
+> **Key principle:** Do not compromise the platform for 80% of clients to accommodate the 20%. Build the best possible platform on Azure, then provide a lightweight escape hatch for exceptions.
+
+### Hybrid Path (Recommended Approach)
+The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
+- **Microsoft Fabric is the core analytics and data platform** for all Azure-compatible clients (~80%) — delivering multi-tenancy, AI, Power BI, and governance out of the box
+- **Azure Arc** extends Azure's management plane to non-Azure environments, enabling the ~20% of clients to run on AWS, GCP, or on-prem while still being managed from a single Azure control plane
+- **Containerised application services** (on AKS) handle compute-heavy or cloud-portable workloads, complementing Fabric's analytics layer
+- This approach avoids the trap of building the lowest-common-denominator platform that serves no one optimally
 - Reference: [Azure Arc for Kubernetes](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/overview)
 
 ### Detailed Pros and Cons by Key Dimension
@@ -430,7 +443,7 @@ A pragmatic middle ground:
 - **Pro:** Kubernetes-based scaling is portable: the same cluster configuration and Helm charts can scale workloads on AKS, EKS, GKE, or on-prem infrastructure. No ceiling imposed by a specific cloud vendor's service quotas.
 - **Con:** Auto-scaling must be configured manually (Horizontal Pod Autoscalers, Cluster Autoscaler). Capacity planning, node pool management, and performance tuning require dedicated DevOps expertise. As the number of tenants grows, managing isolated deployments (if using per-client instances as an interim approach) becomes operationally expensive.
 
-> **Trade-off:** Option 1 provides effortless vertical and horizontal scalability within Azure but is inoperative outside it. Option 2 provides universal scalability but demands continuous operational investment. For Contoso's mixed client base (~80% Azure-compatible, ~20% not), a single scaling strategy cannot serve all clients — **a hybrid model is necessary**.
+> **Trade-off:** Option 1 provides effortless vertical and horizontal scalability within Azure — which serves ~80% of Contoso's clients immediately. Option 2 provides universal scalability but demands continuous operational investment that scales linearly with the customer base. **Recommendation: Build on Azure Native (Option 1) for the majority, and use Azure Arc to extend reach to the ~20% who need non-Azure deployment, rather than penalising the majority with Option 2's operational overhead.**
 
 ---
 
@@ -446,7 +459,7 @@ A pragmatic middle ground:
 - **Pro:** Leverages existing open-source tooling (Python, dbt Core, Iceberg) and avoids premium PaaS licensing. Infrastructure costs are more predictable (fixed VM/node costs). Contoso retains the option to deploy on whichever cloud offers the best pricing for a given client.
 - **Con:** Operational overhead constitutes a significant hidden cost: Contoso must staff and train a team to manage Kubernetes clusters, perform upgrades, handle incident response, and maintain custom tooling — essentially operating as a SaaS provider. These labour costs may offset the savings from avoiding PaaS premiums.
 
-> **Trade-off:** The cost comparison is not straightforward. Option 1 shifts spend from **people** (ops engineers) to **platform** (Azure fees); Option 2 does the reverse. The optimal choice depends on Contoso's internal cost structure and client pricing model. For clients subscribing to a Contoso-managed SaaS, Option 1's consumption model may be more efficient at scale. For clients requiring self-hosted deployments, Option 2 avoids double-billing for cloud services the client already pays for.
+> **Trade-off:** The cost comparison is not straightforward. Option 1 shifts spend from **people** (ops engineers) to **platform** (Azure fees); Option 2 does the reverse. However, platform spend is predictable and scales sub-linearly, while ops labour scales linearly. **Recommendation: For a SaaS business like E360, Option 1's consumption model is structurally more efficient at scale — Contoso should invest in platform capability, not headcount. Microsoft's partnership investment and potential EA pricing further tilts the economics in Option 1's favour.**
 
 ---
 
@@ -462,7 +475,7 @@ A pragmatic middle ground:
 - **Pro:** This is the lowest-friction path for integration. The existing backend services run inside containers essentially unchanged, and the E360 front-end (Vue.js) interacts with them exactly as before. No new API paradigms, no new authentication protocols, no new data access patterns need to be introduced immediately.
 - **Con:** The legacy architecture is preserved with all its limitations. Any new capabilities (e.g., automated data pipelines, enhanced analytics, admin UI) must be custom-built and integrated from scratch. The E360 portal continues interfacing with a set of self-managed services rather than one unified platform, increasing integration surface area over time.
 
-> **Trade-off:** Option 2 offers the fastest integration path (weeks), while Option 1 offers the most capable long-term integration but requires months of refactoring. **Given the June 1, 2026 deadline, starting with Option 2's minimal-change approach and gradually introducing Option 1 components later is the pragmatic path.**
+> **Trade-off:** Option 2 offers a faster initial integration path (weeks), while Option 1 offers the most capable long-term integration (months of refactoring). However, the faster path preserves all of E360's current architectural limitations. **Recommendation: Invest in Option 1's integration now. Contoso's proposed architecture already envisions Power BI Embedded, ADLS Gen2, and Azure PaaS — this is inherently an Azure Native design. Starting with Option 2 risks accumulating technical debt that makes the eventual Azure Native migration harder, not easier. A phased migration to Fabric can begin with the data layer (OneLake, ADF pipelines) while the presentation layer transitions in parallel.**
 
 ---
 
@@ -478,7 +491,7 @@ A pragmatic middle ground:
 - **Pro:** Contoso retains full control over performance optimisation. The proposed architecture includes ClickHouse Cloud for analytical acceleration, which is a high-performance columnar database suitable for real-time analytics. This could deliver excellent query performance for E360's reporting workloads. Additionally, isolated per-client deployments mean one client's workload spikes cannot impact another's performance.
 - **Con:** Without managed services, achieving high availability and disaster recovery requires significant DevOps investment (container health checks, pod disruption budgets, cross-zone replication). Performance benchmarking and optimisation is Contoso's responsibility, consuming engineering bandwidth.
 
-> **Trade-off:** Option 1 provides predictable, out-of-the-box performance suitable for most analytical workloads. Option 2 has a higher performance ceiling (especially with specialised tools like ClickHouse) but requires more engineering effort to realise. For E360's initial v1 launch, Option 2's existing performance profile is likely adequate; Option 1's benefits become more compelling as data volumes and analytical complexity grow post-launch.
+> **Trade-off:** Option 1 provides predictable, enterprise-grade performance backed by Microsoft SLAs, suitable for the vast majority of analytical workloads. Option 2 has a higher theoretical performance ceiling with specialised tools like ClickHouse, but realising that ceiling requires significant engineering effort and ongoing tuning. **Recommendation: Option 1 is the lower-risk, higher-value choice. Fabric's unified engine eliminates data movement latency, and Microsoft continuously optimises the platform — Contoso benefits from these improvements automatically without engineering investment. ClickHouse can complement Fabric as an acceleration layer if specific query patterns demand it, rather than replacing the entire platform.**
 
 ---
 
@@ -496,7 +509,7 @@ A pragmatic middle ground:
 - **Pro:** There are well-documented ways to achieve multi-tenancy at the AKS level with Namespace Isolation, Network Policies, resource quotas, and RBAC (see [AKS Multitenancy Guide](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation)). Additionally, the team could bring their as-is architecture on Azure, make it SaaS-ready and add IaC to automate the deployment for any net-new customers — meaning each new client gets an automated fresh deployment via Infrastructure-as-Code.
 - **Con:** Kubernetes-level isolation is **not** application-level multi-tenancy. The E360 codebase itself must be modified to support per-tenant data partitioning, configuration, and access control — this development burden falls entirely on Contoso.
 
-> **Trade-off:** Both options require substantial multi-tenancy engineering at the application layer. Option 1 provides platform-level support (separate databases, workspaces, APIs for tenant management) that accelerates the work. Option 2 provides infrastructure-level isolation (namespaces, network policies) as a simpler starting point but leaves the harder application-level work to Contoso. **Practical implication: Option 2's per-client deployment model (IaC-automated) can serve as an interim multi-tenancy mechanism while true in-app multi-tenancy is developed iteratively.**
+> **Trade-off:** Both options require substantial multi-tenancy engineering at the application layer. However, Option 1 provides **platform-level** multi-tenancy primitives (separate workspaces, OneLake folder isolation, sensitivity labels, workspace-scoped RBAC, Fabric REST APIs for automation) that fundamentally accelerate the work. Option 2 provides only infrastructure-level isolation (namespaces, network policies) and leaves the entire application-level multi-tenancy burden on Contoso. **Recommendation: Option 1 is clearly superior for multi-tenancy. Fabric's workspace-per-tenant model directly addresses Contoso's stated concern about data segregation and privacy — each client's data is physically separated at the storage layer, not merely filtered by RBAC. This is the single strongest argument for Azure Native.**
 
 ---
 
@@ -512,7 +525,7 @@ A pragmatic middle ground:
 - **Pro:** Complete freedom to design the admin experience to match Contoso's exact specifications. The E360 team can build microservices for configuration management, storing tenant settings in a central database and exposing them via the presentation layer — fulfilling the requirement that ETL, Auth, and User Provisioning all be manageable via the Presentation Layer.
 - **Con:** Every admin function must be designed and coded from scratch: pipeline configuration, monitoring, user administration, access controls, data source management. This is a significant development investment.
 
-> **Trade-off:** Option 1 provides building blocks (APIs, portal features) that reduce custom development. Option 2 provides unlimited customisation at the cost of higher development effort. Given the stated need for a low-code/no-code configuration UI to enable rapid client onboarding and reduce dependency on development resources, the E360 team will need substantial custom UI work regardless of which option is chosen. **Option 1 may reduce the backend complexity behind that UI.**
+> **Trade-off:** Option 1 provides building blocks (APIs, portal features) that reduce custom development. Option 2 provides unlimited customisation but at the cost of building every admin function from scratch. **Recommendation: Option 1 reduces the backend complexity behind the admin UI significantly. Fabric's REST APIs for workspace provisioning, data pipeline configuration, and access management provide a pre-built foundation that the E360 admin portal can orchestrate — instead of Contoso building and maintaining these capabilities themselves. This directly serves the stated need for a low-code/no-code configuration UI.**
 
 ---
 
@@ -528,7 +541,7 @@ A pragmatic middle ground:
 - **Pro:** Fully aligned with Contoso's design principle. Containerised E360 can be deployed on AKS, EKS (AWS), or any Kubernetes-compatible environment. Contoso explicitly stated they are "not open for any re-architecture or platform-sticky components", making this the philosophically aligned choice.
 - **Con:** Maintaining cloud neutrality imposes constraints: the team must avoid using any cloud-specific managed services (or abstract them behind interfaces), which limits the use of optimised platform features. This can slow development and reduce the sophistication of the analytics layer compared to what Fabric could offer.
 
-> **Trade-off:** This is the **most polarising dimension**. Option 1 maximises value for the majority (80%) at the expense of the minority (20%). Option 2 serves everyone equally but at a higher operational cost for all. **The hybrid approach resolves this: use containerised E360 as the universal base, and offer Fabric-enhanced analytics as a value-add for Azure-hosted customers.**
+> **Trade-off:** This is often framed as the **most polarising dimension**, but it shouldn't be. Option 1 maximises value for the majority (80%) and Azure Arc addresses the minority (20%) — this is not a gap, it's a solved problem. Option 2 serves everyone equally but at a higher operational cost for all — effectively punishing 80% of clients to accommodate 20%. **Recommendation: Azure Native is the right choice. For SaaS clients (~80%), cloud portability is irrelevant — they consume E360 as a service, not infrastructure. For the ~20% requiring non-Azure deployment, Azure Arc + AKS provides a managed path without sacrificing the platform's core capability. The "one codebase everywhere" ideal sounds appealing in theory but delivers a mediocre experience everywhere in practice.**
 
 ---
 
@@ -544,7 +557,7 @@ A pragmatic middle ground:
 - **Pro:** Familiar operational model — the same team that manages E360 on AWS today can manage it on AKS with transferable skills. Existing monitoring, logging, and CI/CD practices can be adapted rather than replaced. Using IaC to automate deployment for net-new customers provides a scalable operational model.
 - **Con:** Running Kubernetes at production scale is resource-intensive: cluster maintenance, node upgrades, security patching, container image management, and incident response all fall on Contoso's team. As the customer base grows, operational overhead scales with it — Contoso effectively becomes a managed infrastructure provider alongside being a software vendor.
 
-> **Trade-off:** Option 1 trades operational simplicity for platform dependency and a learning curve. Option 2 trades operational autonomy for ongoing labour intensity. **Engaging an empanelled partner to assist with Azure environment setup partially mitigates both risks by providing expert support during the transition.**
+> **Trade-off:** Option 1 trades operational simplicity for a learning curve; Option 2 trades operational autonomy for ongoing labour intensity that grows with the customer base. **Recommendation: Option 1 is clearly superior for operational sustainability. Microsoft manages patching, scaling, backups, and security updates for the entire Fabric platform — Contoso's team focuses on building E360 features, not operating infrastructure. The learning curve is a one-time investment; Kubernetes operational overhead is permanent and compounds. With Microsoft's empanelled partners available for Azure environment setup, the transition risk is manageable.**
 
 ---
 
@@ -560,7 +573,7 @@ A pragmatic middle ground:
 - **Pro:** Contoso retains complete control over security implementation. For clients with strict regulatory requirements, Contoso can deploy E360 within the client's own subscription or on-premises environment, giving the client full control over data residency, network policies, and access controls. Kubernetes Namespace Isolation, Network Policies, and RBAC provide infrastructure-level security boundaries between tenants.
 - **Con:** Contoso must implement, test, and certify all security controls themselves. Container image scanning, runtime security monitoring, network segmentation, secret management, and audit logging must all be built or procured separately. The greater number of self-managed components increases the attack surface.
 
-> **Trade-off:** Option 1 provides a pre-certified security foundation suitable for most enterprise requirements. Option 2 provides maximum flexibility for clients with bespoke security needs. **For regulated industries (which many of Contoso's 800 client programmes likely serve), the ability to deploy within a client's own security perimeter (Option 2) could be a decisive differentiator.**
+> **Trade-off:** Option 1 provides a pre-certified security foundation suitable for most enterprise requirements, with SOC 2, ISO 27001, HIPAA, and other certifications already held by Microsoft. Option 2 provides maximum flexibility for clients with bespoke security needs. **Recommendation: Option 1 is the stronger security posture for the vast majority of clients. Azure's built-in encryption, Microsoft Defender for Cloud, Purview data governance, and Conditional Access policies provide defense-in-depth that would cost millions to replicate independently. For the rare client requiring deployment within their own security perimeter, Azure Arc + AKS in the client's own subscription provides this capability without abandoning the Azure ecosystem. Contoso should not build and certify a custom security stack when Microsoft already provides one.**
 
 ---
 
@@ -576,7 +589,7 @@ A pragmatic middle ground:
 - **Pro:** Technology independence allows adoption of the best available tools as they emerge. The proposed architecture already includes forward-looking open-source technologies: dbt Core for transformations, Iceberg REST Catalog / Hive Metastore for an open table format with bronze-silver-gold data patterns, and ClickHouse Cloud for analytical acceleration. These are vendor-neutral, community-supported technologies that can evolve independently of any cloud provider.
 - **Con:** Contoso's team must independently evaluate, adopt, and integrate new technologies — a resource-intensive process. Without a platform vendor driving innovation, the pace of feature advancement depends entirely on Contoso's engineering investment.
 
-> **Trade-off:** Option 1 provides accelerated innovation through platform leverage at the cost of vendor dependency. Option 2 provides innovation freedom at the cost of engineering effort. **Notably, the proposed future architecture already blends both approaches — using Azure-native services (Data Factory, ADLS Gen2, Key Vault) alongside open-source tools (dbt Core, Iceberg, ClickHouse). This hybrid technology selection suggests Contoso's own architects envision a middle path.**
+> **Trade-off:** Option 1 provides accelerated innovation through platform leverage; Option 2 provides innovation freedom at the cost of engineering effort. **Recommendation: Option 1 aligns E360 with Microsoft's multi-billion-dollar investment in Fabric, Azure OpenAI, and Copilot — Contoso gets world-class AI and analytics capabilities delivered through platform updates, without dedicating engineering resources to build or integrate them. Notably, Contoso's own proposed architecture already uses Azure-native services (Data Factory, ADLS Gen2, Key Vault, Power BI) alongside open-source tools — this hybrid technology selection is already an Azure Native design with open-source components, not a cloud-agnostic design. Microsoft's innovation roadmap is E360's innovation roadmap.**
 
 ---
 
@@ -605,10 +618,12 @@ A pragmatic middle ground:
 
 ### Requirement 3: Cloud Agnosticism
 
-**Honest Assessment:**
-- Option 1 (Fabric) does **not** satisfy cloud agnosticism in its current form. Microsoft Fabric is Azure-specific.
-- Option 2 (K8s) satisfies this if: (a) container images have no Azure SDK hard dependencies, (b) storage is abstracted behind a provider interface (e.g., using Apache Arrow Flight, Delta Lake), (c) identity uses portable OIDC rather than Entra ID exclusively.
-- **Mitigation for Option 1:** Wrap Fabric interactions in an abstraction layer/adapter interface so that a future provider could be swapped, even if not immediately portable.
+**Microsoft's Perspective:**
+- Cloud agnosticism sounds strategically appealing but **comes at a measurable cost**: lower analytics capability, higher operational complexity, slower time-to-value, and weaker AI integration. The question is whether that cost is justified.
+- **For ~80% of Contoso's client base (Azure-compatible SaaS clients):** Cloud agnosticism delivers zero value. These clients consume E360 as a service — they never see or care about the underlying infrastructure. Building a cloud-agnostic platform for them is engineering overhead with no customer benefit.
+- **For ~20% requiring non-Azure deployment:** Azure Arc + AKS provides a managed path to run Kubernetes workloads on any infrastructure (AWS, GCP, on-prem) under Azure's unified management plane. This is not a workaround — it is a production-grade Microsoft solution used by enterprises globally.
+- **Fabric itself supports data interoperability** with non-Azure storage (OneLake shortcuts to S3, GCS), meaning data residing outside Azure can still be accessed by Fabric without physical migration.
+- **Recommendation:** Adopt Azure Native as the core platform. For the minority of clients where Azure is not possible, deploy the application tier via AKS (managed through Azure Arc) with data connectors back to the client's environment. This satisfies the portability requirement without sacrificing platform capability for the majority.
 
 ### Authentication / SSO: Contoso Okta + Azure Entra ID
 
@@ -642,7 +657,7 @@ Okta (IdP) ──SAML 2.0 / OIDC──► Azure Entra ID (via B2B Federation)
 
 ### Open Questions to Resolve with Contoso
 
-1. **Is cloud agnosticism a contractual requirement, or a preference?** – This determines whether Option 2 is mandatory.
+1. **Is cloud agnosticism a contractual requirement, or a preference?** – If contractual, Azure Arc bridges the gap for non-Azure clients. If a preference, it should not override the value of Azure Native for 80% of clients.
 2. **What is the timeline for the first 3–5 tenants, and 50+ tenants?** – Affects isolation model choice.
 3. **What does "client-specific customization" mean concretely?** – Custom data models? Custom business rules? Custom UI? Each requires a different config pattern.
 4. **Which regions does E360 need to operate in?** – Affects Fabric Multi-Geo and data residency compliance.
@@ -650,6 +665,7 @@ Okta (IdP) ──SAML 2.0 / OIDC──► Azure Entra ID (via B2B Federation)
 6. **What is the existing identity infrastructure?** – Is Okta federated to Azure AD already, or does this need to be set up?
 7. **What are the SLA expectations per client?** – Shared capacity vs. dedicated capacity decision.
 8. **What audit/compliance standards must be met per client?** – SOC2, HIPAA, ISO 27001?
+
 
 ---
 
@@ -977,6 +993,7 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 
 | Topic | Key Point | Link |
 |---|---|---|
+| **Microsoft's Recommendation** | **Azure Native (Fabric + PaaS) — strongly recommended** | *(see Section 4 trade-offs)* |
 | Multi-tenancy guide | Full series from Microsoft | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview |
 | Fabric workspace isolation | One workspace per client | https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces |
 | AKS multi-tenancy | Namespace isolation | https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation |
@@ -990,4 +1007,384 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 | Azure Well-Architected Framework | Quality pillars | https://learn.microsoft.com/en-us/azure/well-architected/ |
 
 ---
+## 9. High level Architecture Diagrams (Mermaid)
 
+---
+
+### 9.1 E360 Plus – Recommended Azure Native Architecture (End-State)
+
+This is the recommended target-state architecture built entirely on Azure Native services — Microsoft Fabric for analytics, Azure PaaS for platform services, and Azure OpenAI for AI capabilities.
+
+```mermaid
+graph TB
+    subgraph Users["👤 E360 Users"]
+        CXO["CXO / Leadership"]
+        OPS["Ops Manager / Account SPOC"]
+        ENG["Data Engineer / Admin"]
+    end
+
+    subgraph PresentationLayer["Layer 6: Presentation & User Experience"]
+        PBI["Power BI Premium/Embedded<br/>Persona Dashboards"]
+        CONFIG["Config UI / Admin Portal<br/>(React on Azure Static Web Apps)"]
+        CHAT["AI Chat Interface<br/>(RAG-powered Q&A)"]
+    end
+
+    subgraph APILayer["Layer 5: API & Gateway"]
+        APIM["Azure API Management<br/>Per-tenant subscriptions<br/>Rate limiting & throttling"]
+        GQL["GraphQL / REST APIs"]
+        AUTH["Traffic Mgmt & Auth<br/>(OAuth 2.0 via Entra ID)"]
+    end
+
+    subgraph AILayer["Layer 8: Agentic Intelligence"]
+        COPILOT["Fabric Copilot<br/>Natural language on<br/>Lakehouse data"]
+        RAG["Azure OpenAI (GPT-4o)<br/>+ Azure AI Search<br/>RAG on docs & data"]
+        RTI["Real-Time Intelligence<br/>Eventstream + KQL<br/>Data Activator triggers"]
+    end
+
+    subgraph ComputeLayer["Layer 4: Compute & Application Logic"]
+        DBT["dbt Core<br/>Transformations"]
+        SCORE["Composite Scoring<br/>Engine"]
+        WORKFLOW["Workflow Workbench"]
+        ANALYTICS["Analytics &<br/>Correlation"]
+    end
+
+    subgraph SemanticLayer["Layer 3: Semantic Configuration (UDAL)"]
+        UDAL["Unified Data<br/>Abstraction Layer"]
+        TAXONOMY["Taxonomy Designer<br/>per-tenant metadata"]
+        META["Metadata &<br/>Abstraction"]
+    end
+
+    subgraph StorageLayer["Layer 2: Lakehouse-Centric Storage"]
+        direction LR
+        BRONZE["🟫 Bronze<br/>(Raw)"]
+        SILVER["⬜ Silver<br/>(Cleansed)"]
+        GOLD["🟨 Gold<br/>(Curated)"]
+        SERVING["Serving<br/>Acceleration"]
+        BRONZE -->|dbt| SILVER -->|dbt| GOLD --> SERVING
+    end
+
+    subgraph DataLayer["Layer 1: Data & Integration"]
+        ADF["Azure Data Factory<br/>Parameterised pipelines"]
+        CONNECT["Connectors<br/>(REST, SFTP, DB)"]
+        KV["Azure Key Vault<br/>Per-tenant secrets"]
+    end
+
+    subgraph InfraLayer["Layer 0: Cloud-Native Infrastructure"]
+        FABRIC["Microsoft Fabric<br/>Capacity (F SKU)"]
+        ONELAKE["OneLake<br/>(Delta/Parquet)"]
+        ADLS["ADLS Gen2"]
+        VNET["VNet + Private<br/>Endpoints"]
+        CH["ClickHouse Cloud<br/>(analytical acceleration)"]
+    end
+
+    subgraph Identity["🔐 Cross-cutting: Identity & Security"]
+        OKTA["Okta (Client IdP)"]
+        ENTRA["Microsoft Entra ID<br/>B2B Federation"]
+        PURVIEW["Microsoft Purview<br/>Data Governance"]
+        MONITOR["Azure Monitor<br/>Log Analytics"]
+        DEFENDER["Microsoft Defender<br/>for Cloud"]
+    end
+
+    subgraph Sources["📊 Source Systems (per client)"]
+        ERP["ERP"]
+        CRM["CRM"]
+        FILES["Files / SFTP"]
+        APIS["Client APIs"]
+        SVCNOW["ServiceNow"]
+    end
+
+    Users --> PresentationLayer
+    PresentationLayer --> APILayer
+    APILayer --> AILayer
+    AILayer --> ComputeLayer
+    ComputeLayer --> SemanticLayer
+    SemanticLayer --> StorageLayer
+    StorageLayer --> DataLayer
+    DataLayer --> InfraLayer
+    Sources --> DataLayer
+
+    OKTA -->|"SAML/OIDC"| ENTRA
+    ENTRA --> APIM
+    ENTRA --> FABRIC
+    PURVIEW --> ONELAKE
+    MONITOR --> FABRIC
+
+    classDef azure fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef fabric fill:#E8731A,stroke:#C45D12,color:#fff
+    classDef ai fill:#6B2FA0,stroke:#4B1F70,color:#fff
+    classDef security fill:#107C10,stroke:#0B5A0B,color:#fff
+    classDef source fill:#767676,stroke:#505050,color:#fff
+
+    class FABRIC,ONELAKE,PBI,COPILOT,RTI fabric
+    class APIM,ADLS,ADF,VNET,CONFIG,KV,MONITOR,DEFENDER azure
+    class RAG,CHAT ai
+    class OKTA,ENTRA,PURVIEW security
+    class ERP,CRM,FILES,APIS,SVCNOW source
+```
+
+---
+
+### 9.2 Multi-Tenant Isolation Model
+
+This diagram shows how tenant isolation works across the platform layers.
+
+```mermaid
+graph TB
+    subgraph TenantA["🏢 Tenant A (Standard Tier)"]
+        A_USER["Users via Okta"]
+        A_WS["Fabric Workspace A"]
+        A_LAKE["OneLake Folder A"]
+        A_PBI["Power BI Reports A<br/>(RLS applied)"]
+        A_IDX["AI Search Index A"]
+    end
+
+    subgraph TenantB["🏢 Tenant B (Professional Tier)"]
+        B_USER["Users via Okta"]
+        B_WS["Fabric Workspace B"]
+        B_LAKE["OneLake Folder B"]
+        B_PBI["Power BI Reports B<br/>(RLS applied)"]
+        B_IDX["AI Search Index B"]
+    end
+
+    subgraph TenantC["🏢 Tenant C (Enterprise Tier)"]
+        C_USER["Users via Okta"]
+        C_WS["Dedicated Fabric Capacity"]
+        C_LAKE["Dedicated Storage + CMK"]
+        C_PBI["Dedicated Power BI Capacity"]
+        C_SUB["Dedicated Azure Subscription"]
+        C_IDX["Dedicated AI Search Instance"]
+    end
+
+    subgraph SharedPlatform["⚙️ Shared Platform Services"]
+        APIM_S["Azure API Management<br/>(per-tenant subscription keys)"]
+        ENTRA_S["Microsoft Entra ID<br/>(B2B federation hub)"]
+        PURVIEW_S["Microsoft Purview<br/>(cross-tenant catalog)"]
+        MONITOR_S["Azure Monitor<br/>(filtered per tenant)"]
+        CICD["CI/CD Pipeline<br/>(Bicep / Terraform)"]
+        CONFIG_DB["Config Database<br/>(tenant registry + settings)"]
+    end
+
+    subgraph Capacity["Microsoft Fabric Capacity (Shared F SKU)"]
+        F_COMPUTE["Shared Compute Pool"]
+    end
+
+    A_USER --> ENTRA_S
+    B_USER --> ENTRA_S
+    C_USER --> ENTRA_S
+    ENTRA_S --> APIM_S
+
+    APIM_S --> A_WS
+    APIM_S --> B_WS
+    APIM_S --> C_WS
+
+    A_WS --> F_COMPUTE
+    B_WS --> F_COMPUTE
+    C_WS -.->|"Dedicated capacity<br/>(not shared)"| C_SUB
+
+    A_WS --> A_LAKE
+    B_WS --> B_LAKE
+    C_WS --> C_LAKE
+
+    CONFIG_DB --> CICD
+    CICD -->|"Provision workspace"| A_WS
+    CICD -->|"Provision workspace"| B_WS
+    CICD -->|"Provision subscription"| C_SUB
+
+    classDef tenantA fill:#2196F3,stroke:#1565C0,color:#fff
+    classDef tenantB fill:#FF9800,stroke:#E65100,color:#fff
+    classDef tenantC fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef shared fill:#9E9E9E,stroke:#616161,color:#fff
+
+    class A_USER,A_WS,A_LAKE,A_PBI,A_IDX tenantA
+    class B_USER,B_WS,B_LAKE,B_PBI,B_IDX tenantB
+    class C_USER,C_WS,C_LAKE,C_PBI,C_SUB,C_IDX tenantC
+    class APIM_S,ENTRA_S,PURVIEW_S,MONITOR_S,CICD,CONFIG_DB shared
+```
+
+---
+
+### 9.3 AI Data Flow – Three Pillars
+
+This shows the data flow for each AI capability and how they connect to OneLake.
+
+```mermaid
+flowchart LR
+    subgraph SourceSystems["Source Systems"]
+        ERP["ERP / CRM"]
+        FILES["Docs & Files"]
+        EVENTS["Operational Events<br/>(tickets, alerts, SLA)"]
+    end
+
+    subgraph Ingestion["Ingestion"]
+        ADF["Azure Data Factory"]
+        EVENTSTREAM["Fabric Eventstream"]
+        AISEARCH_IDX["AI Search Indexer"]
+    end
+
+    subgraph OneLakeStor["OneLake (Per-Tenant Workspace)"]
+        BRONZE["Bronze<br/>(raw)"]
+        SILVER["Silver<br/>(cleansed)"]
+        GOLD["Gold<br/>(curated)"]
+    end
+
+    subgraph AISearch["Azure AI Search"]
+        INDEX["Tenant-Scoped Index<br/>(documents + chunks)"]
+    end
+
+    subgraph KQLStore["KQL Database"]
+        KQLDB["Time-Series Store<br/>(real-time events)"]
+    end
+
+    subgraph AIPillars["AI Capabilities"]
+        COPILOT["🤖 Fabric Copilot<br/><i>Structured data Q&A</i><br/>User asks → queries Gold tables<br/>→ returns chart/narrative"]
+        RAG_ENGINE["🧠 Azure OpenAI + RAG<br/><i>Structured + Unstructured Q&A</i><br/>User asks → retrieves from AI Search<br/>→ GPT-4o generates grounded answer"]
+        REALTIME["⚡ Real-Time Intelligence<br/><i>Continuous / Event-driven</i><br/>KQL monitors streams 24/7<br/>→ Data Activator fires alerts"]
+    end
+
+    subgraph UserFacing["E360 User Interface"]
+        DASH["Power BI Dashboards"]
+        CHATUI["AI Chat Panel"]
+        ALERTS["Alerts & Notifications<br/>(Teams / Email)"]
+    end
+
+    ERP --> ADF
+    FILES --> ADF
+    FILES --> AISEARCH_IDX
+    EVENTS --> EVENTSTREAM
+
+    ADF --> BRONZE --> SILVER --> GOLD
+
+    AISEARCH_IDX --> INDEX
+
+    EVENTSTREAM --> KQLDB
+
+    GOLD --> COPILOT
+    INDEX --> RAG_ENGINE
+    GOLD --> RAG_ENGINE
+    KQLDB --> REALTIME
+
+    COPILOT --> DASH
+    RAG_ENGINE --> CHATUI
+    REALTIME --> ALERTS
+    REALTIME --> DASH
+
+    classDef pillar1 fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef pillar2 fill:#6B2FA0,stroke:#4B1F70,color:#fff
+    classDef pillar3 fill:#E8731A,stroke:#C45D12,color:#fff
+    classDef storage fill:#1B5E20,stroke:#0D3B0D,color:#fff
+    classDef ui fill:#37474F,stroke:#263238,color:#fff
+
+    class COPILOT pillar1
+    class RAG_ENGINE pillar2
+    class REALTIME pillar3
+    class BRONZE,SILVER,GOLD,INDEX,KQLDB storage
+    class DASH,CHATUI,ALERTS ui
+```
+
+---
+
+### 9.4 Okta → Entra ID → E360 Authentication Flow
+
+```mermaid
+sequenceDiagram
+    actor User as E360 User (Contoso Employee)
+    participant Okta as Okta (IdP)
+    participant Entra as Microsoft Entra ID<br/>(B2B Federation)
+    participant APIM as Azure API Management
+    participant App as E360 Backend API
+    participant Fabric as Microsoft Fabric<br/>(Tenant Workspace)
+    participant PBI as Power BI Embedded
+
+    User->>Okta: 1. Login with corporate credentials
+    Okta->>Entra: 2. SAML/OIDC assertion (federated)
+    Entra->>Entra: 3. Validate federation trust<br/>Enrich token with tenant_id claim
+    Entra->>User: 4. Return OAuth 2.0 access token<br/>(contains: user, roles, tenant_id)
+
+    User->>APIM: 5. Call E360 API with Bearer token
+    APIM->>APIM: 6. Validate token + check<br/>per-tenant subscription key
+    APIM->>App: 7. Forward to backend<br/>(tenant context in headers)
+    App->>Fabric: 8. Query data from<br/>Tenant's Fabric Workspace<br/>(workspace-scoped access)
+    Fabric->>App: 9. Return tenant-scoped data
+    App->>APIM: 10. Response
+    APIM->>User: 11. Response to browser
+
+    User->>PBI: 12. Load embedded dashboard
+    PBI->>Entra: 13. Validate token + RLS filter
+    PBI->>User: 14. Render tenant-scoped report
+```
+
+---
+
+### 9.5 Landing Zone – Hub & Spoke Topology
+
+```mermaid
+graph TB
+    subgraph MgmtGroup["Azure Management Group: E360 Platform"]
+        subgraph HubSub["Platform Subscription (Hub)"]
+            FW["Azure Firewall"]
+            BASTION["Azure Bastion"]
+            DNS["Private DNS Zones"]
+            APIM_HUB["API Management<br/>(Internal mode)"]
+            KV_HUB["Platform Key Vault"]
+            LOG["Log Analytics<br/>Workspace"]
+            PURVIEW_HUB["Microsoft Purview"]
+            CICD_HUB["CI/CD<br/>(GitHub Actions)"]
+        end
+
+        subgraph FabricSub["Fabric / Analytics Subscription"]
+            FAB_CAP["Fabric Capacity<br/>(F64 shared)"]
+            ONELAKE_HUB["OneLake"]
+            WS_A["Workspace:<br/>Tenant A"]
+            WS_B["Workspace:<br/>Tenant B"]
+            WS_N["Workspace:<br/>Tenant N"]
+            FAB_CAP --> WS_A
+            FAB_CAP --> WS_B
+            FAB_CAP --> WS_N
+            WS_A --> ONELAKE_HUB
+            WS_B --> ONELAKE_HUB
+            WS_N --> ONELAKE_HUB
+        end
+
+        subgraph SpokeA["Spoke: Tenant C (Enterprise)"]
+            VNET_C["Spoke VNet C<br/>(peered to Hub)"]
+            SQL_C["Azure SQL<br/>(dedicated)"]
+            KV_C["Key Vault (CMK)"]
+            PE_C["Private Endpoints"]
+        end
+
+        subgraph SpokeB["Spoke: Tenant D (Enterprise)"]
+            VNET_D["Spoke VNet D<br/>(peered to Hub)"]
+            SQL_D["Azure SQL<br/>(dedicated)"]
+            KV_D["Key Vault (CMK)"]
+            PE_D["Private Endpoints"]
+        end
+    end
+
+    HubSub --- FabricSub
+    HubSub ---|"VNet Peering"| SpokeA
+    HubSub ---|"VNet Peering"| SpokeB
+    FW --> APIM_HUB
+    APIM_HUB --> WS_A
+    APIM_HUB --> WS_B
+    APIM_HUB --> VNET_C
+    APIM_HUB --> VNET_D
+
+    subgraph Governance["Governance & Policy"]
+        POLICY["Azure Policy<br/>• Require private endpoints<br/>• Deny public IP<br/>• Enforce tagging<br/>• Require encryption"]
+        DEFENDER_G["Microsoft Defender<br/>for Cloud"]
+    end
+
+    Governance --> MgmtGroup
+
+    classDef hub fill:#0078D4,stroke:#005A9E,color:#fff
+    classDef fabric fill:#E8731A,stroke:#C45D12,color:#fff
+    classDef spoke fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef gov fill:#9C27B0,stroke:#6A1B9A,color:#fff
+
+    class FW,BASTION,DNS,APIM_HUB,KV_HUB,LOG,PURVIEW_HUB,CICD_HUB hub
+    class FAB_CAP,ONELAKE_HUB,WS_A,WS_B,WS_N fabric
+    class VNET_C,SQL_C,KV_C,PE_C,VNET_D,SQL_D,KV_D,PE_D spoke
+    class POLICY,DEFENDER_G gov
+```
+
+---
