@@ -1015,112 +1015,13 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 
 This is the recommended target-state architecture built entirely on Azure Native services — Microsoft Fabric for analytics, Azure PaaS for platform services, and Azure OpenAI for AI capabilities.
 
-```mermaid
-graph TB
-    subgraph Users["👤 E360 Users"]
-        CXO["CXO / Leadership"]
-        OPS["Ops Manager / Account SPOC"]
-        ENG["Data Engineer / Admin"]
-    end
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="End-State" 
+     src="https://github.com/user-attachments/assets/c14cf103-2806-4377-bb52-cce801132040"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-    subgraph PresentationLayer["Layer 6: Presentation & User Experience"]
-        PBI["Power BI Premium/Embedded<br/>Persona Dashboards"]
-        CONFIG["Config UI / Admin Portal<br/>(React on Azure Static Web Apps)"]
-        CHAT["AI Chat Interface<br/>(RAG-powered Q&A)"]
-    end
-
-    subgraph APILayer["Layer 5: API & Gateway"]
-        APIM["Azure API Management<br/>Per-tenant subscriptions<br/>Rate limiting & throttling"]
-        GQL["GraphQL / REST APIs"]
-        AUTH["Traffic Mgmt & Auth<br/>(OAuth 2.0 via Entra ID)"]
-    end
-
-    subgraph AILayer["Layer 8: Agentic Intelligence"]
-        COPILOT["Fabric Copilot<br/>Natural language on<br/>Lakehouse data"]
-        RAG["Azure OpenAI (GPT-4o)<br/>+ Azure AI Search<br/>RAG on docs & data"]
-        RTI["Real-Time Intelligence<br/>Eventstream + KQL<br/>Data Activator triggers"]
-    end
-
-    subgraph ComputeLayer["Layer 4: Compute & Application Logic"]
-        DBT["dbt Core<br/>Transformations"]
-        SCORE["Composite Scoring<br/>Engine"]
-        WORKFLOW["Workflow Workbench"]
-        ANALYTICS["Analytics &<br/>Correlation"]
-    end
-
-    subgraph SemanticLayer["Layer 3: Semantic Configuration (UDAL)"]
-        UDAL["Unified Data<br/>Abstraction Layer"]
-        TAXONOMY["Taxonomy Designer<br/>per-tenant metadata"]
-        META["Metadata &<br/>Abstraction"]
-    end
-
-    subgraph StorageLayer["Layer 2: Lakehouse-Centric Storage"]
-        direction LR
-        BRONZE["🟫 Bronze<br/>(Raw)"]
-        SILVER["⬜ Silver<br/>(Cleansed)"]
-        GOLD["🟨 Gold<br/>(Curated)"]
-        SERVING["Serving<br/>Acceleration"]
-        BRONZE -->|dbt| SILVER -->|dbt| GOLD --> SERVING
-    end
-
-    subgraph DataLayer["Layer 1: Data & Integration"]
-        ADF["Azure Data Factory<br/>Parameterised pipelines"]
-        CONNECT["Connectors<br/>(REST, SFTP, DB)"]
-        KV["Azure Key Vault<br/>Per-tenant secrets"]
-    end
-
-    subgraph InfraLayer["Layer 0: Cloud-Native Infrastructure"]
-        FABRIC["Microsoft Fabric<br/>Capacity (F SKU)"]
-        ONELAKE["OneLake<br/>(Delta/Parquet)"]
-        ADLS["ADLS Gen2"]
-        VNET["VNet + Private<br/>Endpoints"]
-        CH["ClickHouse Cloud<br/>(analytical acceleration)"]
-    end
-
-    subgraph Identity["🔐 Cross-cutting: Identity & Security"]
-        OKTA["Okta (Client IdP)"]
-        ENTRA["Microsoft Entra ID<br/>B2B Federation"]
-        PURVIEW["Microsoft Purview<br/>Data Governance"]
-        MONITOR["Azure Monitor<br/>Log Analytics"]
-        DEFENDER["Microsoft Defender<br/>for Cloud"]
-    end
-
-    subgraph Sources["📊 Source Systems (per client)"]
-        ERP["ERP"]
-        CRM["CRM"]
-        FILES["Files / SFTP"]
-        APIS["Client APIs"]
-        SVCNOW["ServiceNow"]
-    end
-
-    Users --> PresentationLayer
-    PresentationLayer --> APILayer
-    APILayer --> AILayer
-    AILayer --> ComputeLayer
-    ComputeLayer --> SemanticLayer
-    SemanticLayer --> StorageLayer
-    StorageLayer --> DataLayer
-    DataLayer --> InfraLayer
-    Sources --> DataLayer
-
-    OKTA -->|"SAML/OIDC"| ENTRA
-    ENTRA --> APIM
-    ENTRA --> FABRIC
-    PURVIEW --> ONELAKE
-    MONITOR --> FABRIC
-
-    classDef azure fill:#0078D4,stroke:#005A9E,color:#fff
-    classDef fabric fill:#E8731A,stroke:#C45D12,color:#fff
-    classDef ai fill:#6B2FA0,stroke:#4B1F70,color:#fff
-    classDef security fill:#107C10,stroke:#0B5A0B,color:#fff
-    classDef source fill:#767676,stroke:#505050,color:#fff
-
-    class FABRIC,ONELAKE,PBI,COPILOT,RTI fabric
-    class APIM,ADLS,ADF,VNET,CONFIG,KV,MONITOR,DEFENDER azure
-    class RAG,CHAT ai
-    class OKTA,ENTRA,PURVIEW security
-    class ERP,CRM,FILES,APIS,SVCNOW source
-```
 
 ---
 
@@ -1128,78 +1029,12 @@ graph TB
 
 This diagram shows how tenant isolation works across the platform layers.
 
-```mermaid
-graph TB
-    subgraph TenantA["🏢 Tenant A (Standard Tier)"]
-        A_USER["Users via Okta"]
-        A_WS["Fabric Workspace A"]
-        A_LAKE["OneLake Folder A"]
-        A_PBI["Power BI Reports A<br/>(RLS applied)"]
-        A_IDX["AI Search Index A"]
-    end
-
-    subgraph TenantB["🏢 Tenant B (Professional Tier)"]
-        B_USER["Users via Okta"]
-        B_WS["Fabric Workspace B"]
-        B_LAKE["OneLake Folder B"]
-        B_PBI["Power BI Reports B<br/>(RLS applied)"]
-        B_IDX["AI Search Index B"]
-    end
-
-    subgraph TenantC["🏢 Tenant C (Enterprise Tier)"]
-        C_USER["Users via Okta"]
-        C_WS["Dedicated Fabric Capacity"]
-        C_LAKE["Dedicated Storage + CMK"]
-        C_PBI["Dedicated Power BI Capacity"]
-        C_SUB["Dedicated Azure Subscription"]
-        C_IDX["Dedicated AI Search Instance"]
-    end
-
-    subgraph SharedPlatform["⚙️ Shared Platform Services"]
-        APIM_S["Azure API Management<br/>(per-tenant subscription keys)"]
-        ENTRA_S["Microsoft Entra ID<br/>(B2B federation hub)"]
-        PURVIEW_S["Microsoft Purview<br/>(cross-tenant catalog)"]
-        MONITOR_S["Azure Monitor<br/>(filtered per tenant)"]
-        CICD["CI/CD Pipeline<br/>(Bicep / Terraform)"]
-        CONFIG_DB["Config Database<br/>(tenant registry + settings)"]
-    end
-
-    subgraph Capacity["Microsoft Fabric Capacity (Shared F SKU)"]
-        F_COMPUTE["Shared Compute Pool"]
-    end
-
-    A_USER --> ENTRA_S
-    B_USER --> ENTRA_S
-    C_USER --> ENTRA_S
-    ENTRA_S --> APIM_S
-
-    APIM_S --> A_WS
-    APIM_S --> B_WS
-    APIM_S --> C_WS
-
-    A_WS --> F_COMPUTE
-    B_WS --> F_COMPUTE
-    C_WS -.->|"Dedicated capacity<br/>(not shared)"| C_SUB
-
-    A_WS --> A_LAKE
-    B_WS --> B_LAKE
-    C_WS --> C_LAKE
-
-    CONFIG_DB --> CICD
-    CICD -->|"Provision workspace"| A_WS
-    CICD -->|"Provision workspace"| B_WS
-    CICD -->|"Provision subscription"| C_SUB
-
-    classDef tenantA fill:#2196F3,stroke:#1565C0,color:#fff
-    classDef tenantB fill:#FF9800,stroke:#E65100,color:#fff
-    classDef tenantC fill:#4CAF50,stroke:#2E7D32,color:#fff
-    classDef shared fill:#9E9E9E,stroke:#616161,color:#fff
-
-    class A_USER,A_WS,A_LAKE,A_PBI,A_IDX tenantA
-    class B_USER,B_WS,B_LAKE,B_PBI,B_IDX tenantB
-    class C_USER,C_WS,C_LAKE,C_PBI,C_SUB,C_IDX tenantC
-    class APIM_S,ENTRA_S,PURVIEW_S,MONITOR_S,CICD,CONFIG_DB shared
-```
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Tenant Isolation Model" 
+     src="https://github.com/user-attachments/assets/c0da4bbe-0531-4e79-b294-65cac840b7c1"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
 
@@ -1207,184 +1042,33 @@ graph TB
 
 This shows the data flow for each AI capability and how they connect to OneLake.
 
-```mermaid
-flowchart LR
-    subgraph SourceSystems["Source Systems"]
-        ERP["ERP / CRM"]
-        FILES["Docs & Files"]
-        EVENTS["Operational Events<br/>(tickets, alerts, SLA)"]
-    end
-
-    subgraph Ingestion["Ingestion"]
-        ADF["Azure Data Factory"]
-        EVENTSTREAM["Fabric Eventstream"]
-        AISEARCH_IDX["AI Search Indexer"]
-    end
-
-    subgraph OneLakeStor["OneLake (Per-Tenant Workspace)"]
-        BRONZE["Bronze<br/>(raw)"]
-        SILVER["Silver<br/>(cleansed)"]
-        GOLD["Gold<br/>(curated)"]
-    end
-
-    subgraph AISearch["Azure AI Search"]
-        INDEX["Tenant-Scoped Index<br/>(documents + chunks)"]
-    end
-
-    subgraph KQLStore["KQL Database"]
-        KQLDB["Time-Series Store<br/>(real-time events)"]
-    end
-
-    subgraph AIPillars["AI Capabilities"]
-        COPILOT["🤖 Fabric Copilot<br/><i>Structured data Q&A</i><br/>User asks → queries Gold tables<br/>→ returns chart/narrative"]
-        RAG_ENGINE["🧠 Azure OpenAI + RAG<br/><i>Structured + Unstructured Q&A</i><br/>User asks → retrieves from AI Search<br/>→ GPT-4o generates grounded answer"]
-        REALTIME["⚡ Real-Time Intelligence<br/><i>Continuous / Event-driven</i><br/>KQL monitors streams 24/7<br/>→ Data Activator fires alerts"]
-    end
-
-    subgraph UserFacing["E360 User Interface"]
-        DASH["Power BI Dashboards"]
-        CHATUI["AI Chat Panel"]
-        ALERTS["Alerts & Notifications<br/>(Teams / Email)"]
-    end
-
-    ERP --> ADF
-    FILES --> ADF
-    FILES --> AISEARCH_IDX
-    EVENTS --> EVENTSTREAM
-
-    ADF --> BRONZE --> SILVER --> GOLD
-
-    AISEARCH_IDX --> INDEX
-
-    EVENTSTREAM --> KQLDB
-
-    GOLD --> COPILOT
-    INDEX --> RAG_ENGINE
-    GOLD --> RAG_ENGINE
-    KQLDB --> REALTIME
-
-    COPILOT --> DASH
-    RAG_ENGINE --> CHATUI
-    REALTIME --> ALERTS
-    REALTIME --> DASH
-
-    classDef pillar1 fill:#0078D4,stroke:#005A9E,color:#fff
-    classDef pillar2 fill:#6B2FA0,stroke:#4B1F70,color:#fff
-    classDef pillar3 fill:#E8731A,stroke:#C45D12,color:#fff
-    classDef storage fill:#1B5E20,stroke:#0D3B0D,color:#fff
-    classDef ui fill:#37474F,stroke:#263238,color:#fff
-
-    class COPILOT pillar1
-    class RAG_ENGINE pillar2
-    class REALTIME pillar3
-    class BRONZE,SILVER,GOLD,INDEX,KQLDB storage
-    class DASH,CHATUI,ALERTS ui
-```
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Three Pillars" 
+     src="https://github.com/user-attachments/assets/f31cf1c4-346e-4e07-a17c-c76e66979684"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
 
 ### 9.4 Okta → Entra ID → E360 Authentication Flow
 
-```mermaid
-sequenceDiagram
-    actor User as E360 User (Contoso Employee)
-    participant Okta as Okta (IdP)
-    participant Entra as Microsoft Entra ID<br/>(B2B Federation)
-    participant APIM as Azure API Management
-    participant App as E360 Backend API
-    participant Fabric as Microsoft Fabric<br/>(Tenant Workspace)
-    participant PBI as Power BI Embedded
-
-    User->>Okta: 1. Login with corporate credentials
-    Okta->>Entra: 2. SAML/OIDC assertion (federated)
-    Entra->>Entra: 3. Validate federation trust<br/>Enrich token with tenant_id claim
-    Entra->>User: 4. Return OAuth 2.0 access token<br/>(contains: user, roles, tenant_id)
-
-    User->>APIM: 5. Call E360 API with Bearer token
-    APIM->>APIM: 6. Validate token + check<br/>per-tenant subscription key
-    APIM->>App: 7. Forward to backend<br/>(tenant context in headers)
-    App->>Fabric: 8. Query data from<br/>Tenant's Fabric Workspace<br/>(workspace-scoped access)
-    Fabric->>App: 9. Return tenant-scoped data
-    App->>APIM: 10. Response
-    APIM->>User: 11. Response to browser
-
-    User->>PBI: 12. Load embedded dashboard
-    PBI->>Entra: 13. Validate token + RLS filter
-    PBI->>User: 14. Render tenant-scoped report
-```
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Entra ID → E360 Authentication Flow" 
+     src="https://github.com/user-attachments/assets/30ebe4da-2cca-4c22-9ce1-9d8ff60c99fe"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
 
 ### 9.5 Landing Zone – Hub & Spoke Topology
 
-```mermaid
-graph TB
-    subgraph MgmtGroup["Azure Management Group: E360 Platform"]
-        subgraph HubSub["Platform Subscription (Hub)"]
-            FW["Azure Firewall"]
-            BASTION["Azure Bastion"]
-            DNS["Private DNS Zones"]
-            APIM_HUB["API Management<br/>(Internal mode)"]
-            KV_HUB["Platform Key Vault"]
-            LOG["Log Analytics<br/>Workspace"]
-            PURVIEW_HUB["Microsoft Purview"]
-            CICD_HUB["CI/CD<br/>(GitHub Actions)"]
-        end
-
-        subgraph FabricSub["Fabric / Analytics Subscription"]
-            FAB_CAP["Fabric Capacity<br/>(F64 shared)"]
-            ONELAKE_HUB["OneLake"]
-            WS_A["Workspace:<br/>Tenant A"]
-            WS_B["Workspace:<br/>Tenant B"]
-            WS_N["Workspace:<br/>Tenant N"]
-            FAB_CAP --> WS_A
-            FAB_CAP --> WS_B
-            FAB_CAP --> WS_N
-            WS_A --> ONELAKE_HUB
-            WS_B --> ONELAKE_HUB
-            WS_N --> ONELAKE_HUB
-        end
-
-        subgraph SpokeA["Spoke: Tenant C (Enterprise)"]
-            VNET_C["Spoke VNet C<br/>(peered to Hub)"]
-            SQL_C["Azure SQL<br/>(dedicated)"]
-            KV_C["Key Vault (CMK)"]
-            PE_C["Private Endpoints"]
-        end
-
-        subgraph SpokeB["Spoke: Tenant D (Enterprise)"]
-            VNET_D["Spoke VNet D<br/>(peered to Hub)"]
-            SQL_D["Azure SQL<br/>(dedicated)"]
-            KV_D["Key Vault (CMK)"]
-            PE_D["Private Endpoints"]
-        end
-    end
-
-    HubSub --- FabricSub
-    HubSub ---|"VNet Peering"| SpokeA
-    HubSub ---|"VNet Peering"| SpokeB
-    FW --> APIM_HUB
-    APIM_HUB --> WS_A
-    APIM_HUB --> WS_B
-    APIM_HUB --> VNET_C
-    APIM_HUB --> VNET_D
-
-    subgraph Governance["Governance & Policy"]
-        POLICY["Azure Policy<br/>• Require private endpoints<br/>• Deny public IP<br/>• Enforce tagging<br/>• Require encryption"]
-        DEFENDER_G["Microsoft Defender<br/>for Cloud"]
-    end
-
-    Governance --> MgmtGroup
-
-    classDef hub fill:#0078D4,stroke:#005A9E,color:#fff
-    classDef fabric fill:#E8731A,stroke:#C45D12,color:#fff
-    classDef spoke fill:#4CAF50,stroke:#2E7D32,color:#fff
-    classDef gov fill:#9C27B0,stroke:#6A1B9A,color:#fff
-
-    class FW,BASTION,DNS,APIM_HUB,KV_HUB,LOG,PURVIEW_HUB,CICD_HUB hub
-    class FAB_CAP,ONELAKE_HUB,WS_A,WS_B,WS_N fabric
-    class VNET_C,SQL_C,KV_C,PE_C,VNET_D,SQL_D,KV_D,PE_D spoke
-    class POLICY,DEFENDER_G gov
-```
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt=" Hub & Spoke Topology" 
+     src="https://github.com/user-attachments/assets/56c45296-8060-49f9-8783-8313f1e6225c"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 ---
