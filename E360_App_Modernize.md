@@ -261,30 +261,30 @@ Microsoft supports three main tenancy models in Fabric:
 
 ### Microsoft Reference Links – Option 1
 
-| Resource | URL |
-|---|---|
-| Microsoft Fabric Overview | https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview |
-| Fabric Workspaces & Roles | https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces |
-| Fabric Security Overview | https://learn.microsoft.com/en-us/fabric/security/security-overview |
-| Fabric Security Fundamentals | https://learn.microsoft.com/en-us/fabric/security/security-fundamentals |
-| OneLake Security | https://learn.microsoft.com/en-us/fabric/onelake/security/fabric-onelake-security |
-| Fabric Multi-Geo (Data Residency) | https://learn.microsoft.com/en-us/fabric/admin/service-admin-premium-multi-geo |
-| Row-Level Security in Fabric | https://learn.microsoft.com/en-us/fabric/security/service-admin-row-level-security |
-| Fabric Permission Model | https://learn.microsoft.com/en-us/fabric/security/permission-model |
-| Fabric Private Links | https://learn.microsoft.com/en-us/fabric/security/security-private-links-use |
-| Microsoft Fabric Licenses & SKUs | https://learn.microsoft.com/en-us/fabric/enterprise/licenses |
-| Power BI Embedded Multi-Tenancy | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy |
-| Azure API Management | https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts |
-| SaaS Multi-Tenant on Azure – Architecture Guide | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview |
-| Multitenant SaaS – Azure SQL patterns | https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns |
-| Azure Architecture Center – Architect multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/overview |
-| **Tenancy Models for Multitenant Solutions** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/tenancy-models |
-| **SaaS & Multitenant Solution Architecture (Architecture Center)** | https://learn.microsoft.com/en-us/azure/architecture/guide/saas-multitenant-solution-architecture/ |
-| **Microsoft Fabric Overview (Official Docs)** | https://learn.microsoft.com/en-us/fabric/fundamentals/microsoft-fabric-overview |
-| **Azure SaaS Dev Kit** | https://azure.github.io/azure-saas/ |
-| **Power BI Embedded for ISVs** | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi |
-| **Microsoft Purview Governance** | https://learn.microsoft.com/en-us/purview/purview |
-| **Fabric Workspace-per-Tenant Pattern** | https://learn.microsoft.com/en-us/fabric/security/workspace-identity |
+| Resource |
+|---|
+| [Microsoft Fabric Overview](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview) |
+| [Fabric Workspaces & Roles](https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces) |
+| [Fabric Security Overview](https://learn.microsoft.com/en-us/fabric/security/security-overview) |
+| [Fabric Security Fundamentals](https://learn.microsoft.com/en-us/fabric/security/security-fundamentals) |
+| [OneLake Security](https://learn.microsoft.com/en-us/fabric/onelake/security/fabric-onelake-security) |
+| [Fabric Multi-Geo (Data Residency)](https://learn.microsoft.com/en-us/fabric/admin/service-admin-premium-multi-geo) |
+| [Row-Level Security in Fabric](https://learn.microsoft.com/en-us/fabric/security/service-admin-row-level-security) |
+| [Fabric Permission Model](https://learn.microsoft.com/en-us/fabric/security/permission-model) |
+| [Fabric Private Links](https://learn.microsoft.com/en-us/fabric/security/security-private-links-use) |
+| [Microsoft Fabric Licenses & SKUs](https://learn.microsoft.com/en-us/fabric/enterprise/licenses) |
+| [Power BI Embedded Multi-Tenancy](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
+| [Azure API Management](https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts) |
+| [SaaS Multi-Tenant on Azure – Architecture Guide](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview) |
+| [Multitenant SaaS – Azure SQL patterns](https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns) |
+| [Azure Architecture Center – Architect multitenant solutions](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/overview) |
+| [**Tenancy Models for Multitenant Solutions**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/tenancy-models) |
+| [**SaaS & Multitenant Solution Architecture (Architecture Center)**](https://learn.microsoft.com/en-us/azure/architecture/guide/saas-multitenant-solution-architecture/) |
+| [**Microsoft Fabric Overview (Official Docs)**](https://learn.microsoft.com/en-us/fabric/fundamentals/microsoft-fabric-overview) |
+| [**Azure SaaS Dev Kit**](https://azure.github.io/azure-saas/) |
+| [**Power BI Embedded for ISVs**](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi) |
+| [**Microsoft Purview Governance**](https://learn.microsoft.com/en-us/purview/purview) |
+| [**Fabric Workspace-per-Tenant Pattern**](https://learn.microsoft.com/en-us/fabric/security/workspace-identity) |
 
 ### Pros
 - Fully managed platform – no VM patching, no container orchestration overhead
@@ -298,6 +298,25 @@ Microsoft supports three main tenancy models in Fabric:
 - Fabric is not yet available in all Azure regions
 - Licensing cost model (F SKUs) can be opaque for initial estimation
 - Customization options are constrained by what Fabric exposes in its API surface
+
+### Technology Mapping: Contoso's Proposed Stack → Azure Native Equivalents
+
+Contoso's proposed E360 Plus architecture includes several open-source technologies. In the Azure Native path (Option 1), these are replaced by Azure-native equivalents that are fully managed, integrated, and supported:
+
+| Contoso's Proposed (Open-Source) | Azure Native Replacement | Why the Azure Native Option is Better |
+|---|---|---|
+| **Apache Iceberg** (table format) | **Delta Lake** (native in Fabric / OneLake) | Delta Lake is the native table format in Microsoft Fabric. OneLake stores all data as Delta/Parquet by default — no additional catalog setup, no format conversion, no compatibility layer needed. Fabric Lakehouse, Warehouse, Notebooks, and Power BI all read Delta natively. |
+| **Iceberg REST Catalog / Hive Metastore** | **OneLake** (built-in unified catalog) + **Microsoft Purview** (governance catalog) | OneLake IS the catalog — every Fabric workspace automatically organises tables, files, and shortcuts with no separate metadata store to deploy or manage. Purview adds cross-tenant data governance, lineage tracking, and sensitivity classification on top. |
+| **ClickHouse Cloud** (analytical acceleration) | **Fabric SQL Warehouse** (MPP analytics) + **KQL Database** (time-series / real-time) | Fabric SQL Warehouse provides massively parallel query processing on Lakehouse data. KQL Database (Real-Time Intelligence) handles sub-second time-series queries. Both are workspace-scoped, eliminating the need to manage a separate ClickHouse deployment. ClickHouse can still complement Fabric for specialised query patterns if needed. |
+| **dbt Core** (transformations) | **dbt Core on Fabric** (supported) OR **Fabric Notebooks / Dataflows** | dbt Core works natively with Fabric's SQL Warehouse endpoint — no replacement needed. Alternatively, Fabric Notebooks (PySpark) and Dataflows Gen2 provide built-in transformation capabilities with Copilot assistance. |
+| **Keycloak** (identity proxy) | **Microsoft Entra ID** (B2B federation) | Enterprise-grade identity with built-in Okta federation (SAML/OIDC), Conditional Access, MFA, and seamless integration with every Azure service. No self-hosted identity server to maintain. |
+| **Apache Kafka** (event streaming) | **Fabric Eventstream** + **Azure Event Hubs** | Eventstream is Fabric's native real-time ingestion engine with no-code connectors. Event Hubs provides Kafka-compatible endpoints — existing Kafka producers can publish to Event Hubs without code changes. |
+| **Prometheus / Grafana** (monitoring) | **Azure Monitor** + **Log Analytics** + **Power BI** | Unified observability across all Azure services. Per-tenant monitoring with workspace-scoped dashboards. No separate monitoring infrastructure to operate. |
+| **OpenMetadata** (data catalog) | **Microsoft Purview** | Enterprise data governance with automatic lineage from Fabric pipelines, sensitivity labels, cross-tenant cataloging, and compliance reporting. |
+
+> **Key insight:** Contoso's proposed architecture already uses Azure Data Factory, ADLS Gen2, Key Vault, and Power BI — all Azure-native. The open-source components (Iceberg, ClickHouse, Keycloak, Kafka) are the exceptions, not the rule. Replacing them with Azure-native equivalents completes the Azure Native vision without losing any capability.
+
+> **Note on Iceberg interoperability:** If Contoso has existing data in Iceberg format, Fabric supports **OneLake shortcuts** and **Iceberg table support** (preview) allowing Fabric to read Iceberg tables without migration. This provides a smooth transition path rather than a hard cutover.
 
 ---
 
@@ -350,19 +369,19 @@ Microsoft supports three main tenancy models in Fabric:
 
 ### Microsoft Reference Links – Option 2
 
-| Resource | URL |
-|---|---|
-| AKS Multi-Tenancy Best Practices | https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation |
-| AKS Cluster Isolation (Logical vs Physical) | https://learn.microsoft.com/en-us/azure/aks/cluster-multi-tenancy |
-| Azure Architecture Center – AKS Baseline | https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks |
-| Azure Architecture Center – Multi-Region AKS | https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks-multi-region/aks-multi-cluster |
-| Azure Container Apps (serverless alternative) | https://learn.microsoft.com/en-us/azure/container-apps/overview |
-| Cloud-Agnostic App Design on Azure | https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/design-for-self-healing |
-| Azure Architecture Center – Multitenant SaaS on AKS | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute |
-| Kubernetes Network Policies | https://learn.microsoft.com/en-us/azure/aks/use-network-policies |
-| AKS + External OIDC / Workload Identity | https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview |
-| Azure Arc (unified multi-cloud K8s management) | https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/overview |
-| Deployment Stamp Pattern | https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp |
+| Resource |
+|---|
+| [AKS Multi-Tenancy Best Practices](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation) |
+| [AKS Cluster Isolation (Logical vs Physical)](https://learn.microsoft.com/en-us/azure/aks/cluster-multi-tenancy) |
+| [Azure Architecture Center – AKS Baseline](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks) |
+| [Azure Architecture Center – Multi-Region AKS](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks-multi-region/aks-multi-cluster) |
+| [Azure Container Apps (serverless alternative)](https://learn.microsoft.com/en-us/azure/container-apps/overview) |
+| [Cloud-Agnostic App Design on Azure](https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/design-for-self-healing) |
+| [Azure Architecture Center – Multitenant SaaS on AKS](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute) |
+| [Kubernetes Network Policies](https://learn.microsoft.com/en-us/azure/aks/use-network-policies) |
+| [AKS + External OIDC / Workload Identity](https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview) |
+| [Azure Arc (unified multi-cloud K8s management)](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/overview) |
+| [Deployment Stamp Pattern](https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp) |
 
 ### Pros
 - **True cloud agnosticism** – runs on AKS, EKS, GKE, or on-prem with minimal rework
@@ -724,23 +743,23 @@ Azure Management Group
 
 ### Microsoft Reference Architectures for Multi-Tenant Landing Zone
 
-| Resource | URL |
-|---|---|
-| **Azure Landing Zone – Official Overview** | https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/ |
-| **CAF Enterprise-Scale Landing Zone** | https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/enterprise-scale/architecture |
-| **Multitenant SaaS – Architectural approaches overview** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/overview |
-| **Multitenant – Compute approaches** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute |
-| **Multitenant – Networking approaches** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/networking |
-| **Multitenant – Identity approaches** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity |
-| **Multitenant – Deployment & config** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/deployment-configuration |
-| **Multitenant – Cost management** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/cost-management-allocation |
-| **Multitenant Checklist** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/checklist |
-| **SaaS tenancy models (SQL)** | https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns |
-| **Deployment Stamp pattern** | https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp |
-| **Hub-Spoke Network Topology** | https://learn.microsoft.com/en-us/azure/architecture/networking/architecture/hub-spoke |
-| **AKS Baseline Landing Zone** | https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks |
-| **Azure Policy for Landing Zones** | https://learn.microsoft.com/en-us/azure/governance/policy/overview |
-| **Subscription vending / tenant onboarding (bicep)** | https://learn.microsoft.com/en-us/azure/architecture/landing-zones/subscription-vending |
+| Resource |
+|---|
+| [**Azure Landing Zone – Official Overview**](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/) |
+| [**CAF Enterprise-Scale Landing Zone**](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/enterprise-scale/architecture) |
+| [**Multitenant SaaS – Architectural approaches overview**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/overview) |
+| [**Multitenant – Compute approaches**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute) |
+| [**Multitenant – Networking approaches**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/networking) |
+| [**Multitenant – Identity approaches**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity) |
+| [**Multitenant – Deployment & config**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/deployment-configuration) |
+| [**Multitenant – Cost management**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/cost-management-allocation) |
+| [**Multitenant Checklist**](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/checklist) |
+| [**SaaS tenancy models (SQL)**](https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns) |
+| [**Deployment Stamp pattern**](https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp) |
+| [**Hub-Spoke Network Topology**](https://learn.microsoft.com/en-us/azure/architecture/networking/architecture/hub-spoke) |
+| [**AKS Baseline Landing Zone**](https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks) |
+| [**Azure Policy for Landing Zones**](https://learn.microsoft.com/en-us/azure/governance/policy/overview) |
+| [**Subscription vending / tenant onboarding (bicep)**](https://learn.microsoft.com/en-us/azure/architecture/landing-zones/subscription-vending) |
 
 ### How to Apply This to E360 Specifically
 
@@ -925,20 +944,20 @@ The architecture has three distinct AI capabilities sitting on top of Microsoft 
 
 ### Reference Links – AI & Fabric
 
-| Resource | URL |
-|---|---|
-| Microsoft Fabric AI Features Overview | https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview |
-| Fabric Copilot in Power BI | https://learn.microsoft.com/en-us/power-bi/create-reports/copilot-introduction |
-| Azure OpenAI on your data (RAG) | https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/use-your-data |
-| Fabric Data Activator | https://learn.microsoft.com/en-us/fabric/data-activator/data-activator-introduction |
-| Fabric Lakehouse Overview | https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview |
-| AI + Analytics reference architecture (Azure) | https://learn.microsoft.com/en-us/azure/architecture/solution-ideas/articles/advanced-analytics-on-big-data |
-| Responsible AI in Azure OpenAI | https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/responsible-ai |
-| Azure AI Search (for RAG grounding) | https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search |
-| Implement RAG with Azure OpenAI | https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview |
-| Fabric Real-Time Intelligence Overview | https://learn.microsoft.com/en-us/fabric/real-time-intelligence/overview |
-| Fabric Eventstream | https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview |
-| KQL Overview (Kusto Query Language) | https://learn.microsoft.com/en-us/kusto/query/ |
+| Resource |
+|---|
+| [Microsoft Fabric AI Features Overview](https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview) |
+| [Fabric Copilot in Power BI](https://learn.microsoft.com/en-us/power-bi/create-reports/copilot-introduction) |
+| [Azure OpenAI on your data (RAG)](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/use-your-data) |
+| [Fabric Data Activator](https://learn.microsoft.com/en-us/fabric/data-activator/data-activator-introduction) |
+| [Fabric Lakehouse Overview](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview) |
+| [AI + Analytics reference architecture (Azure)](https://learn.microsoft.com/en-us/azure/architecture/solution-ideas/articles/advanced-analytics-on-big-data) |
+| [Responsible AI in Azure OpenAI](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/responsible-ai) |
+| [Azure AI Search (for RAG grounding)](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) |
+| [Implement RAG with Azure OpenAI](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview) |
+| [Fabric Real-Time Intelligence Overview](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/overview) |
+| [Fabric Eventstream](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview) |
+| [KQL Overview (Kusto Query Language)](https://learn.microsoft.com/en-us/kusto/query/) |
 
 
 ---
@@ -952,40 +971,40 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 
 | Architecture | Why It Matches E360 | Link |
 |---|---|---|
-| **Architect multitenant solutions on Azure** (full series) | The definitive guide. Covers all isolation models, identity, networking, data, compute, and cost for multi-tenant SaaS. | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview |
-| **Multitenant SaaS on Azure SQL – Design Patterns** | E360's per-client database with shared semantic layer maps directly to the "database-per-tenant" or "elastic pool" pattern described here. | https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns |
-| **Power BI Embedded – Multi-Tenancy** | E360 uses Power BI for persona dashboards. This guide covers workspace-per-tenant vs. RLS approaches in Power BI Embedded — directly applicable. | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy |
-| **Deployment Stamps pattern** | E360's Option 2 (IaC-automated per-client deployment) is essentially the Deployment Stamp pattern. | https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp |
-| **Multitenant – Storage and data approaches** | Covers OneLake folder isolation, shared vs. dedicated databases, sharding — all relevant to E360's Lakehouse layer. | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/storage-data |
+| **Architect multitenant solutions on Azure** (full series) | The definitive guide. Covers all isolation models, identity, networking, data, compute, and cost for multi-tenant SaaS. | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview) |
+| **Multitenant SaaS on Azure SQL – Design Patterns** | E360's per-client database with shared semantic layer maps directly to the "database-per-tenant" or "elastic pool" pattern described here. | [Link](https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns) |
+| **Power BI Embedded – Multi-Tenancy** | E360 uses Power BI for persona dashboards. This guide covers workspace-per-tenant vs. RLS approaches in Power BI Embedded — directly applicable. | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
+| **Deployment Stamps pattern** | E360's Option 2 (IaC-automated per-client deployment) is essentially the Deployment Stamp pattern. | [Link](https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp) |
+| **Multitenant – Storage and data approaches** | Covers OneLake folder isolation, shared vs. dedicated databases, sharding — all relevant to E360's Lakehouse layer. | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/storage-data) |
 
 ### 8.2 Layer-by-Layer Mapping to Microsoft References
 
 | E360 Layer | Contoso's Components | Closest Microsoft Reference | Link |
 |---|---|---|---|
-| **Layer 0: Infrastructure** | Azure PaaS, ADLS Gen2, ClickHouse, VNet | Azure Landing Zone + Hub-Spoke | https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/ |
-| **Layer 1: Data & Integration** | ADF, Connectors, Key Vault | Data integration with ADF in multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/storage-data |
-| **Layer 2: Lakehouse Storage** | Iceberg, Bronze/Silver/Gold, ClickHouse | Fabric Lakehouse architecture | https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview |
-| **Layer 3: Semantic Config** | UDAL, Taxonomy, Metadata | Multitenant configuration & deployment | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/deployment-configuration |
-| **Layer 4: Compute & Logic** | dbt Core, Scoring Engine, Workflow | Compute approaches for multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute |
-| **Layer 5: API & Gateway** | API Gateway, GraphQL/REST, Auth | API Management in multitenant architectures | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/service/api-management |
-| **Layer 6: Presentation** | Power BI Embedded, Dashboards, Config UI | Power BI Embedded multi-tenancy | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy |
-| **Layer 8: Agentic AI** | Azure OpenAI, Semantic Kernel | Azure OpenAI RAG pattern | https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview |
-| **Cross-cutting: Identity** | Entra ID, RBAC/RLS | Identity in multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity |
-| **Cross-cutting: Governance** | Purview, dbt Lineage | Governance in multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/governance-compliance |
-| **Cross-cutting: Networking** | VNet, Private Endpoints | Networking in multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/networking |
+| **Layer 0: Infrastructure** | Azure PaaS, ADLS Gen2, ClickHouse, VNet | Azure Landing Zone + Hub-Spoke | [Link](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/) |
+| **Layer 1: Data & Integration** | ADF, Connectors, Key Vault | Data integration with ADF in multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/storage-data) |
+| **Layer 2: Lakehouse Storage** | Delta Lake (Azure Native) / Iceberg (Contoso's proposal), Bronze/Silver/Gold medallion | Fabric Lakehouse architecture | [Link](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview) |
+| **Layer 3: Semantic Config** | UDAL, Taxonomy, Metadata | Multitenant configuration & deployment | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/deployment-configuration) |
+| **Layer 4: Compute & Logic** | dbt Core, Scoring Engine, Workflow | Compute approaches for multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/compute) |
+| **Layer 5: API & Gateway** | API Gateway, GraphQL/REST, Auth | API Management in multitenant architectures | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/service/api-management) |
+| **Layer 6: Presentation** | Power BI Embedded, Dashboards, Config UI | Power BI Embedded multi-tenancy | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
+| **Layer 8: Agentic AI** | Azure OpenAI, Semantic Kernel | Azure OpenAI RAG pattern | [Link](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview) |
+| **Cross-cutting: Identity** | Entra ID, RBAC/RLS | Identity in multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity) |
+| **Cross-cutting: Governance** | Purview, dbt Lineage | Governance in multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/governance-compliance) |
+| **Cross-cutting: Networking** | VNet, Private Endpoints | Networking in multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/networking) |
 
 ### 8.3 Additional High-Value References
 
 | Resource | Relevance | Link |
 |---|---|---|
-| **Multitenant architecture checklist** | Comprehensive gating checklist before go-live | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/checklist |
-| **Measure consumption in multitenant solutions** | How to charge-back / meter per-tenant costs (relevant for E360's SaaS pricing) | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/measure-consumption |
-| **Noisy Neighbor antipattern** | E360's shared compute risk — how to mitigate one tenant impacting others | https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor |
-| **AKS multi-tenancy operator guide** | For Option 2: namespace isolation, network policies, RBAC in AKS | https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation |
-| **Subscription vending** | Automating per-tenant Azure subscription provisioning via Bicep/Terraform | https://learn.microsoft.com/en-us/azure/architecture/landing-zones/subscription-vending |
-| **SaaS Technical Foundations (Training)** | Microsoft Learn module covering SaaS architecture foundations | https://learn.microsoft.com/en-us/training/saas/saas-technical-foundations/ |
-| **Fabric Copilot overview** | For the AI story in Layer 8 | https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview |
-| **Azure Well-Architected Framework** | Cross-cutting quality pillars (reliability, security, cost, ops, perf) | https://learn.microsoft.com/en-us/azure/well-architected/ |
+| **Multitenant architecture checklist** | Comprehensive gating checklist before go-live | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/checklist) |
+| **Measure consumption in multitenant solutions** | How to charge-back / meter per-tenant costs (relevant for E360's SaaS pricing) | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/measure-consumption) |
+| **Noisy Neighbor antipattern** | E360's shared compute risk — how to mitigate one tenant impacting others | [Link](https://learn.microsoft.com/en-us/azure/architecture/antipatterns/noisy-neighbor/noisy-neighbor) |
+| **AKS multi-tenancy operator guide** | For Option 2: namespace isolation, network policies, RBAC in AKS | [Link](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation) |
+| **Subscription vending** | Automating per-tenant Azure subscription provisioning via Bicep/Terraform | [Link](https://learn.microsoft.com/en-us/azure/architecture/landing-zones/subscription-vending) |
+| **SaaS Technical Foundations (Training)** | Microsoft Learn module covering SaaS architecture foundations | [Link](https://learn.microsoft.com/en-us/training/saas/saas-technical-foundations/) |
+| **Fabric Copilot overview** | For the AI story in Layer 8 | [Link](https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview) |
+| **Azure Well-Architected Framework** | Cross-cutting quality pillars (reliability, security, cost, ops, perf) | [Link](https://learn.microsoft.com/en-us/azure/well-architected/) |
 
 ---
 
@@ -994,17 +1013,17 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 | Topic | Key Point | Link |
 |---|---|---|
 | **Microsoft's Recommendation** | **Azure Native (Fabric + PaaS) — strongly recommended** | *(see Section 4 trade-offs)* |
-| Multi-tenancy guide | Full series from Microsoft | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview |
-| Fabric workspace isolation | One workspace per client | https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces |
-| AKS multi-tenancy | Namespace isolation | https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation |
-| Okta + Entra federation | SAML 2.0 / OIDC | https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-saml-single-sign-on |
-| Landing zone | CAF Enterprise-Scale | https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/enterprise-scale/architecture |
-| Fabric Copilot / AI | Copilot overview | https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview |
-| Deployment Stamp pattern | Scale-out model | https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp |
-| Azure Arc (hybrid K8s) | Multi-cloud K8s | https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/overview |
-| Power BI Embedded multi-tenant | Workspace-per-tenant | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy |
-| Multitenant SaaS SQL patterns | DB-per-tenant / elastic pool | https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns |
-| Azure Well-Architected Framework | Quality pillars | https://learn.microsoft.com/en-us/azure/well-architected/ |
+| Multi-tenancy guide | Full series from Microsoft | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview) |
+| Fabric workspace isolation | One workspace per client | [Link](https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces) |
+| AKS multi-tenancy | Namespace isolation | [Link](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-isolation) |
+| Okta + Entra federation | SAML 2.0 / OIDC | [Link](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-saml-single-sign-on) |
+| Landing zone | CAF Enterprise-Scale | [Link](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/enterprise-scale/architecture) |
+| Fabric Copilot / AI | Copilot overview | [Link](https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview) |
+| Deployment Stamp pattern | Scale-out model | [Link](https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp) |
+| Azure Arc (hybrid K8s) | Multi-cloud K8s | [Link](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/overview) |
+| Power BI Embedded multi-tenant | Workspace-per-tenant | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
+| Multitenant SaaS SQL patterns | DB-per-tenant / elastic pool | [Link](https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns) |
+| Azure Well-Architected Framework | Quality pillars | [Link](https://learn.microsoft.com/en-us/azure/well-architected/) |
 
 ---
 ## 9. High level Architecture Diagrams (Mermaid)
