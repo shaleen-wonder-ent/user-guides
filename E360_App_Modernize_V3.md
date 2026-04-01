@@ -274,6 +274,13 @@ Microsoft supports three main tenancy models in Fabric:
 | SaaS Multi-Tenant on Azure – Architecture Guide | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview |
 | Multitenant SaaS – Azure SQL patterns | https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns |
 | Azure Architecture Center – Architect multitenant solutions | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/overview |
+| **Tenancy Models for Multitenant Solutions** | https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/considerations/tenancy-models |
+| **SaaS & Multitenant Solution Architecture (Architecture Center)** | https://learn.microsoft.com/en-us/azure/architecture/guide/saas-multitenant-solution-architecture/ |
+| **Microsoft Fabric Overview (Official Docs)** | https://learn.microsoft.com/en-us/fabric/fundamentals/microsoft-fabric-overview |
+| **Azure SaaS Dev Kit** | https://azure.github.io/azure-saas/ |
+| **Power BI Embedded for ISVs** | https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi |
+| **Microsoft Purview Governance** | https://learn.microsoft.com/en-us/purview/purview |
+| **Fabric Workspace-per-Tenant Pattern** | https://learn.microsoft.com/en-us/fabric/security/workspace-identity |
 
 ### Pros
 - Fully managed platform – no VM patching, no container orchestration overhead
