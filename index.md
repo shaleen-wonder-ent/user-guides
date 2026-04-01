@@ -250,6 +250,10 @@ Please select a guide from the list below:
 * [Microsoft Entra ID — Sign-in Log Retention: Cost Estimation](./Retention_Architecture_Price.md)
 
   ---
+  
+* [E360 Next-Gen Platform – Architecture Discussion Guide](./E360_App_Modernize.md)
+
+  ---
 <!--
 
 ---
