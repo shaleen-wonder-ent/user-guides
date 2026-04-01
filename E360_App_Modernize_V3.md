@@ -810,6 +810,83 @@ For Enterprise-tier tenants: automate subscription provisioning using:
           └──────────────────────────────────────────────────┘
 ```
 
+### The Three AI Pillars – Why Each One & What It Does for E360
+
+The architecture has three distinct AI capabilities sitting on top of Microsoft Fabric. Each one solves a different class of problem for E360's users:
+
+---
+
+**Pillar 1: Fabric Copilot** *(left box)*
+
+| | |
+|---|---|
+| **What it is** | Microsoft's built-in AI assistant embedded inside every Fabric experience — Power BI, Notebooks, Data Factory pipelines, SQL Warehouse. It is powered by Azure OpenAI under the hood but presented as a native Fabric feature. |
+| **Why E360 needs it** | E360's current users (Ops Managers, Account SPOCs, CXO personas) are **not data engineers**. Today they rely on pre-built dashboards and static reports. Copilot lets them ask questions in plain English — "What were Tenant A's top 5 escalation categories last quarter?" — and get answers directly from the Lakehouse data without waiting for a report to be built. |
+| **E360 use cases** | - **Power BI Copilot:** A CXO opens an E360 dashboard and asks "Summarise this month's DQI trends across my accounts" → Copilot generates a narrative summary and suggests a chart. <br> - **Notebook Copilot:** An E360 data engineer types "Write a Spark transformation to calculate rolling 30-day SLA compliance per client" → Copilot generates the PySpark code. <br> - **Pipeline Copilot:** The team says "Create a pipeline that loads CSV files from ADLS, cleanses nulls, and writes to the Silver layer" → Copilot scaffolds the Data Factory pipeline. |
+| **Multi-tenant safety** | Copilot only accesses data within the **current Fabric workspace**. Since each tenant has its own workspace, Tenant A's Copilot cannot read Tenant B's data. No additional configuration needed — isolation is architectural. |
+| **What it replaces** | The current ChatGPT-based "Gen AI Playground" in E360 (which has no access to live client data and just wraps a public LLM). Fabric Copilot is grounded on the actual tenant data. |
+
+---
+
+**Pillar 2: Azure OpenAI + RAG** *(centre box)*
+
+| | |
+|---|---|
+| **What it is** | A custom-built "ask your data" experience using **Retrieval-Augmented Generation (RAG)**. Azure OpenAI (GPT-4o) is the LLM. **Azure AI Search** is the retrieval layer that indexes the client's documents and structured data, so the LLM answers questions grounded in real facts rather than hallucinating. |
+| **Why E360 needs it** | Fabric Copilot works brilliantly for structured data already in the Lakehouse (*tables, columns, metrics*). But E360 clients also have **unstructured knowledge** — SOW documents, SLA contracts, operational runbooks, transition playbooks, audit reports. RAG lets users query across both structured and unstructured data in one conversational interface. |
+| **E360 use cases** | - **CXO Insights (next-gen):** "What are the contractual SLA targets for Account X, and how does current performance compare?" → RAG retrieves the SOW document from AI Search, extracts the SLA clause, then queries the Gold-layer DQI table to compute actual performance, and synthesises a grounded answer. <br> - **Ops Designer (next-gen):** "Based on historical transition data, what are the risk factors for this new account onboarding?" → RAG pulls from prior transition documents and operational KPIs. <br> - **Benchmarking Q&A:** "How does this client's delivery quality index compare to the industry average?" → RAG combines structured benchmarking data with published benchmark reports. |
+| **How it differs from Copilot** | Copilot is a Microsoft-managed UI embedded in Fabric. RAG is a **custom application** — E360's team builds the ingestion pipeline (documents → AI Search index), the prompt engineering, and the UI. This gives full control over the experience, branding, and what data is exposed. |
+| **Multi-tenant safety** | Each tenant's documents are indexed into a **separate AI Search index** (or filtered via security trimming with the tenant ID). The Azure OpenAI call includes only the current tenant's retrieved chunks. No cross-tenant data leakage. |
+| **Architecture flow** | User question → E360 API → Azure AI Search (retrieve relevant chunks for this tenant) → Azure OpenAI (generate answer using retrieved context) → Return to E360 UI |
+
+---
+
+**Pillar 3: Real-Time Intelligence** *(right box)*
+
+| | |
+|---|---|
+| **What it is** | Microsoft Fabric's **Real-Time Intelligence** workload (formerly Real-Time Analytics / KQL Database). It ingests streaming data via **Eventstream**, stores it in a KQL (Kusto) database optimised for time-series and log analytics, and enables sub-second queries using **KQL (Kusto Query Language)**. It also includes **Data Activator** — a no-code trigger engine that monitors data streams and fires alerts or actions when conditions are met. |
+| **Why E360 needs it** | E360's current architecture is entirely **batch-based** — data is loaded periodically from AWS S3, processed, and surfaced in static dashboards. There is no real-time operational intelligence. But E360's modules (Ops Hub, SMF Alerts/Escalations, Daily Huddle, Guardrails) are inherently **operational and time-sensitive**. Real-Time Intelligence closes the gap between "something happened" and "the dashboard shows it". |
+| **E360 use cases** | - **Ops Hub – Live Alerts:** Instead of polling a database every 15 minutes, Eventstream ingests operational events (ticket created, SLA breach, escalation triggered) and Data Activator fires a Teams notification or email **within seconds**. <br> - **Daily Huddle – Live KPIs:** The Daily Huddle screen shows KPIs that update in real-time during the meeting, not from a stale morning batch run. <br> - **DQI – Anomaly detection:** A KQL query continuously monitors the Delivery Quality Index stream. If a client's DQI drops below threshold, Data Activator triggers an automated escalation workflow. <br> - **Guardrails – Proactive compliance:** Real-time monitoring of operational metrics against guardrail thresholds; instant notification when a metric is trending toward a breach. <br> - **CXO Insights – Live event feed:** CXO dashboards get a "live activity" panel showing real-time operational events across accounts. |
+| **How it differs from the other two** | Copilot and RAG are **interactive / on-demand** — a user asks a question and gets an answer. Real-Time Intelligence is **continuous / event-driven** — it monitors data streams 24/7 and acts automatically, even when no one is looking at a dashboard. |
+| **Multi-tenant safety** | Eventstreams and KQL databases are created within Fabric workspaces. Per-tenant workspace isolation means each tenant's real-time data is physically separate. Data Activator triggers are workspace-scoped. |
+
+---
+
+### How the Three Pillars Work Together
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                        E360 User Interaction                       │
+│                                                                    │
+│   "What happened?"          "Why?" / "What if?"      "Alert me"    │
+│   ┌─────────────┐          ┌─────────────────┐    ┌──────────────┐ │
+│   │   Fabric    │          │  Azure OpenAI   │    │  Real-Time   │ │
+│   │   Copilot   │          │  + RAG          │    │  Intelligence│ │
+│   │             │          │                 │    │  + Activator │ │
+│   │ Structured  │          │ Structured +    │    │  Streaming   │ │
+│   │ data Q&A    │          │ Unstructured    │    │  data +      │ │
+│   │ (tables,    │          │ data Q&A        │    │  automated   │ │
+│   │ reports)    │          │ (docs + tables) │    │  triggers    │ │
+│   └──────┬──────┘          └────────┬────────┘    └──────┬───────┘ │
+│          │                          │                    │         │
+│          └──────────────────────────┼────────────────────┘         │
+│                                     │                              │
+│                          ┌──────────▼───────────┐                  │
+│                          │     OneLake          │                  │
+│                          │  (single source of   │                  │
+│                          │   truth for all AI)  │                  │
+│                          └──────────────────────┘                  │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+| Question Type | Which Pillar Answers It | Example |
+|---|---|---|
+| "Show me last quarter's DQI trends" | **Fabric Copilot** (structured data already in Power BI / Lakehouse) | Ops Manager reviewing performance |
+| "What does the SLA contract say about penalty clauses for Account X?" | **Azure OpenAI + RAG** (unstructured document retrieval + LLM reasoning) | Account SPOC preparing for a client review |
+| "Notify me immediately if any client's DQI drops below 85" | **Real-Time Intelligence + Data Activator** (continuous monitoring + automated trigger) | Guardrails / proactive alerting |
+| "Summarise today's escalations and suggest root causes" | **RAG + Copilot together** (RAG retrieves relevant docs; Copilot analyses the structured escalation data) | CXO daily briefing |
+
 ### AI Capabilities in the Platform
 
 | Capability | Technology | Description |
@@ -843,6 +920,10 @@ For Enterprise-tier tenants: automate subscription provisioning using:
 | Responsible AI in Azure OpenAI | https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/responsible-ai |
 | Azure AI Search (for RAG grounding) | https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search |
 | Implement RAG with Azure OpenAI | https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview |
+| Fabric Real-Time Intelligence Overview | https://learn.microsoft.com/en-us/fabric/real-time-intelligence/overview |
+| Fabric Eventstream | https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview |
+| KQL Overview (Kusto Query Language) | https://learn.microsoft.com/en-us/kusto/query/ |
+
 
 ---
 
@@ -892,7 +973,7 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 
 ---
 
-## Quick Reference Card (for the meeting)
+## Quick Reference Card 
 
 | Topic | Key Point | Link |
 |---|---|---|
