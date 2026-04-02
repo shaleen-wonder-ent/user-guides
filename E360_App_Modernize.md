@@ -764,7 +764,7 @@ For Enterprise-tier tenants: automate subscription provisioning using:
 <a name="ai-fabric"></a>
 ## 7. AI & Fabric Story
 
-### The Narrative
+### The Case
 
 > *"E360 is not just an analytics platform — it is a decision intelligence platform. With Microsoft Fabric as the foundation, every client's data is unified in OneLake. Azure OpenAI and Fabric's native Copilot capabilities sit on top of that data — meaning AI is not bolted on, it is built in from day one."*
 
