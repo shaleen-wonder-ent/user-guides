@@ -21,7 +21,6 @@
 
 <a name="current-state"></a>
 
-**This will be removed later, Current Architecture (E360 on AWS)**
 ## 0. E360 Current State & Proposed Vision
 
 ### 0.1 Current Architecture (E360 on other platform)
