@@ -251,9 +251,7 @@ Please select a guide from the list below:
 
   ---
   
-* [E360 Next-Gen Platform – Architecture Discussion Guide](./E360_App_Modernize.md)
 
-  ---
 <!--
 
 ---
