@@ -1,4 +1,4 @@
-# E360 Next-Gen Platform – Architecture Discussion Guide
+# E360 Next-Gen Platform – Architecture Discussion 
 
 ---
 
