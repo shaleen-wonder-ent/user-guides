@@ -26,7 +26,7 @@
 ### 0.1 Current Architecture (E360 on other platform)
 
 **Key Observations:**
-- **Single-tenant monolith** – All clients share one AWS storage environment with only RBAC for segregation
+- **Single-tenant monolith** – All clients share one other platform storage environment with only RBAC for segregation
 - **Okta** is the identity provider; no Azure AD / Entra ID today
 - **Power BI** already used for portfolio drill-down views (a bridge to Option 1)
 - **MuleSoft** handles integration – must be replaced or abstracted in migration
@@ -94,7 +94,7 @@ Cross-cutting (right side):
 
 1. What is the current data volume per client, and total across all clients? (GB/TB – needed for Fabric F SKU sizing)
 2. How many concurrent clients are on the platform today, and what is the 12-month / 24-month target?
-3. What AWS services are currently in use beyond S3? (Lambda, RDS, Glue, Redshift, SageMaker, etc.)
+3. What other platform services are currently in use beyond S3? (Lambda, RDS, Glue, Redshift, SageMaker, etc.)
 4. Is the current codebase Python-based? What frameworks (Flask, FastAPI, Django)?
 5. How are data pipelines currently orchestrated? (Airflow, Step Functions, custom cron?)
 6. What is the current deployment model? (EC2 instances, ECS containers, or bare Python scripts?)
@@ -127,7 +127,7 @@ Cross-cutting (right side):
 **Requirements Clarification:**
 
 1. What percentage of current/target clients cannot use Azure? (The ~20% figure – is this validated?)
-2. For non-Azure clients, what are the specific constraints? (Contractual AWS-only? On-prem mandate? GCP preference?)
+2. For non-Azure clients, what are the specific constraints? (Contractual other platform-only? On-prem mandate? GCP preference?)
 3. Is "cloud agnostic" a contractual/RFP requirement from Contoso's clients, or an internal strategic preference?
 4. Does "agnostic" mean the **same binary** runs everywhere, or is it acceptable to have cloud-specific adapters behind a common interface?
 5. Are there clients who need E360 deployed **in the client's own cloud subscription** (vs. Contoso-managed)?
@@ -137,7 +137,7 @@ Cross-cutting (right side):
 6. The proposed architecture uses Azure Data Factory, ADLS Gen2, Key Vault, and Entra ID – these are Azure-specific. What is the abstraction strategy for non-Azure deployments? (e.g., ADF → Airflow, ADLS → S3, Key Vault → HashiCorp Vault, Entra → Keycloak?)
 7. Is ClickHouse Cloud the confirmed analytical DB? (It is cloud-agnostic, which supports Option 2)
 8. dbt Core is open-source and portable – is the team committed to dbt, or considering dbt Cloud (which adds SaaS dependency)?
-9. For the Iceberg table format: is there a dependency on a specific catalog implementation (AWS Glue Catalog, Hive Metastore, Nessie)?
+9. For the Iceberg table format: is there a dependency on a specific catalog implementation (other platform Glue Catalog, Hive Metastore, Nessie)?
 10. Has the team evaluated **Azure Arc** as a way to get Azure management plane portability without full re-architecture?
 
 **Operational Readiness:**
@@ -429,7 +429,7 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 **Option 1 (Azure-Native):**
 
 - **Pro:** Fabric's pricing is based on two main components: storage (OneLake) and compute, with calculators available to estimate costs based on data volume and transformation needs. Microsoft cites reference case studies showing cost advantages over other platforms for analytics workloads. The pay-as-you-go model can align costs with actual usage, avoiding upfront capital expenditure.
-- **Con:** Azure consumption costs can escalate unpredictably with growing data volumes or compute-intensive analytics workloads. Additionally, Contoso's existing AWS investments (infrastructure, expertise, tooling) are largely non-transferable, creating a sunk-cost write-off during migration.
+- **Con:** Azure consumption costs can escalate unpredictably with growing data volumes or compute-intensive analytics workloads. Additionally, Contoso's existing other platform investments (infrastructure, expertise, tooling) are largely non-transferable, creating a sunk-cost write-off during migration.
 
 **Option 2 (Cloud-Agnostic):**
 
@@ -445,7 +445,7 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 **Option 1 (Azure-Native):**
 
 - **Pro:** Power BI is natively integrated within Fabric, allowing seamless embedding of reports into custom application layers, with APIs available for further integration and automation. Since E360 already uses Power BI for drill-down views, migrating these into Fabric-hosted Power BI would be relatively low-friction. Contoso's proposed architecture already anticipates Power BI Premium/Embedded for persona-based dashboards, suggesting alignment with this path.
-- **Con:** Replacing the current direct AWS S3 data access with calls to Fabric or ADLS Gen2 APIs requires backend refactoring. Integration of Contoso's Okta authentication with Microsoft Entra ID adds complexity in a mixed identity environment.
+- **Con:** Replacing the current direct other platform S3 data access with calls to Fabric or ADLS Gen2 APIs requires backend refactoring. Integration of Contoso's Okta authentication with Microsoft Entra ID adds complexity in a mixed identity environment.
 
 **Option 2 (Cloud-Agnostic):**
 
@@ -515,7 +515,7 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 **Option 2 (Cloud-Agnostic):**
 
-- **Pro:** Fully aligned with Contoso's design principle. Containerised E360 can be deployed on AKS, EKS (AWS), or any Kubernetes-compatible environment. Contoso explicitly stated they are "not open for any re-architecture or platform-sticky components", making this the philosophically aligned choice.
+- **Pro:** Fully aligned with Contoso's design principle. Containerised E360 can be deployed on AKS, EKS, or any Kubernetes-compatible environment. Contoso explicitly stated they are "not open for any re-architecture or platform-sticky components", making this the philosophically aligned choice.
 - **Con:** Maintaining cloud neutrality imposes constraints: the team must avoid using any cloud-specific managed services (or abstract them behind interfaces), which limits the use of optimised platform features. This can slow development and reduce the sophistication of the analytics layer compared to what Fabric could offer.
 
 > **Trade-off:** This is often framed as the **most polarising dimension**, but it shouldn't be. Option 1 maximises value for the majority (80%) and Azure Arc addresses the minority (20%) — this is not a gap, it's a solved problem. Option 2 serves everyone equally but at a higher operational cost for all — effectively punishing 80% of clients to accommodate 20%. **Recommendation: Azure Native is the right choice. For SaaS clients (~80%), cloud portability is irrelevant — they consume E360 as a service, not infrastructure. For the ~20% requiring non-Azure deployment, Azure Arc + AKS provides a managed path without sacrificing the platform's core capability. The "one codebase everywhere" ideal sounds appealing in theory but delivers a mediocre experience everywhere in practice.**
@@ -531,7 +531,7 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 **Option 2 (Cloud-Agnostic):**
 
-- **Pro:** Familiar operational model — the same team that manages E360 on AWS today can manage it on AKS with transferable skills. Existing monitoring, logging, and CI/CD practices can be adapted rather than replaced. Using IaC to automate deployment for net-new customers provides a scalable operational model.
+- **Pro:** Familiar operational model — the same team that manages E360 on other platform today can manage it on AKS with transferable skills. Existing monitoring, logging, and CI/CD practices can be adapted rather than replaced. Using IaC to automate deployment for net-new customers provides a scalable operational model.
 - **Con:** Running Kubernetes at production scale is resource-intensive: cluster maintenance, node upgrades, security patching, container image management, and incident response all fall on Contoso's team. As the customer base grows, operational overhead scales with it — Contoso effectively becomes a managed infrastructure provider alongside being a software vendor.
 
 > **Trade-off:** Option 1 trades operational simplicity for a learning curve; Option 2 trades operational autonomy for ongoing labour intensity that grows with the customer base. **Recommendation: Option 1 is clearly superior for operational sustainability. Microsoft manages patching, scaling, backups, and security updates for the entire Fabric platform — Contoso's team focuses on building E360 features, not operating infrastructure. The learning curve is a one-time investment; Kubernetes operational overhead is permanent and compounds. With Microsoft's empanelled partners available for Azure environment setup, the transition risk is manageable.**
@@ -839,7 +839,7 @@ The architecture has three distinct AI capabilities sitting on top of Microsoft 
 | | |
 |---|---|
 | **What it is** | Microsoft Fabric's **Real-Time Intelligence** workload (formerly Real-Time Analytics / KQL Database). It ingests streaming data via **Eventstream**, stores it in a KQL (Kusto) database optimised for time-series and log analytics, and enables sub-second queries using **KQL (Kusto Query Language)**. It also includes **Data Activator** — a no-code trigger engine that monitors data streams and fires alerts or actions when conditions are met. |
-| **Why E360 needs it** | E360's current architecture is entirely **batch-based** — data is loaded periodically from AWS S3, processed, and surfaced in static dashboards. There is no real-time operational intelligence. But E360's modules (Ops Hub, SMF Alerts/Escalations, Daily Huddle, Guardrails) are inherently **operational and time-sensitive**. Real-Time Intelligence closes the gap between "something happened" and "the dashboard shows it". |
+| **Why E360 needs it** | E360's current architecture is entirely **batch-based** — data is loaded periodically from other platform S3, processed, and surfaced in static dashboards. There is no real-time operational intelligence. But E360's modules (Ops Hub, SMF Alerts/Escalations, Daily Huddle, Guardrails) are inherently **operational and time-sensitive**. Real-Time Intelligence closes the gap between "something happened" and "the dashboard shows it". |
 | **E360 use cases** | - **Ops Hub – Live Alerts:** Instead of polling a database every 15 minutes, Eventstream ingests operational events (ticket created, SLA breach, escalation triggered) and Data Activator fires a Teams notification or email **within seconds**. <br> - **Daily Huddle – Live KPIs:** The Daily Huddle screen shows KPIs that update in real-time during the meeting, not from a stale morning batch run. <br> - **DQI – Anomaly detection:** A KQL query continuously monitors the Delivery Quality Index stream. If a client's DQI drops below threshold, Data Activator triggers an automated escalation workflow. <br> - **Guardrails – Proactive compliance:** Real-time monitoring of operational metrics against guardrail thresholds; instant notification when a metric is trending toward a breach. <br> - **CXO Insights – Live event feed:** CXO dashboards get a "live activity" panel showing real-time operational events across accounts. |
 | **How it differs from the other two** | Copilot and RAG are **interactive / on-demand** — a user asks a question and gets an answer. Real-Time Intelligence is **continuous / event-driven** — it monitors data streams 24/7 and acts automatically, even when no one is looking at a dashboard. |
 | **Multi-tenant safety** | Eventstreams and KQL databases are created within Fabric workspaces. Per-tenant workspace isolation means each tenant's real-time data is physically separate. Data Activator triggers are workspace-scoped. |
