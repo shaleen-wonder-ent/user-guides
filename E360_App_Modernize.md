@@ -79,7 +79,7 @@ Cross-cutting (right side):
 - **Already hybrid by design:** Uses Azure-native services (ADF, ADLS Gen2, Key Vault, Entra ID) alongside open-source tools (dbt Core, Iceberg, ClickHouse)
 - **Lakehouse medallion pattern:** Bronze → Silver → Gold with dbt as the transformation engine
 - **Semantic Configuration Layer (UDAL):** Critical for multi-tenancy – this is where per-client metadata, taxonomies, and abstraction live
-- **Agentic Intelligence Layer de-scoped for MVP:** AI features are envisioned but not v1 priority – this is our opportunity to tell the Fabric AI story
+- **Agentic Intelligence Layer de-scoped for MVP:** AI features are envisioned but not v1 priority
 - **Config UI in Layer 6:** Confirms the need for a self-service admin portal for tenant onboarding
 - **No explicit multi-tenancy boundary** shown – the architecture is application-level; tenant isolation must be designed into every layer
 
@@ -127,7 +127,7 @@ Cross-cutting (right side):
 **Requirements Clarification:**
 
 1. What percentage of current/target clients cannot use Azure? (The ~20% figure – is this validated?)
-2. For non-Azure clients, what are the specific constraints? (Contractual other platform-only? On-prem mandate? GCP preference?)
+2. For non-Azure clients, what are the specific constraints? (Contractual other platform-only? On-prem mandate?)
 3. Is "cloud agnostic" a contractual/RFP requirement from Contoso's clients, or an internal strategic preference?
 4. Does "agnostic" mean the **same binary** runs everywhere, or is it acceptable to have cloud-specific adapters behind a common interface?
 5. Are there clients who need E360 deployed **in the client's own cloud subscription** (vs. Contoso-managed)?
@@ -144,7 +144,7 @@ Cross-cutting (right side):
 
 11. Does Contoso have a Kubernetes operations team today, or would this need to be built/hired?
 12. What is the experience level with Infrastructure-as-Code? (Terraform, Bicep, Pulumi?)
-13. Is there a preference for GitOps tooling? (ArgoCD, Flux, or custom?)
+13. Is there a preference for GitOps tooling?
 14. What is the target SLA for the platform? (99.9%? 99.95%? Per-client or platform-wide?)
 
 ---
@@ -180,6 +180,7 @@ This architecture maps Contoso's proposed layers onto Azure-native services:
 │  Supporting PaaS:                                               │
 │  Azure API Management │ Azure AD B2B/B2C │ Azure Key Vault      │
 │  Azure Monitor / Purview │ Azure Data Factory │ Event Hub       │
+│  Azure App Service │ Azure Kubernetes Service │ Azure Containers│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -252,8 +253,7 @@ Microsoft supports three main tenancy models in Fabric:
 - Fastest time-to-value for analytics heavy workloads like E360
 
 ### Cons
-- **Azure lock-in** – Contoso's cloud-agnostic requirement is not met natively
-- Fabric is not yet available in all Azure regions
+- **Azure native** – Contoso's cloud-agnostic requirement is not met natively (that's unavoidable for any hyperscaler)
 - Licensing cost model (F SKUs) can be opaque for initial estimation
 - Customization options are constrained by what Fabric exposes in its API surface
 
@@ -384,7 +384,6 @@ Contoso's proposed E360 Plus architecture includes several open-source technolog
 
 ### Recommended Decision Framework
 
-Use this to guide the Contoso conversation:
 
 ```
 Start with Option 1 (Azure Native / Fabric) as the default.
@@ -527,7 +526,7 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 **Option 1 (Azure-Native):**
 
 - **Pro:** Offloads significant operational burden to Microsoft — patching, scaling, backups, uptime monitoring, and security updates for Fabric and Azure PaaS are handled by the platform. Fewer moving parts for Contoso to manage day-to-day.
-- **Con:** Contoso's team must acquire new skills in Azure networking and deployment. Until this ramp-up is complete, Contoso is dependent on Microsoft for troubleshooting and optimisation. Providing a list of team members who require Azure portal access for hands-on familiarisation is an identified action item.
+- **Con:** Contoso's team must acquire new skills in Azure networking and deployment. Until this ramp-up is complete, Contoso is dependent on Microsoft for troubleshooting and optimisation. Providing a list of team members who require Azure portal access for hands-on familiarisation is an identified action item. (*Whis is true for any platform*)
 
 **Option 2 (Cloud-Agnostic):**
 
@@ -735,7 +734,7 @@ Define tiers that determine isolation level:
 
 For Enterprise-tier tenants: automate subscription provisioning using:
 - Azure Bicep templates or Terraform
-- Azure DevOps pipelines triggered on tenant onboarding
+- Azure DevOps/GitHub Actions pipelines triggered on tenant onboarding
 - Policy assignments via Azure Management Groups to enforce security baseline
 
 **Step 3 – Network Topology**
@@ -761,7 +760,7 @@ For Enterprise-tier tenants: automate subscription provisioning using:
 ---
 
 <a name="ai-fabric"></a>
-## 7. AI & Fabric Story
+## 7. Why AI & Fabric
 
 ### The Case
 
