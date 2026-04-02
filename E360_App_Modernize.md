@@ -24,50 +24,7 @@
 **This will be removed later, Current Architecture (E360 on AWS)**
 ## 0. E360 Current State & Proposed Vision
 
-### 0.1 Current Architecture (E360 on AWS)
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        PRESENTATION LAYER                              │
-│                                                                        │
-│  ┌──────────┐ ┌─────────────┐ ┌──────────────┐ ┌──────────┐ ┌────────┐ │
-│  │   RBAC   │ │  Modules    │ │    SMF       │ │ Ops Hub  │ │Portfol.│ │
-│  │ Ops Roles│ │ OpsHub      │ │ Alerts/Esc.  │ │ Issues   │ │Risk/   │ │
-│  │ Func.Role│ │ Portfolio   │ │ OpsRituals   │ │ Tasks    │ │Compli. │ │
-│  │ Acct SPOC│ │ SMF/Insight │ │ Risks        │ │ Customer │ │Top 10  │ │
-│  │ Default  │ │ Guardrails  │ │ Notifications│ │ Ops      │ │Transi. │ │
-│  │          │ │ Benchmarking│ │ 1-on-1       │ │ People   │ │        │ │
-│  │          │ │ DQI         │ │ Daily Huddle │ │ Ops Mod. │ │        │ │
-│  │          │ │ Citizen Dev │ │ Guardrails   │ │ Ops Des. │ │        │ │
-│  │          │ │ ADMIN       │ │ Bench Upload │ │ CXO Ins. │ │        │ │
-│  │          │ │ Gen AI/Ins. │ │              │ │          │ │        │ │
-│  └──────────┘ └─────────────┘ └──────────────┘ └──────────┘ └────────┘ │
-│                                                                        │
-│  ┌─────────────┐  ┌───────────────┐                                    │
-│  │   Gen AI    │  │     DQI       │                                    │
-│  │ Playground  │  │ DQ Index      │                                    │
-│  │ Ops Designer│  │ Acct Landscape│                                    │
-│  │ CXO Insights│  │               │                                    │
-│  └─────────────┘  └───────────────┘                                    │
-└────────────────────────────────────────────────────────────────────────┘
-                              │
-┌──────────────────────────────────────────────────────────────────────────┐
-│       INTEGRATION LAYER (APIs – SOAP & REST, Third Party via MuleSoft)   │
-└──────────────────────────────────────────────────────────────────────────┘
-                              │
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          DATA LAYER (AWS)                                │
-│                                                                          │
-│  Data Domains: Finance│Operations│People│Portfolio│Masters│Misc          │
-│            ▼                                                             │
-│  AWS S3 + AWS Data Services (single storage, shared across tenants)      │
-│                                                                          │
-│  Cross-cutting: Security│Meta Data│Data Catalogue│Data Governance        │
-│                 Data Quality│AI/ML                                       │
-└──────────────────────────────────────────────────────────────────────────┘
-
-Auth: Okta  │  External: ServiceNow, ChatGPT, Power BI Portfolio
-```
+### 0.1 Current Architecture (E360 on other platform)
 
 **Key Observations:**
 - **Single-tenant monolith** – All clients share one AWS storage environment with only RBAC for segregation
