@@ -83,6 +83,8 @@ Cross-cutting (right side):
 - **Config UI in Layer 6:** Confirms the need for a self-service admin portal for tenant onboarding
 - **No explicit multi-tenancy boundary** shown – the architecture is application-level; tenant isolation must be designed into every layer
 
+[↑ Back to top](#)
+
 ---
 
 <a name="discovery"></a>
@@ -146,6 +148,8 @@ Cross-cutting (right side):
 12. What is the experience level with Infrastructure-as-Code? (Terraform, Bicep, Pulumi?)
 13. Is there a preference for GitOps tooling?
 14. What is the target SLA for the platform? (99.9%? 99.95%? Per-client or platform-wide?)
+
+[↑ Back to top](#)
 
 ---
 
@@ -276,6 +280,8 @@ Contoso's proposed E360 Plus architecture includes several open-source technolog
 
 > **Note on Iceberg interoperability:** If Contoso has existing data in Iceberg format, Fabric supports **OneLake shortcuts** and **Iceberg table support** (preview) allowing Fabric to read Iceberg tables without migration. This provides a smooth transition path rather than a hard cutover.
 
+[↑ Back to top](#)
+
 ---
 
 <a name="option2"></a>
@@ -355,6 +361,8 @@ Contoso's proposed E360 Plus architecture includes several open-source technolog
 - Longer time-to-value; more bespoke engineering effort
 - Security hardening (CIS benchmarks, pod policies, network policies) is entirely on the team
 
+[↑ Back to top](#)
+
 ---
 
 <a name="tradeoffs"></a>
@@ -421,6 +429,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 > **Trade-off:** Option 1 provides effortless vertical and horizontal scalability within Azure — which serves ~80% of Contoso's clients immediately. Option 2 provides universal scalability but demands continuous operational investment that scales linearly with the customer base. **Recommendation: Build on Azure Native (Option 1) for the majority, and use Azure Arc to extend reach to the ~20% who need non-Azure deployment, rather than penalising the majority with Option 2's operational overhead.**
 
+[↑ Back to top](#)
+
 ---
 
 #### 4.2 Cost and Pricing Model
@@ -436,6 +446,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 - **Con:** Operational overhead constitutes a significant hidden cost: Contoso must staff and train a team to manage Kubernetes clusters, perform upgrades, handle incident response, and maintain custom tooling — essentially operating as a SaaS provider. These labour costs may offset the savings from avoiding PaaS premiums.
 
 > **Trade-off:** The cost comparison is not straightforward. Option 1 shifts spend from **people** (ops engineers) to **platform** (Azure fees); Option 2 does the reverse. However, platform spend is predictable and scales sub-linearly, while ops labour scales linearly. **Recommendation: For a SaaS business like E360, Option 1's consumption model is structurally more efficient at scale — Contoso should invest in platform capability, not headcount. Microsoft's partnership investment and potential EA pricing further tilts the economics in Option 1's favour.**
+
+[↑ Back to top](#)
 
 ---
 
@@ -453,6 +465,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 > **Trade-off:** Option 2 offers a faster initial integration path (weeks), while Option 1 offers the most capable long-term integration (months of refactoring). However, the faster path preserves all of E360's current architectural limitations. **Recommendation: Invest in Option 1's integration now. Contoso's proposed architecture already envisions Power BI Embedded, ADLS Gen2, and Azure PaaS — this is inherently an Azure Native design. Starting with Option 2 risks accumulating technical debt that makes the eventual Azure Native migration harder, not easier. A phased migration to Fabric can begin with the data layer (OneLake, ADF pipelines) while the presentation layer transitions in parallel.**
 
+[↑ Back to top](#)
+
 ---
 
 #### 4.4 Performance and Reliability
@@ -468,6 +482,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 - **Con:** Without managed services, achieving high availability and disaster recovery requires significant DevOps investment (container health checks, pod disruption budgets, cross-zone replication). Performance benchmarking and optimisation is Contoso's responsibility, consuming engineering bandwidth.
 
 > **Trade-off:** Option 1 provides predictable, enterprise-grade performance backed by Microsoft SLAs, suitable for the vast majority of analytical workloads. Option 2 has a higher theoretical performance ceiling with specialised tools like ClickHouse, but realising that ceiling requires significant engineering effort and ongoing tuning. **Recommendation: Option 1 is the lower-risk, higher-value choice. Fabric's unified engine eliminates data movement latency, and Microsoft continuously optimises the platform — Contoso benefits from these improvements automatically without engineering investment. ClickHouse can complement Fabric as an acceleration layer if specific query patterns demand it, rather than replacing the entire platform.**
+
+[↑ Back to top](#)
 
 ---
 
@@ -487,6 +503,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 > **Trade-off:** Both options require substantial multi-tenancy engineering at the application layer. However, Option 1 provides **platform-level** multi-tenancy primitives (separate workspaces, OneLake folder isolation, sensitivity labels, workspace-scoped RBAC, Fabric REST APIs for automation) that fundamentally accelerate the work. Option 2 provides only infrastructure-level isolation (namespaces, network policies) and leaves the entire application-level multi-tenancy burden on Contoso. **Recommendation: Option 1 is clearly superior for multi-tenancy. Fabric's workspace-per-tenant model directly addresses Contoso's stated concern about data segregation and privacy — each client's data is physically separated at the storage layer, not merely filtered by RBAC. This is the single strongest argument for Azure Native.**
 
+[↑ Back to top](#)
+
 ---
 
 #### 4.6 Configurability and Admin UI Potential
@@ -502,6 +520,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 - **Con:** Every admin function must be designed and coded from scratch: pipeline configuration, monitoring, user administration, access controls, data source management. This is a significant development investment.
 
 > **Trade-off:** Option 1 provides building blocks (APIs, portal features) that reduce custom development. Option 2 provides unlimited customisation but at the cost of building every admin function from scratch. **Recommendation: Option 1 reduces the backend complexity behind the admin UI significantly. Fabric's REST APIs for workspace provisioning, data pipeline configuration, and access management provide a pre-built foundation that the E360 admin portal can orchestrate — instead of Contoso building and maintaining these capabilities themselves. This directly serves the stated need for a low-code/no-code configuration UI.**
+
+[↑ Back to top](#)
 
 ---
 
@@ -519,6 +539,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 > **Trade-off:** This is often framed as the **most polarising dimension**, but it shouldn't be. Option 1 maximises value for the majority (80%) and Azure Arc addresses the minority (20%) — this is not a gap, it's a solved problem. Option 2 serves everyone equally but at a higher operational cost for all — effectively punishing 80% of clients to accommodate 20%. **Recommendation: Azure Native is the right choice. For SaaS clients (~80%), cloud portability is irrelevant — they consume E360 as a service, not infrastructure. For the ~20% requiring non-Azure deployment, Azure Arc + AKS provides a managed path without sacrificing the platform's core capability. The "one codebase everywhere" ideal sounds appealing in theory but delivers a mediocre experience everywhere in practice.**
 
+[↑ Back to top](#)
+
 ---
 
 #### 4.8 Operational Complexity and Maintainability
@@ -534,6 +556,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 - **Con:** Running Kubernetes at production scale is resource-intensive: cluster maintenance, node upgrades, security patching, container image management, and incident response all fall on Contoso's team. As the customer base grows, operational overhead scales with it — Contoso effectively becomes a managed infrastructure provider alongside being a software vendor.
 
 > **Trade-off:** Option 1 trades operational simplicity for a learning curve; Option 2 trades operational autonomy for ongoing labour intensity that grows with the customer base. **Recommendation: Option 1 is clearly superior for operational sustainability. Microsoft manages patching, scaling, backups, and security updates for the entire Fabric platform — Contoso's team focuses on building E360 features, not operating infrastructure. The learning curve is a one-time investment; Kubernetes operational overhead is permanent and compounds. With Microsoft's empanelled partners available for Azure environment setup, the transition risk is manageable.**
+
+[↑ Back to top](#)
 
 ---
 
@@ -551,6 +575,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 
 > **Trade-off:** Option 1 provides a pre-certified security foundation suitable for most enterprise requirements, with SOC 2, ISO 27001, HIPAA, and other certifications already held by Microsoft. Option 2 provides maximum flexibility for clients with bespoke security needs. **Recommendation: Option 1 is the stronger security posture for the vast majority of clients. Azure's built-in encryption, Microsoft Defender for Cloud, Purview data governance, and Conditional Access policies provide defense-in-depth that would cost millions to replicate independently. For the rare client requiring deployment within their own security perimeter, Azure Arc + AKS in the client's own subscription provides this capability without abandoning the Azure ecosystem. Contoso should not build and certify a custom security stack when Microsoft already provides one.**
 
+[↑ Back to top](#)
+
 ---
 
 #### 4.10 Future-Proofing and Innovation Potential
@@ -566,6 +592,8 @@ The pragmatic approach is **Azure Native first, with Azure Arc for edge cases**:
 - **Con:** Contoso's team must independently evaluate, adopt, and integrate new technologies — a resource-intensive process. Without a platform vendor driving innovation, the pace of feature advancement depends entirely on Contoso's engineering investment.
 
 > **Trade-off:** Option 1 provides accelerated innovation through platform leverage; Option 2 provides innovation freedom at the cost of engineering effort. **Recommendation: Option 1 aligns E360 with Microsoft's multi-billion-dollar investment in Fabric, Azure OpenAI, and Copilot — Contoso gets world-class AI and analytics capabilities delivered through platform updates, without dedicating engineering resources to build or integrate them. Notably, Contoso's own proposed architecture already uses Azure-native services (Data Factory, ADLS Gen2, Key Vault, Power BI) alongside open-source tools — this hybrid technology selection is already an Azure Native design with open-source components, not a cloud-agnostic design. Microsoft's innovation roadmap is E360's innovation roadmap.**
+
+[↑ Back to top](#)
 
 ---
 
@@ -642,6 +670,7 @@ Okta (IdP) ──SAML 2.0 / OIDC──► Azure Entra ID (via B2B Federation)
 7. **What are the SLA expectations per client?** – Shared capacity vs. dedicated capacity decision.
 8. **What audit/compliance standards must be met per client?** – SOC2, HIPAA, ISO 27001?
 
+[↑ Back to top](#)
 
 ---
 
@@ -756,6 +785,8 @@ For Enterprise-tier tenants: automate subscription provisioning using:
 - Microsoft Defender for Cloud enabled on all subscriptions
 - Microsoft Purview as the cross-tenant data catalog
 - Fabric sensitivity labels tied to Purview classification
+
+[↑ Back to top](#)
 
 ---
 
@@ -916,6 +947,7 @@ The architecture has three distinct AI capabilities sitting on top of Microsoft 
 | [Fabric Eventstream](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview) |
 | [KQL Overview (Kusto Query Language)](https://learn.microsoft.com/en-us/kusto/query/) |
 
+[↑ Back to top](#)
 
 ---
 
@@ -963,6 +995,8 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 | **Fabric Copilot overview** | For the AI story in Layer 8 | [Link](https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview) |
 | **Azure Well-Architected Framework** | Cross-cutting quality pillars (reliability, security, cost, ops, perf) | [Link](https://learn.microsoft.com/en-us/azure/well-architected/) |
 
+[↑ Back to top](#)
+
 ---
 
 ## Quick Reference Card 
@@ -982,6 +1016,8 @@ The E360 architecture is a **multi-tenant, analytics-heavy SaaS platform** with 
 | Multitenant SaaS SQL patterns | DB-per-tenant / elastic pool | [Link](https://learn.microsoft.com/en-us/azure/azure-sql/database/saas-tenancy-app-design-patterns) |
 | Azure Well-Architected Framework | Quality pillars | [Link](https://learn.microsoft.com/en-us/azure/well-architected/) |
 
+[↑ Back to top](#)
+
 ---
 ## 9. High level Architecture Diagrams (Mermaid)
 
@@ -998,6 +1034,7 @@ This is the recommended target-state architecture built entirely on Azure Native
 <br>
 <em>Click to view full size</em>
 
+[↑ Back to top](#)
 
 ---
 
@@ -1012,6 +1049,8 @@ This diagram shows how tenant isolation works across the platform layers.
 <br>
 <em>Click to view full size</em>
 
+[↑ Back to top](#)
+
 ---
 
 ### 9.3 AI Data Flow – Three Pillars
@@ -1025,6 +1064,8 @@ This shows the data flow for each AI capability and how they connect to OneLake.
 <br>
 <em>Click to view full size</em>
 
+[↑ Back to top](#)
+
 ---
 
 ### 9.4 Okta → Entra ID → E360 Authentication Flow
@@ -1036,6 +1077,8 @@ This shows the data flow for each AI capability and how they connect to OneLake.
 <br>
 <em>Click to view full size</em>
 
+[↑ Back to top](#)
+
 ---
 
 ### 9.5 Landing Zone – Hub & Spoke Topology
@@ -1046,5 +1089,7 @@ This shows the data flow for each AI capability and how they connect to OneLake.
      onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
 <br>
 <em>Click to view full size</em>
+
+[↑ Back to top](#)
 
 ---
