@@ -106,19 +106,19 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 │  └────────────────────────────────┬─────────────────────────────┘    │
 │                                   │                                  │
 │  ┌────────────────────────────────▼─────────────────────────────┐    │
-│  │                  Microsoft Fabric (Analytics Platform)        │    │
+│  │                 Microsoft Fabric (Analytics Platform)        │    │
 │  │                                                              │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │    │
-│  │  │ Workspace A │  │ Workspace B │  │ Workspace C │          │    │
-│  │  │ (Tenant A)  │  │ (Tenant B)  │  │ (Tenant C)  │          │    │
-│  │  │ Lakehouse   │  │ Lakehouse   │  │ Lakehouse   │          │    │
-│  │  │ Warehouse   │  │ Warehouse   │  │ Warehouse   │          │    │
-│  │  │ Notebooks   │  │ Notebooks   │  │ Notebooks   │          │    │
-│  │  │ Pipelines   │  │ Pipelines   │  │ Pipelines   │          │    │
-│  │  │ Reports     │  │ Reports     │  │ Reports     │          │    │
-│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │    │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐           │    │
+│  │  │ Workspace A │  │ Workspace B │  │ Workspace C │           │    │
+│  │  │ (Tenant A)  │  │ (Tenant B)  │  │ (Tenant C)  │           │    │
+│  │  │ Lakehouse   │  │ Lakehouse   │  │ Lakehouse   │           │    │
+│  │  │ Warehouse   │  │ Warehouse   │  │ Warehouse   │           │    │
+│  │  │ Notebooks   │  │ Notebooks   │  │ Notebooks   │           │    │
+│  │  │ Pipelines   │  │ Pipelines   │  │ Pipelines   │           │    │
+│  │  │ Reports     │  │ Reports     │  │ Reports     │           │    │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘           │    │
 │  │         │                │                │                  │    │
-│  │  ┌──────▼────────────────▼────────────────▼──────────┐      │    │
+│  │  ┌──────▼────────────────▼────────────────▼──────────┐       │    │
 │  │  │        Fabric Capacity (F SKU – shared compute)    │      │    │
 │  │  └──────────────────────┬─────────────────────────────┘      │    │
 │  │                         │                                    │    │
@@ -328,34 +328,34 @@ With Fabric as the data foundation, the AI layer benefits from **OneLake as a si
 │                    AI PLATFORM ON AZURE (WITH FABRIC)                  │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     AI Application Layer                        │  │
+│  │                     AI Application Layer                         │  │
 │  │                                                                  │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │  │
-│  │  │ Fabric       │  │  Custom AI   │  │  AI Agents             │ │  │
-│  │  │ Copilot      │  │  Chat / Q&A  │  │  (Azure AI Foundry     │ │  │
-│  │  │ (built-in)   │  │  (RAG-based) │  │   Agent Service)       │ │  │
-│  │  └──────────────┘  └──────────────┘  └────────────────────────┘ │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │  │
+│  │  │ Fabric       │  │  Custom AI   │  │  AI Agents             │  │  │
+│  │  │ Copilot      │  │  Chat / Q&A  │  │  (Azure AI Foundry     │  │  │
+│  │  │ (built-in)   │  │  (RAG-based) │  │   Agent Service)       │  │  │
+│  │  └──────────────┘  └──────────────┘  └────────────────────────┘  │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Orchestration Layer                         │  │
+│  │                     Orchestration Layer                          │  │
 │  │  Semantic Kernel │ Azure AI Foundry │ Prompt Flow                │  │
-│  │  (agent orchestration, tool calling, multi-step reasoning)      │  │
+│  │  (agent orchestration, tool calling, multi-step reasoning)       │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     AI Models & Services                        │  │
-│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)   │  │
-│  │  Azure AI Document Intelligence │ Azure AI Content Safety       │  │
-│  │  Azure Machine Learning (custom models, fine-tuning)            │  │
+│  │                     AI Models & Services                         │  │
+│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)    │  │
+│  │  Azure AI Document Intelligence │ Azure AI Content Safety        │  │
+│  │  Azure Machine Learning (custom models, fine-tuning)             │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Data Foundation                             │  │
+│  │                     Data Foundation                              │  │
 │  │  OneLake (Delta/Parquet) │ Fabric Lakehouse (Bronze/Silver/Gold) │  │
-│  │  Fabric Real-Time Intelligence (Eventstream + KQL)              │  │
-│  │  Per-tenant workspace isolation                                 │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
+│  │   Fabric Real-Time Intelligence (Eventstream + KQL)              │  │
+│  │   Per-tenant workspace isolation                                 │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -379,7 +379,7 @@ AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                    AI Agent Flow (Per Tenant)                   │
+│                   AI Agent Flow (Per Tenant)                   │
 │                                                                │
 │  User: "What were the top issues last month and what           │
 │         actions should we take?"                               │
@@ -400,7 +400,7 @@ AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use
 │  └──────────────────────────────────────────────────┘          │
 │         │                                                      │
 │         ▼                                                      │
-│  Answer: "Top 3 issues were X, Y, Z. Recommended actions:..." │
+│  Answer: "Top 3 issues were X, Y, Z. Recommended actions:..."  │
 │  [grounded in tenant's actual data — no hallucination]         │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -415,7 +415,7 @@ AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                 RAG Flow (Per Tenant)                          │
+│                 RAG Flow (Per Tenant)                         │
 │                                                               │
 │  ┌─────────────┐     ┌─────────────────────┐                  │
 │  │ Tenant Docs │────►│ Azure AI Document   │                  │
@@ -425,9 +425,9 @@ AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use
 │  └─────────────┘              │                               │
 │                               ▼                               │
 │                    ┌─────────────────────┐                    │
-│  OneLake Gold  ──►│  Azure AI Search    │                    │
-│  (structured      │  (vector + keyword  │                    │
-│   tenant data)    │   hybrid index)     │                    │
+│   OneLake Gold  ──►│  Azure AI Search    │                    │
+│   (structured      │  (vector + keyword  │                    │
+│    tenant data)    │   hybrid index)     │                    │
 │                    │  [per-tenant index] │                    │
 │                    └────────┬────────────┘                    │
 │                             │ retrieve top-K chunks           │
@@ -440,8 +440,8 @@ AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use
 │                    └────────┬────────────┘                    │
 │                             │                                 │
 │                             ▼                                 │
-│                    Grounded answer                             │
-│                    (cited sources, no hallucination)           │
+│                   Grounded answer                             │
+│                   (cited sources, no hallucination)           │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -514,12 +514,12 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 │  └────────────────────────────────┬─────────────────────────────┘    │
 │                                   │                                  │
 │  ┌────────────────────────────────▼─────────────────────────────┐    │
-│  │                  Data Platform (Assembled PaaS)               │    │
+│  │                  Data Platform (Assembled PaaS)              │    │
 │  │                                                              │    │
 │  │  ┌──────────────────────────────────────────────────────┐    │    │
 │  │  │         Azure Data Lake Storage Gen2 (ADLS)          │    │    │
 │  │  │  Tenant A Container │ Tenant B Container │ Tenant C  │    │    │
-│  │  │  (Storage account-level or container-level isolation) │    │    │
+│  │  │ (Storage account-level or container-level isolation) │    │    │
 │  │  └──────────────────────────┬───────────────────────────┘    │    │
 │  │                             │                                │    │
 │  │  ┌──────────────────────────▼───────────────────────────┐    │    │
@@ -535,8 +535,8 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │                  AI Layer                                    │    │
-│  │  Azure OpenAI │ Azure AI Search (RAG) │ Azure Machine Learning│   │
-│  │  Azure Stream Analytics (real-time) │ Azure Data Explorer     │   │
+│  │  Azure OpenAI │ Azure AI Search (RAG) │Azure Machine Learning│ `  │
+│  │  Azure Stream Analytics (real-time) │ Azure Data Explorer    │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
 │  Cross-Cutting Services:                                             │
@@ -747,37 +747,37 @@ Without Fabric, the full Azure AI platform is still available. The same AI Found
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                  AI PLATFORM ON AZURE (WITHOUT FABRIC)                  │
+│                  AI PLATFORM ON AZURE (WITHOUT FABRIC)                 │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     AI Application Layer                        │  │
+│  │                     AI Application Layer                         │  │
 │  │                                                                  │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │  │
-│  │  │ Power BI     │  │  Custom AI   │  │  AI Agents             │ │  │
-│  │  │ Q&A /        │  │  Chat / Q&A  │  │  (Azure AI Foundry     │ │  │
-│  │  │ Synapse SQL  │  │  (RAG-based) │  │   Agent Service)       │ │  │
-│  │  └──────────────┘  └──────────────┘  └────────────────────────┘ │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │  │
+│  │  │ Power BI     │  │  Custom AI   │  │  AI Agents             │  │  │
+│  │  │ Q&A /        │  │  Chat / Q&A  │  │  (Azure AI Foundry     │  │  │
+│  │  │ Synapse SQL  │  │  (RAG-based) │  │   Agent Service)       │  │  │
+│  │  └──────────────┘  └──────────────┘  └────────────────────────┘  │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Orchestration Layer                         │  │
+│  │                     Orchestration Layer                          │  │
 │  │  Semantic Kernel │ Azure AI Foundry │ Prompt Flow                │  │
-│  │  (agent orchestration, tool calling, multi-step reasoning)      │  │
+│  │  (agent orchestration, tool calling, multi-step reasoning)       │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     AI Models & Services                        │  │
-│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)   │  │
-│  │  Azure AI Document Intelligence │ Azure AI Content Safety       │  │
-│  │  Azure Machine Learning (custom models, fine-tuning)            │  │
+│  │                     AI Models & Services                         │  │
+│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)    │  │
+│  │  Azure AI Document Intelligence │ Azure AI Content Safety        │  │
+│  │  Azure Machine Learning (custom models, fine-tuning)             │  │
 │  └──────────────────────────────┬───────────────────────────────────┘  │
 │                                 │                                      │
 │  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Data Foundation                             │  │
-│  │  ADLS Gen2 (Delta/Parquet) │ Synapse (SQL + Spark)              │  │
-│  │  Azure Data Explorer (real-time) │ Event Hubs (streaming)       │  │
-│  │  Per-tenant container / schema isolation                        │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
+│  │                     Data Foundation                              │  │
+│  │  ADLS Gen2 (Delta/Parquet) │ Synapse (SQL + Spark)               │  │
+│  │  Azure Data Explorer (real-time) │ Event Hubs (streaming)        │  │
+│  │  Per-tenant container / schema isolation                         │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -802,7 +802,7 @@ The same agent pattern applies — the difference is tools connect to **Synapse 
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                    AI Agent Flow (Per Tenant)                   │
+│                    AI Agent Flow (Per Tenant)                  │
 │                                                                │
 │  User: "Summarise last quarter's performance and               │
 │         flag any anomalies"                                    │
@@ -832,7 +832,7 @@ The same agent pattern applies — the difference is tools connect to **Synapse 
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                 RAG Flow (Per Tenant)                          │
+│                 RAG Flow (Per Tenant)                         │
 │                                                               │
 │  ┌─────────────┐     ┌─────────────────────┐                  │
 │  │ Tenant Docs │────►│ Azure AI Document   │                  │
@@ -857,8 +857,8 @@ The same agent pattern applies — the difference is tools connect to **Synapse 
 │                    └────────┬────────────┘                    │
 │                             │                                 │
 │                             ▼                                 │
-│                    Grounded answer                             │
-│                    (cited sources, no hallucination)           │
+│                    Grounded answer                            │
+│                    (cited sources, no hallucination)          │
 └───────────────────────────────────────────────────────────────┘
 ```
 
