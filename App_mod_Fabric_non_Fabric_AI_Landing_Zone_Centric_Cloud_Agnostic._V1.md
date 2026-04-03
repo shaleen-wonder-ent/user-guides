@@ -15,7 +15,7 @@
    - [Complete Landing Zone](#option2-lz)
    - [Identity & Access](#option2-identity)
    - [AI & Analytics](#option2-ai)
-5. [Option 3 – Cloud-Agnostic (Portable)](#option3)
+5. [Option 3 – Portable (OSS + Azure SaaS)](#option3)
    - [Architecture Overview](#option3-arch)
    - [Complete Landing Zone](#option3-lz)
    - [Identity & Access](#option3-identity)
@@ -31,17 +31,17 @@
 <a name="introduction"></a>
 ## 1. Introduction
 
-This document provides a reference architecture for building a **multi-tenant SaaS analytics platform**. It presents three paths — two Azure-native and one cloud-agnostic:
+This document provides a reference architecture for building a **multi-tenant SaaS analytics platform**. It presents three paths — two Azure-native and one portable:
 
 | | Option 1 | Option 2 | Option 3 |
 |---|---|---|---|
-| **Platform** | Microsoft Fabric + Azure PaaS | Azure PaaS (Synapse, AKS, ADLS, SQL) — no Fabric | Cloud-agnostic (Kubernetes + OSS + portable services) |
-| **Cloud** | Azure-native | Azure-native | Cloud-agnostic (runs on Azure, AWS, GCP, or on-prem) |
+| **Platform** | Microsoft Fabric + Azure PaaS | Azure PaaS (Databricks, AKS, ADLS, SQL) — no Fabric | Portable (Kubernetes + OSS + Azure SaaS services) |
+| **Cloud** | Azure-native | Azure-native | Portable (runs on Azure, AWS, GCP, or on-prem — uses Azure SaaS services that are cloud-agnostic) |
 | **Multi-tenancy** | Fabric workspace isolation | Azure subscription / resource-level isolation | Kubernetes namespace + database-level isolation |
-| **Analytics** | OneLake + Lakehouse + Power BI Embedded | ADLS Gen2 + Synapse + Power BI Embedded | S3-compatible storage + Apache Spark + Apache Superset |
+| **Analytics** | OneLake + Lakehouse + Power BI Embedded | ADLS Gen2 + Azure Databricks + Power BI Embedded | Azure Blob Storage + Apache Spark + Power BI Embedded |
 | **AI** | Fabric Copilot + Azure OpenAI | Azure OpenAI + Azure AI Search | LLM-agnostic (OpenAI / Anthropic / OSS) + OpenSearch |
 
-Options 1 and 2 are fully Azure-native. Option 3 uses open-source and cloud-agnostic technologies to maximise portability — while still deployable on Azure as the primary cloud. The choice depends on whether the organisation prioritises platform leverage, component control, or multi-cloud portability.
+Options 1 and 2 are fully Azure-native. Option 3 uses open-source and portable technologies combined with **Azure SaaS services that are cloud-agnostic** (Power BI Embedded, GitHub Actions, Azure Blob Storage) — services that work from any cloud without architectural lock-in. The compute and analytics layers remain portable, while Azure SaaS services provide enterprise-grade capabilities consumable from any hyperscaler. The choice depends on whether the organisation prioritises platform leverage, component control, or multi-cloud portability.
 
 [↑ Back to top](#)
 
@@ -114,7 +114,7 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 │  └────────────────────────────────┬─────────────────────────────┘    │
 │                                   │                                  │
 │  ┌────────────────────────────────▼─────────────────────────────┐    │
-│  │                 Microsoft Fabric (Analytics Platform)        │    │
+│  │                  Microsoft Fabric (Analytics Platform)       │    │
 │  │                                                              │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐           │    │
 │  │  │ Workspace A │  │ Workspace B │  │ Workspace C │           │    │
@@ -139,7 +139,7 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │                  AI Layer                                    │    │
-│  │  Fabric Copilot │ Azure OpenAI │ Azure AI Search (RAG)       │    │
+│  │  Fabric Copilot / Azure OpenAI / Azure AI Search (RAG)       │    │
 │  │  Fabric Real-Time Intelligence │ Data Activator              │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
@@ -159,7 +159,7 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 | **Fabric Lakehouse** | Bronze → Silver → Gold medallion data layers | Per-workspace (per-tenant) |
 | **Fabric SQL Warehouse** | MPP analytical queries | Per-workspace (per-tenant) |
 | **Fabric Pipelines** | Data ingestion & orchestration | Parameterised per tenant |
-| **Power BI Embedded** | Tenant-facing analytics UI | Row-level security + workspace isolation |
+| **Power BI Embedded** (Part of Fabric)| Tenant-facing analytics UI | Row-level security + workspace isolation |
 | **Azure API Management** | API gateway | Subscription-per-tenant, rate limiting |
 | **Microsoft Entra ID** | Identity & SSO | B2B federation with tenant IdPs |
 | **Azure Key Vault** | Secrets & CMK | Customer-managed keys per tenant |
@@ -177,7 +177,7 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 ---
 
 <a name="option1-lz"></a>
-### 3.2 Complete Landing Zone (With Fabric)
+### 3.2 Complete Landing Zone
 
 ```
 Azure Management Group
@@ -205,14 +205,15 @@ Azure Management Group
     │   │   ├── Workspace: Tenant B
     │   │   └── Workspace: Tenant N...
     │   └── Shared Workspace (platform-level: templates, shared datasets)
+    │   └── Power BI Embedded Capacity
     │
     ├── Application Subscription
     │   ├── Spoke VNet (peered to Hub)
-    │   ├── Azure App Service / Functions (backend APIs)
+    │   ├── Azure Kubernetes Service / Azure App Service / Functions (backend APIs) - depends what we choose
     │   ├── Azure Static Web Apps (admin portal / SaaS frontend)
     │   ├── Azure OpenAI Service
-    │   ├── Azure AI Search (RAG index per tenant)
-    │   └── Power BI Embedded Capacity
+    │   └── Azure AI Search (RAG index per tenant)
+    │   
     │
     └── Per-Tenant Spoke Subscriptions (Enterprise tier only)
         ├── Tenant Spoke VNet (peered to Hub)
@@ -221,7 +222,7 @@ Azure Management Group
         └── Private Endpoints to shared platform services
 ```
 
-#### Hub-and-Spoke Network – With Fabric
+#### Hub-and-Spoke Network 
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -246,26 +247,8 @@ Azure Management Group
               OneLake + Workspaces
 ```
 
-#### Tenant Onboarding Flow (With Fabric)
 
-```
-New Tenant Request
-       │
-       ▼
-CI/CD Pipeline (Bicep / Terraform)
-       │
-       ├──► Create Fabric Workspace (via Fabric REST API)
-       ├──► Configure OneLake folders & RBAC
-       ├──► Deploy parameterised Fabric Pipelines
-       ├──► Create Power BI reports (from templates)
-       ├──► Register tenant in Config DB (Azure SQL / Cosmos DB)
-       ├──► Set feature flags in Azure App Configuration
-       ├──► Create APIM subscription (API key per tenant)
-       ├──► Create AI Search index (for RAG, if enabled)
-       └──► Federate tenant IdP in Entra ID (B2B)
-```
-
-#### Data Flow – With Fabric
+#### Data Flow 
 
 ```
 Tenant Source Systems (ERP, CRM, Files, APIs, DBs)
@@ -280,7 +263,7 @@ Azure Data Factory / Fabric Pipelines (parameterised per tenant)
 │  │ Bronze │─►│ Silver │─►│  Gold  │  │
 │  │ (raw)  │  │(clean) │  │(curated│  │
 │  └────────┘  └────────┘  └────────┘  │
-│          OneLake (Delta/Parquet)     │
+│          (Delta/Parquet)             │
 └──────────────┬───────────────────────┘
                │
        ┌───────┼──────────┐
@@ -294,7 +277,7 @@ Azure Data Factory / Fabric Pipelines (parameterised per tenant)
 ---
 
 <a name="option1-identity"></a>
-### 3.3 Identity & Access (With Fabric)
+### 3.3 Identity & Access 
 
 ```
 Tenant User
@@ -318,53 +301,54 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 | **API Gateway** | Azure API Management | Subscription key per tenant; rate limiting; policies |
 | **Analytics** | Fabric Workspaces | Workspace RBAC; sensitivity labels; workspace identity |
 | **Storage** | OneLake | Folder-level RBAC; data isolation per workspace |
-| **Reports** | Power BI Embedded | Row-level security + workspace-scoped embedding |
+| **Reports** | Power BI Embedded (Part of Fabric) | Row-level security + workspace-scoped embedding |
 | **Secrets** | Azure Key Vault | Customer-managed keys (Enterprise tier) |
 | **Config** | Azure App Configuration | Feature filters keyed by tenant ID |
 
 ---
 
 <a name="option1-ai"></a>
-### 3.4 AI & Analytics (With Fabric)
+### 3.4 AI & Analytics 
 
 With Fabric as the data foundation, the AI layer benefits from **OneLake as a single source of truth** — every AI capability (Copilot, Agents, RAG, ML) reads from the same governed, tenant-isolated data without duplication.
 
 #### Complete Azure AI Architecture (With Fabric)
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                    AI PLATFORM ON AZURE (WITH FABRIC)                  │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     AI Application Layer                         │  │
-│  │                                                                  │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │  │
-│  │  │ Fabric       │  │  Custom AI   │  │  AI Agents             │  │  │
-│  │  │ Copilot      │  │  Chat / Q&A  │  │  (Azure AI Foundry     │  │  │
-│  │  │ (built-in)   │  │  (RAG-based) │  │   Agent Service)       │  │  │
-│  │  └──────────────┘  └──────────────┘  └────────────────────────┘  │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Orchestration Layer                          │  │
-│  │  Semantic Kernel │ Azure AI Foundry │ Prompt Flow                │  │
-│  │  (agent orchestration, tool calling, multi-step reasoning)       │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     AI Models & Services                         │  │
-│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)    │  │
-│  │  Azure AI Document Intelligence │ Azure AI Content Safety        │  │
-│  │  Azure Machine Learning (custom models, fine-tuning)             │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Data Foundation                              │  │
-│  │  OneLake (Delta/Parquet) │ Fabric Lakehouse (Bronze/Silver/Gold) │  │
-│  │  Fabric Real-Time Intelligence (Eventstream + KQL)               │  │
-│  │  Per-tenant workspace isolation                                  │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                    AI PLATFORM ON AZURE (WITH FABRIC)                 │
+│                                                                       │
+│  ┌──────────────────────────────────────────────────────────────┐     │
+│  │                     AI Application Layer                     │     │
+│  │                                                              │     │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐ │     │
+│  │  │ Fabric       │  │  Fabric Data │  │  AI Agents          │ │     │
+│  │  │ Copilot      │  │  Agent       │  │  (Azure AI Foundry  │ │     │
+│  │  │              │  │  Chat / Q&A  │  │   Agent Service)    │ │     │
+│  │  │ (built-in)   │  │  (RAG-based) │  │                     │ │     │
+│  │  └──────────────┘  └──────────────┘  └─────────────────────┘ │     │
+│  └──────────────────────────────┬───────────────────────────────┘     │
+│                                 │                                     │
+│  ┌──────────────────────────────▼───────────────────────────────┐     │
+│  │                     Orchestration Layer                      │     │
+│  │  Semantic Kernel │ Azure AI Foundry │ Prompt Flow| Copilot   │     │
+│  │  (agent orchestration, tool calling, multi-step reasoning)   │     │
+│  └──────────────────────────────┬───────────────────────────────┘     │
+│                                 |──────────────────────────────────┐  │                                  
+│  ┌──────────────────────────────▼───────────────────────────────┐  │  │
+│  │                     AI Models & Services                     │  │  │
+│  │  Azure OpenAI (Models) │ Azure AI Search (RAG index)         │  │  │
+│  │  Azure AI Document Intelligence │ Azure AI Content Safety    │  │  │
+│  │  Azure Machine Learning (custom models, fine-tuning)         │  │  │
+│  └──────────────────────────────────────────────────────────────┘  │  │
+│                                 ┌──────────────────────────────────┘  │
+│  ┌──────────────────────────────▼───────────────────────────────┐     │
+│  │                     Data Foundation                          │     │
+│  │  (Delta/Parquet) │ Fabric Lakehouse (Bronze/Silver/Gold)     │     │
+│  │  Fabric Real-Time Intelligence (Eventstream + KQL)           │     │
+│  │  Per-tenant workspace isolation                              │     │
+│  └──────────────────────────────────────────────────────────────┘     │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 #### AI Capabilities Breakdown
@@ -381,114 +365,6 @@ With Fabric as the data foundation, the AI layer benefits from **OneLake as a si
 | **Real-Time Intelligence** | Fabric Eventstream + KQL DB + Data Activator | Streaming ingestion, sub-second queries, automated alerts on threshold breaches | Eventstreams and KQL databases are workspace-scoped |
 | **Machine Learning** | Azure ML + Fabric Notebooks | Custom model training, batch inference, MLOps. Train on tenant data within Fabric Notebooks (PySpark) | Models trained per-tenant or shared with tenant-parameterised inference |
 
-#### AI Agent Architecture (With Fabric)
-
-AI Agents are the next evolution beyond simple RAG. They can **reason, plan, use tools, and take actions** — not just answer questions.
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    AI Agent Flow (Per Tenant)                  │
-│                                                                │
-│  User: "What were the top issues last month and what           │
-│         actions should we take?"                               │
-│         │                                                      │
-│         ▼                                                      │
-│  ┌──────────────────────────────────────────────────┐          │
-│  │  AI Agent (Azure AI Foundry Agent Service)       │          │
-│  │                                                  │          │
-│  │  1. Plan: Identify sub-tasks                     │          │
-│  │  2. Tool Call: Query Fabric SQL Warehouse        │◄── Semantic Kernel
-│  │     (retrieve last month's metrics)              │    orchestrates
-│  │  3. Tool Call: Search AI Search index            │    tool calling
-│  │     (retrieve related documents / runbooks)      │          │
-│  │  4. Tool Call: Query KQL DB                      │          │
-│  │     (check real-time anomaly trends)             │          │
-│  │  5. Reason: Synthesise findings                  │          │
-│  │  6. Respond: Actionable recommendations          │          │
-│  └──────────────────────────────────────────────────┘          │
-│         │                                                      │
-│         ▼                                                      │
-│  Answer: "Top 3 issues were X, Y, Z. Recommended actions:..."  │
-│  [grounded in tenant's actual data — no hallucination]         │
-└────────────────────────────────────────────────────────────────┘
-```
-
-**Key design points for agents in multi-tenant SaaS:**
-- Each agent instance is scoped to a tenant — tool permissions restrict which Fabric workspace, AI Search index, and data the agent can access
-- **Semantic Kernel** provides the orchestration layer — it manages the agent's planning loop, tool registry, and context window
-- **Azure AI Foundry** provides the deployment and evaluation platform — test agent quality, monitor token usage, and manage model versions centrally
-- **Responsible AI**: Azure AI Content Safety and Prompt Shields are applied as middleware — filtering harmful content before it reaches the LLM and before responses reach the user
-
-#### RAG Architecture Detail (With Fabric)
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│                 RAG Flow (Per Tenant)                         │
-│                                                               │
-│  ┌─────────────┐     ┌─────────────────────┐                  │
-│  │ Tenant Docs │────►│ Azure AI Document   │                  │
-│  │ (contracts, │     │ Intelligence        │                  │
-│  │  reports,   │     │ (extract structure) │                  │
-│  │  manuals)   │     └────────┬────────────┘                  │
-│  └─────────────┘              │                               │
-│                               ▼                               │
-│                    ┌─────────────────────┐                    │
-│   OneLake Gold  ──►│  Azure AI Search    │                    │
-│   (structured      │  (vector + keyword  │                    │
-│    tenant data)    │   hybrid index)     │                    │
-│                    │  [per-tenant index] │                    │
-│                    └────────┬────────────┘                    │
-│                             │ retrieve top-K chunks           │
-│                             ▼                                 │
-│                    ┌─────────────────────┐                    │
-│                    │  Azure OpenAI       │                    │
-│                    │  (GPT-4o / GPT-4.1) │                    │
-│                    │  system prompt +    │                    │
-│                    │  retrieved context  │                    │
-│                    └────────┬────────────┘                    │
-│                             │                                 │
-│                             ▼                                 │
-│                   Grounded answer                             │
-│                   (cited sources, no hallucination)           │
-└───────────────────────────────────────────────────────────────┘
-```
-
-**RAG multi-tenancy pattern:**
-- **Option A — Index per tenant:** Each tenant gets a dedicated AI Search index. Cleanest isolation; simplest RBAC.
-- **Option B — Shared index with security trimming:** Single index with a `tenant_id` field; queries are filtered by tenant ID at search time. Lower cost, but requires careful security filter enforcement.
-- **Hybrid:** Standard tenants share an index (Option B); Enterprise tenants get dedicated indexes (Option A).
-
-#### Azure AI Foundry — Why It Matters
-
-Azure AI Foundry is the **centralised platform for building, evaluating, and deploying AI applications** on Azure. It replaces the need to wire individual AI services together manually.
-
-| Foundry Capability | What It Does for Multi-Tenant SaaS |
-|---|---|
-| **Model Catalog** | Access 1,600+ models (OpenAI, Meta, Mistral, Cohere, open-source) from a single marketplace. Deploy the right model for the right task. |
-| **Prompt Flow** | Visual/code-based tool to build, test, and evaluate RAG pipelines and agent workflows. Version-control prompts per tenant or globally. |
-| **Agent Service** | Deploy and manage AI agents that use tools, call APIs, and reason over data. Built-in conversation history, file search, and code interpreter. |
-| **Evaluation** | Built-in evaluation framework to measure groundedness, relevance, coherence, and safety of AI responses. Run evaluations per tenant dataset. |
-| **Content Safety** | Integrated content filtering, prompt shields, and jailbreak detection. Applied as a layer before and after LLM calls. |
-| **Tracing & Monitoring** | End-to-end observability of AI requests — latency, token usage, retrieval quality. Per-tenant dashboards via Azure Monitor. |
-| **Responsible AI** | Built-in guardrails for fairness, transparency, and accountability. Automated red-teaming and risk assessment. |
-
-### Pros — Option 1
-
-- **Unified platform** — data engineering, warehousing, BI, real-time, and AI in one SaaS experience
-- **OneLake** eliminates data duplication — all workloads read from the same storage
-- **Workspace-per-tenant** is a first-class multi-tenancy primitive with built-in RBAC
-- **Fabric Copilot** delivers AI with zero additional infrastructure
-- **Built-in compliance** — ISO 27001, SOC2, GDPR, HIPAA eligible
-- **Fastest time-to-value** — less custom engineering, more platform leverage
-- **Tenant onboarding** automatable via Fabric REST APIs
-
-### Cons — Option 1
-
-- Fabric is relatively new — some APIs and features are still maturing
-- F SKU pricing can be opaque for initial estimation
-- Customisation is limited to what Fabric exposes
-- Fabric is Azure-only (no native multi-cloud; Azure Arc can bridge for edge cases)
-
 [↑ Back to top](#)
 
 ---
@@ -499,9 +375,11 @@ Azure AI Foundry is the **centralised platform for building, evaluating, and dep
 <a name="option2-arch"></a>
 ### 4.1 Architecture Overview
 
-This option builds the same multi-tenant analytics SaaS using **individual Azure PaaS services** — without Microsoft Fabric. The data platform is assembled from Azure Data Lake Storage Gen2, Azure Synapse Analytics, Azure Data Factory, Azure SQL, and AKS for application workloads. Power BI Embedded remains the analytics front-end.
+This option builds the same multi-tenant analytics SaaS using **individual Azure PaaS services** — without Microsoft Fabric. The data platform is assembled from Azure Data Lake Storage Gen2, **Azure Databricks** (as the unified analytics engine), Azure Data Factory, Azure SQL, and AKS for application workloads. Power BI Embedded remains the analytics front-end.
 
-Multi-tenancy is achieved through **Azure resource-level isolation** — separate storage containers, separate Synapse workspaces or dedicated SQL pools, and AKS namespace isolation for application services.
+This follows the **[Modern Analytics Architecture with Azure Databricks](https://learn.microsoft.com/en-us/azure/architecture/solution-ideas/articles/azure-databricks-modern-analytics-architecture)** reference pattern — where Databricks serves as the central tool for data ingestion, processing, and serving, with a medallion architecture (Bronze/Silver/Gold) on ADLS Gen2 using Delta Lake.
+
+Multi-tenancy is achieved through **Azure resource-level isolation** — separate storage containers, separate Databricks workspaces or Unity Catalog schema isolation, and AKS namespace isolation for application services.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -522,7 +400,7 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 │  └────────────────────────────────┬─────────────────────────────┘    │
 │                                   │                                  │
 │  ┌────────────────────────────────▼─────────────────────────────┐    │
-│  │                  Data Platform (Assembled PaaS)              │    │
+│  │                  Data Platform (Azure Databricks + ADLS)     │    │
 │  │                                                              │    │
 │  │  ┌──────────────────────────────────────────────────────┐    │    │
 │  │  │         Azure Data Lake Storage Gen2 (ADLS)          │    │    │
@@ -531,9 +409,10 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 │  │  └──────────────────────────┬───────────────────────────┘    │    │
 │  │                             │                                │    │
 │  │  ┌──────────────────────────▼───────────────────────────┐    │    │
-│  │  │            Azure Synapse Analytics                   │    │    │
-│  │  │  Synapse Workspace (shared or per-tenant)            │    │    │
-│  │  │  Dedicated SQL Pool │ Serverless SQL │ Spark Pools   │    │    │
+│  │  │            Azure Databricks                          │    │    │
+│  │  │  Unity Catalog (governance & access control)         │    │    │
+│  │  │ SQL Warehouses │ Delta Live Tables │ Spark Clusters  │    │    │
+│  │  │  Medallion: Bronze → Silver → Gold (Delta Lake)      │    │    │
 │  │  └──────────────────────────────────────────────────────┘    │    │
 │  │                                                              │    │
 │  │  Azure Data Factory (orchestration, parameterised per tenant)│    │
@@ -544,7 +423,7 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │                  AI Layer                                    │    │
 │  │ Azure OpenAI │ Azure AI Search (RAG) │ Azure Machine Learning│    │
-│  │ Azure Stream Analytics (real-time) │ Azure Data Explorer     │    │
+│  │  Azure Data Explorer (real-time analytics)                   │    │
 │  └──────────────────────────────────────────────────────────────┘    │
 │                                                                      │
 │  Cross-Cutting Services:                                             │
@@ -558,8 +437,10 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 | Component | Role | Multi-Tenancy Model |
 |---|---|---|
 | **ADLS Gen2** | Data lake storage (Bronze/Silver/Gold) | Separate storage account or container per tenant |
-| **Azure Synapse Analytics** | SQL analytics, Spark processing | Workspace per tenant or shared + schema isolation |
-| **Azure Data Factory** | Pipeline orchestration | Parameterised pipelines per tenant |
+| **Azure Databricks** | Unified analytics engine — SQL warehouses, Spark, Delta Live Tables, MLflow | Unity Catalog with catalog-per-tenant or schema-per-tenant isolation |
+| **Azure Databricks Unity Catalog** | Centralised governance — access control, auditing, lineage, data discovery | Catalog-per-tenant or schema-per-tenant within shared workspace |
+| **Delta Lake** | Open table format on ADLS Gen2 — ACID, time travel, schema evolution | Per-tenant tables within the medallion architecture |
+| **Azure Data Factory** | Pipeline orchestration (batch ingestion) | Parameterised pipelines per tenant |
 | **Azure SQL Database** | Operational / metadata DB | Database-per-tenant or elastic pool |
 | **Azure Kubernetes Service** | Application microservices | Namespace-per-tenant with network policies |
 | **Azure Event Hubs** | Streaming data ingestion | Consumer group per tenant or dedicated namespace |
@@ -568,23 +449,23 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 | **Azure API Management** | API gateway | Subscription-per-tenant, rate limiting |
 | **Microsoft Entra ID** | Identity & SSO | B2B federation with tenant IdPs |
 | **Azure Key Vault** | Secrets & CMK | Per-tenant vaults (Enterprise tier) |
-| **Microsoft Purview** | Data governance & lineage | Cross-tenant catalog |
+| **Microsoft Purview** | Data governance & lineage (complements Unity Catalog) | Cross-tenant catalog |
 | **Azure App Configuration** | Feature flags & tenant config | Per-tenant feature filters |
 
-### Tenancy Models (Without Fabric)
+### How Tenancy Models happens for these components (They are not interrelated,we are explaing how these services follows tenancy models)
 
 | Layer | Isolation Options |
 |---|---|
 | **Storage (ADLS Gen2)** | Separate storage account per tenant *(strongest)* / Separate container per tenant *(moderate)* / Shared container + folder ACLs *(weakest)* |
-| **Analytics (Synapse)** | Separate Synapse workspace per tenant / Shared workspace + schema-per-tenant / Dedicated SQL pool per tenant |
-| **Compute (AKS)** | Namespace-per-tenant *(default)* / Node pool per tenant *(high isolation)* / Cluster per tenant *(max isolation)* |
+| **Analytics (Databricks)** | Separate Unity Catalog per tenant / Shared catalog + schema-per-tenant / Shared schema + row-level security via dynamic views |
 | **Operational DB (Azure SQL)** | Database-per-tenant / Elastic pool with per-tenant DBs / Shared DB + tenant_id column |
 | **Streaming (Event Hubs)** | Dedicated namespace per tenant / Shared namespace + consumer groups |
+| **Compute (AKS)** | Namespace-per-tenant *(default)* / Node pool per tenant *(high isolation)* / Cluster per tenant *(max isolation)* |
 
 ---
 
 <a name="option2-lz"></a>
-### 4.2 Complete Landing Zone (Without Fabric)
+### 4.2 Complete Landing Zone
 
 ```
 Azure Management Group
@@ -610,17 +491,19 @@ Azure Management Group
     │   │   ├── Container: Tenant A (Bronze / Silver / Gold folders)
     │   │   ├── Container: Tenant B
     │   │   └── Container: Tenant N...
-    │   ├── Azure Synapse Analytics Workspace
-    │   │   ├── Serverless SQL Pool (cross-tenant ad-hoc queries)
-    │   │   ├── Dedicated SQL Pool(s) (high-performance tenants)
-    │   │   └── Spark Pool (data engineering / ML)
-    │   ├── Azure Data Factory (parameterised pipelines)
+    │   ├── Azure Databricks Workspace
+    │   │   ├── Unity Catalog (centralised governance)
+    │   │   ├── SQL Warehouses (SQL analytics, Power BI connectivity)
+    │   │   ├── Delta Live Tables Pipelines (per-tenant ETL)
+    │   │   └── Spark Clusters (data engineering / ML)
+    │   ├── Azure Data Factory (parameterised pipelines — batch ingestion)
     │   ├── Azure Event Hubs Namespace (streaming ingestion)
     │   ├── Azure Data Explorer Cluster (real-time analytics)
     │   │   ├── Database: Tenant A
     │   │   ├── Database: Tenant B
     │   │   └── Database: Tenant N...
     │   └── Private Endpoints to all data services
+    │   └── Power BI Embedded Capacity
     │
     ├── Application Subscription
     │   ├── Spoke VNet (peered to Hub)
@@ -632,13 +515,12 @@ Azure Management Group
     │   ├── Azure Static Web Apps (admin portal / SaaS frontend)
     │   ├── Azure OpenAI Service
     │   ├── Azure AI Search (RAG index per tenant)
-    │   ├── Azure Machine Learning Workspace
-    │   └── Power BI Embedded Capacity
+    │   └── Azure Machine Learning Workspace
     │
     └── Per-Tenant Spoke Subscriptions (Enterprise tier only)
         ├── Tenant Spoke VNet (peered to Hub)
         ├── Dedicated ADLS Gen2 Storage Account
-        ├── Dedicated Synapse Workspace / SQL Pool
+        ├── Dedicated Databricks Workspace + Unity Catalog
         ├── Dedicated ADX Database
         ├── Tenant Key Vault (customer-managed keys)
         └── Private Endpoints to shared platform services
@@ -658,63 +540,42 @@ Azure Management Group
    │ Platform   │ │ VNet         │  │ Tenant     │
    │ Spoke VNet │ │ (AKS, App    │  │ Spoke VNet │
    │ (ADLS,     │ │  Service,    │  │ (Dedicated │
-   │  Synapse,  │ │  Functions,  │  │  storage,  │
-   │  ADF, ADX, │ │  OpenAI,     │  │  Synapse,  │
+   │  Databricks│ │  Functions,  │  │  storage,  │
+   │  ADF, ADX, │ │  OpenAI,     │  │  Databricks│
    │  Event Hub)│ │  AI Search)  │  │  ADX, KV)  │
    └────────────┘ └──────────────┘  └────────────┘
 ```
 
-#### Tenant Onboarding Flow (Without Fabric)
-
-```
-New Tenant Request
-       │
-       ▼
-CI/CD Pipeline (Bicep / Terraform)
-       │
-       ├──► Create ADLS Gen2 container + folder structure (Bronze/Silver/Gold)
-       ├──► Configure ADLS ACLs & RBAC
-       ├──► Create Synapse schema / linked service for tenant
-       ├──► Deploy ADF pipeline (parameterised for tenant)
-       ├──► Create AKS namespace + network policies + resource quotas
-       ├──► Create ADX database for tenant (if real-time needed)
-       ├──► Create Power BI workspace + deploy reports from templates
-       ├──► Register tenant in Config DB (Azure SQL)
-       ├──► Set feature flags in Azure App Configuration
-       ├──► Create APIM subscription (API key per tenant)
-       ├──► Create AI Search index (for RAG, if enabled)
-       └──► Federate tenant IdP in Entra ID (B2B)
-```
-
-#### Data Flow – Without Fabric
+#### Data Flow
 
 ```
 Tenant Source Systems (ERP, CRM, Files, APIs, DBs)
        │
-       ▼
-Azure Data Factory (parameterised per tenant)
+       ├── Batch ──► Azure Data Factory (parameterised per tenant)
+       │
+       ├── Streaming ──► Azure Event Hubs ──► Databricks Delta Live Tables
        │
        ▼
-┌──────────────────────────────────────────┐
-│        ADLS Gen2 (per-tenant container)  │
-│  ┌────────┐  ┌────────┐  ┌────────┐      │
-│  │ Bronze │─►│ Silver │─►│  Gold  │      │
-│  │ (raw)  │  │(clean) │  │(curated│      │
-│  └────────┘  └────────┘  └────────┘      │
-│          Delta / Parquet format          │
-└──────────────┬───────────────────────────┘
+┌─────────────────────────────────────────┐
+│       ADLS Gen2 (per-tenant container)  │
+│  ┌────────┐  ┌────────┐  ┌────────┐     │
+│  │ Bronze │─►│ Silver │─►│  Gold  │     │
+│  │ (raw)  │  │(clean) │  │(curated│     │
+│  └────────┘  └────────┘  └────────┘     │
+│          Delta Lake format              │
+└──────────────┬──────────────────────────┘
                │
        ┌───────┼──────────────┐
        ▼       ▼              ▼
-  Power BI  Synapse SQL    Synapse Spark
-  Reports   (ad-hoc        (data engineering
-             queries)       / ML)
+  Power BI  Databricks     Databricks
+  (via      SQL Warehouse  Spark / Notebooks
+  connector) (ad-hoc SQL)  (data engineering / ML / MLflow)
 ```
 
 ---
 
 <a name="option2-identity"></a>
-### 4.3 Identity & Access (Without Fabric)
+### 4.3 Identity & Access 
 
 ```
 Tenant User
@@ -727,9 +588,10 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
                                                       │
                                         ┌─────────────┼───────────────┐
                                         ▼             ▼               ▼
-                                  AKS / App Svc  Synapse SQL     APIM Gateway
-                                 (namespace      (schema          (subscription
-                                  scoped)         scoped)          per tenant)
+                                  AKS / App Svc  Databricks      APIM Gateway
+                                 (namespace      SQL Warehouse   (subscription
+                                  scoped)        (Unity Catalog    per tenant)
+                                                  scoped)
 ```
 
 | Layer | Service | Tenant Isolation Mechanism |
@@ -738,7 +600,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 | **API Gateway** | Azure API Management | Subscription key per tenant; rate limiting; policies |
 | **Compute** | AKS | Namespace isolation + network policies + resource quotas |
 | **Storage** | ADLS Gen2 | Container-level or storage account-level isolation + ACLs |
-| **Analytics** | Azure Synapse | Workspace-per-tenant or schema-per-tenant |
+| **Analytics** | Azure Databricks | Unity Catalog — catalog-per-tenant or schema-per-tenant; row/column-level permissions |
 | **Real-Time** | Azure Data Explorer | Database-per-tenant within shared cluster |
 | **Reports** | Power BI Embedded | Workspace-per-tenant + row-level security |
 | **Secrets** | Azure Key Vault | Customer-managed keys (Enterprise tier) |
@@ -746,185 +608,25 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 
 ---
 
-<a name="option2-ai"></a>
-### 4.4 AI & Analytics (Without Fabric)
-
-Without Fabric, the full Azure AI platform is still available. The same AI Foundry, Agents, RAG, and Semantic Kernel capabilities apply — the only difference is the data foundation connects to ADLS Gen2 + Synapse instead of OneLake.
-
-#### Complete Azure AI Architecture (Without Fabric)
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                  AI PLATFORM ON AZURE (WITHOUT FABRIC)                 │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     AI Application Layer                         │  │
-│  │                                                                  │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────────┐ │  │
-│  │  │ Power BI     │  │  Custom AI   │  │  AI Agents              │ │  │
-│  │  │ Q&A /        │  │  Chat / Q&A  │  │  (Azure AI Foundry      │ │  │
-│  │  │ Synapse SQL  │  │  (RAG-based) │  │   Agent Service)        │ │  │
-│  │  └──────────────┘  └──────────────┘  └─────────────────────────┘ │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Orchestration Layer                          │  │
-│  │  Semantic Kernel │ Azure AI Foundry │ Prompt Flow                │  │
-│  │  (agent orchestration, tool calling, multi-step reasoning)       │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     AI Models & Services                         │  │
-│  │  Azure OpenAI (GPT-4o, GPT-4.1) │ Azure AI Search (RAG index)    │  │
-│  │  Azure AI Document Intelligence │ Azure AI Content Safety        │  │
-│  │  Azure Machine Learning (custom models, fine-tuning)             │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Data Foundation                              │  │
-│  │  ADLS Gen2 (Delta/Parquet) │ Synapse (SQL + Spark)               │  │
-│  │  Azure Data Explorer (real-time) │ Event Hubs (streaming)        │  │
-│  │  Per-tenant container / schema isolation                         │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-#### AI Capabilities Breakdown
-
-| Capability | Azure Service | Role in Multi-Tenant SaaS | Multi-Tenant Isolation |
-|---|---|---|---|
-| **LLM / Generative AI** | Azure OpenAI Service (GPT-4o, GPT-4.1) | Natural language queries, summarisation, content generation, code generation | API-level isolation; tenant context injected per request |
-| **Azure AI Foundry** | Azure AI Foundry (portal + SDK) | Centralised platform to build, evaluate, and deploy AI models and agents. Model catalog, prompt engineering, evaluation, deployment management | Project-per-tenant or shared project with tenant-scoped deployments |
-| **AI Agents** | Azure AI Foundry Agent Service | Autonomous agents that reason, plan, use tools, and take actions. Agents call Synapse SQL, query ADX, search AI Search, and execute multi-step workflows | Agent instances scoped per tenant; tool permissions restrict data access |
-| **RAG** | Azure OpenAI + Azure AI Search | Ground LLM answers in tenant-specific data (documents, tables, knowledge bases). Hybrid search (vector + keyword) for maximum relevance | Per-tenant AI Search index or shared index with security trimming |
-| **Semantic Kernel** | Open-source SDK (.NET / Python) | Orchestration framework connecting LLMs to data, APIs, and tools. Agent planning, tool calling, context management | Tenant context passed via kernel arguments; plugins scoped per tenant |
-| **Document Intelligence** | Azure AI Document Intelligence | Extract structured data from documents (invoices, contracts, forms). Feed extracted data into ADLS or directly into RAG pipelines | Per-tenant processing; output stored in tenant's ADLS container |
-| **Content Safety** | Azure AI Content Safety | Filter harmful content, jailbreak detection, prompt shields | Applied globally; audit logs per tenant |
-| **Real-Time Analytics** | Azure Data Explorer + Stream Analytics | Sub-second time-series queries, anomaly detection, streaming ETL | ADX database-per-tenant; Stream Analytics with tenant routing |
-| **Machine Learning** | Azure Machine Learning | Custom model training, batch inference, MLOps, model registry | Workspace-per-tenant or shared with experiment-level isolation |
-| **Automated Alerts** | Azure Monitor Alerts + Logic Apps | Trigger notifications when metrics breach thresholds | Alert rules scoped per tenant resource |
-
-#### AI Agent Architecture (Without Fabric)
-
-The same agent pattern applies — the difference is tools connect to **Synapse / ADLS / ADX** instead of Fabric workspaces.
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    AI Agent Flow (Per Tenant)                  │
-│                                                                │
-│  User: "Summarise last quarter's performance and               │
-│         flag any anomalies"                                    │
-│         │                                                      │
-│         ▼                                                      │
-│  ┌──────────────────────────────────────────────────┐          │
-│  │  AI Agent (Azure AI Foundry Agent Service)       │          │
-│  │                                                  │          │
-│  │  1. Plan: Identify sub-tasks                     │          │
-│  │  2. Tool Call: Query Synapse SQL                 │◄── Semantic Kernel
-│  │     (retrieve last quarter's metrics from Gold)  │    orchestrates
-│  │  3. Tool Call: Search AI Search index            │    tool calling
-│  │     (retrieve related documents / runbooks)      │          │
-│  │  4. Tool Call: Query ADX                         │          │
-│  │     (check real-time anomaly trends)             │          │
-│  │  5. Reason: Synthesise findings                  │          │
-│  │  6. Respond: Actionable summary + flagged items  │          │
-│  └──────────────────────────────────────────────────┘          │
-│         │                                                      │
-│         ▼                                                      │
-│  Answer grounded in tenant's actual data                       │
-│  (Synapse Gold layer + documents + real-time ADX)              │
-└────────────────────────────────────────────────────────────────┘
-```
-
-#### RAG Architecture Detail (Without Fabric)
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│                 RAG Flow (Per Tenant)                         │
-│                                                               │
-│  ┌─────────────┐     ┌─────────────────────┐                  │
-│  │ Tenant Docs │────►│ Azure AI Document   │                  │
-│  │ (contracts, │     │ Intelligence        │                  │
-│  │  reports,   │     │ (extract structure) │                  │
-│  │  manuals)   │     └────────┬────────────┘                  │
-│  └─────────────┘              │                               │
-│                               ▼                               │
-│                    ┌─────────────────────┐                    │
-│  ADLS Gen2 Gold ──►│  Azure AI Search    │                    │
-│  (structured       │  (vector + keyword  │                    │
-│   tenant data)     │   hybrid index)     │                    │
-│                    │  [per-tenant index] │                    │
-│                    └────────┬────────────┘                    │
-│                             │ retrieve top-K chunks           │
-│                             ▼                                 │
-│                    ┌─────────────────────┐                    │
-│                    │  Azure OpenAI       │                    │
-│                    │  (GPT-4o / GPT-4.1) │                    │
-│                    │  system prompt +    │                    │
-│                    │  retrieved context  │                    │
-│                    └────────┬────────────┘                    │
-│                             │                                 │
-│                             ▼                                 │
-│                    Grounded answer                            │
-│                    (cited sources, no hallucination)          │
-└───────────────────────────────────────────────────────────────┘
-```
-
-#### Azure AI Foundry — Applies Identically Without Fabric
-
-Azure AI Foundry is **not dependent on Fabric**. All Foundry capabilities work with ADLS Gen2 + Synapse:
-
-| Foundry Capability | What It Does for Multi-Tenant SaaS |
-|---|---|
-| **Model Catalog** | Access 1,600+ models (OpenAI, Meta, Mistral, Cohere, open-source). Deploy the right model for the right task. |
-| **Prompt Flow** | Build, test, and evaluate RAG pipelines and agent workflows. Connect to Synapse SQL and ADLS as data sources. |
-| **Agent Service** | Deploy AI agents that use tools, call APIs, and reason over data. Agents call Synapse, ADX, and AI Search as tools. |
-| **Evaluation** | Measure groundedness, relevance, coherence, and safety. Run evaluations per tenant dataset. |
-| **Content Safety** | Content filtering, prompt shields, jailbreak detection. Applied before and after LLM calls. |
-| **Tracing & Monitoring** | End-to-end observability of AI requests. Per-tenant dashboards via Azure Monitor. |
-| **Responsible AI** | Built-in guardrails for fairness, transparency, accountability. Automated red-teaming. |
-
-### Pros — Option 2
-
-- **Full control** over every component — choose compute, storage, and analytics independently
-- **Mature services** — ADLS Gen2, Synapse, ADF, AKS are all GA with established SLAs
-- **Granular cost control** — scale each service independently; stop what you don't need
-- **AKS flexibility** — run custom application logic, microservices, open-source tools alongside Azure PaaS
-- **Azure Data Explorer** — purpose-built for real-time time-series, potentially higher performance for streaming use cases
-- **No Fabric licensing dependency** — use existing Azure commitments / EA
-
-### Cons — Option 2
-
-- **More services to integrate** — data flows across ADLS, Synapse, ADF, AKS, ADX, Power BI (vs. Fabric's unified model)
-- **Higher operational complexity** — AKS cluster management, Synapse pool sizing, ADX cluster scaling
-- **Data duplication risk** — data may need to be copied between services (vs. OneLake's single-copy model)
-- **No built-in Copilot** — must build AI experiences from individual Azure AI services
-- **Tenant onboarding is more complex** — more resources to provision per tenant
-- **Governance requires more wiring** — Purview integration must be manually configured per service
-
-[↑ Back to top](#)
-
----
-
 <a name="option3"></a>
-## 5. Option 3 – Cloud-Agnostic (Portable)
+## 5. Option 3 – Portable (OSS + Azure SaaS)
 
 <a name="option3-arch"></a>
 ### 5.1 Architecture Overview
 
-This option builds the multi-tenant SaaS analytics platform using **cloud-agnostic, open-source, and portable technologies**. The platform runs on Kubernetes as the universal compute layer, uses S3-compatible object storage, PostgreSQL for operational data, Apache Spark for analytics, and open-source AI tooling for LLM and RAG capabilities.
+This option builds the multi-tenant SaaS analytics platform using **portable, open-source technologies** combined with **Azure SaaS services that are cloud-agnostic** — services that can be consumed from any hyperscaler without architectural lock-in. The platform runs on Kubernetes as the universal compute layer, uses Azure Blob Storage (which exposes an S3-compatible API for portability), PostgreSQL for operational data, Apache Spark for analytics, and open-source AI tooling for LLM and RAG capabilities.
 
-The core principle: **every component can run on Azure, AWS, GCP, or on-premises** without re-architecture. Where Azure-specific services offer clear value (e.g., managed Kubernetes via AKS, or Azure-managed PostgreSQL), they are used as the deployment target — but the application code, data formats, and orchestration patterns remain portable.
+The core principle: **the compute, analytics, and orchestration layers can run on Azure, AWS, GCP, or on-premises** without re-architecture. Where Azure services are **SaaS / API-consumable from any cloud** (Power BI Embedded, GitHub Actions, Azure Blob Storage with S3-compatible endpoints), they are used because they add enterprise value without creating architectural lock-in. If the solution moves to AWS or GCP tomorrow, these SaaS services continue to work — only the infrastructure layer (K8s cluster, managed database) needs to be re-provisioned.
 
 Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database-per-tenant** (or schema-per-tenant), and **application-level tenant routing**.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│              OPTION 3: CLOUD-AGNOSTIC (PORTABLE)                     │
+│              OPTION 3: PORTABLE (OSS + AZURE SaaS)                   │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐    │
 │  │                  Presentation Layer                          │    │
-│  │  Apache Superset / Metabase │ Custom SaaS Portal (React/Vue) │    │
+│  │  Power BI Embedded (SaaS) │ Custom SaaS Portal (React/Vue)   │    │
 │  │  Admin UI (SPA) │ API Gateway (Kong / Traefik / NGINX)       │    │
 │  └────────────────────────────────┬─────────────────────────────┘    │
 │                                   │                                  │
@@ -940,9 +642,9 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 │  │                  Data Platform (Open-Source)                 │    │
 │  │                                                              │    │
 │  │  ┌──────────────────────────────────────────────────────┐    │    │
-│  │  │      Object Storage (S3-compatible / MinIO)          │    │    │
-│  │  │  Tenant A Bucket │ Tenant B Bucket │ Tenant C        │    │    │
-│  │  │  (bucket-per-tenant or prefix-per-tenant + IAM)      │    │    │
+│  │  │      Azure Blob Storage (S3-compatible API)          │    │    │
+│  │  │  Tenant A Container │ Tenant B Container │ Tenant C  │    │    │
+│  │  │  (container-per-tenant or prefix-per-tenant + RBAC)  │    │    │
 │  │  └──────────────────────────┬───────────────────────────┘    │    │
 │  │                             │                                │    │
 │  │  ┌──────────────────────────▼───────────────────────────┐    │    │
@@ -968,7 +670,7 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 │  Cross-Cutting Services:                                             │
 │  Keycloak / Auth0 (identity) │ HashiCorp Vault (secrets)             │
 │  Prometheus + Grafana (observability) │ OPA (policy engine)          │
-│  Cert-Manager (TLS) │ ArgoCD / Flux (GitOps)                         │
+│  Cert-Manager (TLS) │ GitHub Actions (CI/CD)                         │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -977,7 +679,7 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 | Component | Role | Multi-Tenancy Model | Portable? |
 |---|---|---|---|
 | **Kubernetes** | Universal compute platform | Namespace-per-tenant with network policies + resource quotas | Yes — AKS / EKS / GKE / on-prem |
-| **S3-compatible Storage** | Data lake (Bronze/Silver/Gold) | Bucket-per-tenant or prefix isolation + IAM policies | Yes — Azure Blob (S3-compat) / AWS S3 / GCS / MinIO |
+| **Azure Blob Storage** | Data lake (Bronze/Silver/Gold) | Container-per-tenant or prefix isolation + RBAC | Yes — S3-compatible API; swap to AWS S3 / GCS / MinIO by changing endpoint |
 | **Apache Spark** | Distributed analytics engine | Spark jobs parameterised per tenant | Yes — Databricks / EMR / Dataproc / self-hosted |
 | **Trino / Presto** | Federated SQL query engine | Catalog-per-tenant or schema isolation | Yes — runs on any K8s cluster |
 | **dbt** | Data transformation (SQL-based) | dbt project per tenant or parameterised models | Yes — dbt Core is OSS |
@@ -985,49 +687,49 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 | **PostgreSQL** | Operational / metadata DB | Database-per-tenant or schema-per-tenant | Yes — managed on any cloud or self-hosted |
 | **Apache Kafka / Redpanda** | Streaming data ingestion | Topic-per-tenant with ACLs | Yes — Confluent Cloud, MSK, self-hosted |
 | **Apache Airflow / Dagster** | Pipeline orchestration | DAGs parameterised per tenant | Yes — runs on any K8s cluster |
-| **Apache Superset / Metabase** | BI / reporting | Dashboard-per-tenant with RLS and org isolation | Yes — OSS, self-hosted on K8s |
+| **Power BI Embedded** | BI / reporting (SaaS) | Workspace-per-tenant + row-level security | Yes — SaaS API, consumable from any cloud; embed in any web app |
 | **Kong / Traefik** | API gateway | Route-per-tenant, rate limiting, API key isolation | Yes — runs on any K8s cluster |
 | **Keycloak / Auth0** | Identity & SSO | Realm-per-tenant or organisation isolation | Yes — Keycloak is OSS; Auth0 is SaaS |
 | **HashiCorp Vault** | Secrets & CMK | Namespace-per-tenant, policy-based access | Yes — works on any infrastructure |
 | **Prometheus + Grafana** | Observability | Label-based tenant isolation, multi-tenant Grafana orgs | Yes — CNCF standard |
 | **OPA (Open Policy Agent)** | Policy enforcement | Policies scoped per tenant | Yes — CNCF standard |
-| **ArgoCD / Flux** | GitOps deployment | Application-per-tenant in Git repo | Yes — runs on any K8s cluster |
+| **GitHub Actions** | CI/CD | Workflows per tenant onboarding, deployment, and testing | Yes — platform-agnostic; works with any cloud provider |
 
 ### Technology Selection Rationale
 
-| Concern | Azure-Native Answer | Cloud-Agnostic Answer | Why Cloud-Agnostic |
+| Concern | Azure-Native Answer | Portable Answer | Why Portable |
 |---|---|---|---|
 | **Compute** | Azure App Service / Functions | Kubernetes (K8s) | K8s runs identically on AKS, EKS, GKE, or bare metal |
-| **Object Storage** | ADLS Gen2 | S3-compatible API (Azure Blob + S3 endpoint, AWS S3, MinIO) | S3 is the de facto standard; all clouds support it |
-| **SQL Analytics** | Synapse SQL | Trino / Presto / Spark SQL | No proprietary query engine lock-in |
-| **Data Lake Format** | Parquet on ADLS | Apache Iceberg on S3-compatible storage | Iceberg provides ACID, schema evolution, time travel — engine-independent |
-| **ETL / Pipelines** | Azure Data Factory | Apache Airflow / Dagster | OSS schedulers with cloud-agnostic operators |
+| **Object Storage** | ADLS Gen2 | Azure Blob Storage (S3-compatible API) | S3-compatible endpoint means code works against AWS S3 / GCS / MinIO unchanged; Azure Blob is the primary target |
+| **SQL Analytics** | Databricks SQL Warehouses | Trino / Presto / Spark SQL | No proprietary query engine lock-in |
+| **Data Lake Format** | Parquet on ADLS | Apache Iceberg on Azure Blob Storage | Iceberg provides ACID, schema evolution, time travel — engine-independent; portable across clouds |
+| **ETL / Pipelines** | Azure Data Factory | Apache Airflow / Dagster | OSS schedulers with portable operators |
 | **Streaming** | Azure Event Hubs | Apache Kafka / Redpanda | Kafka protocol is supported by every cloud and on-prem |
-| **BI / Reporting** | Power BI Embedded | Apache Superset / Metabase | OSS BI tools with embedded mode, no licence per user |
+| **BI / Reporting** | Power BI Embedded | Power BI Embedded (SaaS) | Power BI Embedded is a SaaS API — consumable from any cloud; same service regardless of where compute runs |
 | **Identity** | Microsoft Entra ID | Keycloak / Auth0 | Keycloak supports OIDC/SAML federation on any infra |
 | **Secrets** | Azure Key Vault | HashiCorp Vault | Works on every cloud and on-prem |
 | **Monitoring** | Azure Monitor | Prometheus + Grafana + OpenTelemetry | CNCF-standard observability stack |
 | **IaC** | Bicep (Azure-only) | Terraform / Pulumi / Crossplane | Multi-cloud IaC with a single codebase |
-| **Policy** | Azure Policy | OPA (Open Policy Agent) | Cloud-agnostic admission control and policy |
-| **CI/CD** | Azure DevOps | GitHub Actions / GitLab CI + ArgoCD | Git-based pipelines, platform-independent |
+| **Policy** | Azure Policy | OPA (Open Policy Agent) | Portable admission control and policy |
+| **CI/CD** | Azure DevOps | GitHub Actions | GitHub Actions is platform-agnostic — deploys to any cloud; GitHub is the industry-standard code platform |
 
-### Tenancy Models (Cloud-Agnostic)
+### Tenancy Models (Portable)
 
 | Layer | Isolation Options |
 |---|---|
 | **Compute (Kubernetes)** | Namespace-per-tenant *(default)* / Virtual cluster per tenant (vCluster) *(high isolation)* / Dedicated cluster per tenant *(max isolation)* |
-| **Storage (S3-compatible)** | Bucket-per-tenant *(strongest)* / Prefix-per-tenant + IAM policies *(moderate)* / Shared bucket + application-enforced ACL *(weakest)* |
+| **Storage (Azure Blob)** | Container-per-tenant *(strongest)* / Prefix-per-tenant + RBAC policies *(moderate)* / Shared container + application-enforced ACL *(weakest)* |
 | **Analytics (Spark / Trino)** | Catalog-per-tenant / Schema-per-tenant / Shared schema + row-level filtering |
 | **Operational DB (PostgreSQL)** | Database-per-tenant / Schema-per-tenant / Shared schema + `tenant_id` column |
 | **Streaming (Kafka)** | Topic-per-tenant with ACLs / Shared topic with tenant-keyed partitions |
-| **BI (Superset / Metabase)** | Organisation-per-tenant / Dashboard-per-tenant with RLS |
+| **BI (Power BI Embedded)** | Workspace-per-tenant + row-level security / Shared workspace + RLS |
 
 ---
 
 <a name="option3-lz"></a>
-### 5.2 Complete Landing Zone (Cloud-Agnostic)
+### 5.2 Complete Landing Zone (Portable)
 
-The landing zone follows the same hub-and-spoke model but uses cloud-agnostic networking and Kubernetes as the core. When deployed on Azure, managed services (AKS, Azure Database for PostgreSQL, Azure Blob) are used — but the architecture is re-deployable on any cloud.
+The landing zone follows the same hub-and-spoke model but uses portable networking and Kubernetes as the core compute layer, combined with Azure SaaS services (Power BI Embedded, GitHub Actions) that are consumable from any cloud. When deployed on Azure, managed services (AKS, Azure Database for PostgreSQL, Azure Blob) are used — but the compute and analytics layers are re-deployable on any cloud.
 
 ```
 Cloud Provider (Azure / AWS / GCP / On-Prem)
@@ -1040,13 +742,11 @@ Cloud Provider (Azure / AWS / GCP / On-Prem)
     │   │   │   ├── Keycloak (identity provider)
     │   │   │   ├── HashiCorp Vault (secrets management)
     │   │   │   ├── Prometheus + Grafana (observability)
-    │   │   │   ├── ArgoCD (GitOps)
     │   │   │   ├── Cert-Manager (TLS automation)
     │   │   │   └── OPA Gatekeeper (policy enforcement)
     │   │   ├── Namespace: data-platform
     │   │   │   ├── Apache Airflow / Dagster (orchestration)
     │   │   │   ├── Trino (federated SQL)
-    │   │   │   ├── Apache Superset / Metabase (BI)
     │   │   │   └── LLM Gateway (LiteLLM)
     │   │   └── Namespace: ingestion
     │   │       └── Kafka Connect / custom connectors
@@ -1061,18 +761,23 @@ Cloud Provider (Azure / AWS / GCP / On-Prem)
     │   │   ├── Topics: tenant-a-events, tenant-b-events, ...
     │   │   └── Schema Registry
     │   │
-    │   └── CI/CD (GitHub Actions / GitLab CI + ArgoCD)
+    │   └── CI/CD: GitHub Actions (platform-agnostic, deploys to any cloud)
     │
-    ├── Data Lake (S3-compatible Object Storage)
-    │   ├── Bucket: tenant-a (Bronze / Silver / Gold)
-    │   ├── Bucket: tenant-b
-    │   ├── Bucket: tenant-n...
-    │   └── Bucket: platform-shared (templates, reference data)
+    ├── Data Lake: Azure Blob Storage (S3-compatible API)
+    │   ├── Container: tenant-a (Bronze / Silver / Gold)
+    │   ├── Container: tenant-b
+    │   ├── Container: tenant-n...
+    │   └── Container: platform-shared (templates, reference data)
     │   (Format: Apache Iceberg tables on Parquet files)
+    │   (Portable: swap to AWS S3 / GCS / MinIO by changing endpoint config)
     │
     ├── Analytics Compute
     │   ├── Apache Spark Cluster (Databricks / EMR / Dataproc / K8s Spark Operator)
     │   └── dbt Project (transformations per tenant)
+    │
+    ├── BI / Reporting: Power BI Embedded (SaaS — consumable from any cloud)
+    │   ├── Workspace per tenant
+    │   └── Row-level security + embedded reports in SaaS portal
     │
     ├── AI Services
     │   ├── LLM Provider (OpenAI API / Azure OpenAI / Anthropic / self-hosted vLLM)
@@ -1081,75 +786,43 @@ Cloud Provider (Azure / AWS / GCP / On-Prem)
     │
     └── Per-Tenant Dedicated Infrastructure (Enterprise tier only)
         ├── Dedicated K8s cluster or vCluster
-        ├── Dedicated object storage bucket + encryption keys
+        ├── Dedicated storage container + encryption keys
         ├── Dedicated PostgreSQL instance
         └── Private network / VPC peering
 ```
 
-#### Network Architecture (Cloud-Agnostic)
+#### Network Architecture (Portable)
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                  NETWORK LAYER                           │
-│  (VPC / VNet — cloud-provider managed)                   │
-│                                                          │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │  Ingress Layer                                     │  │
-│  │  Cloud Load Balancer → Ingress Controller          │  │
-│  │  (NGINX / Traefik) → Service Mesh (Istio/Linkerd)  │  │
-│  └─────────────────────┬──────────────────────────────┘  │
-│                        │                                 │
-│  ┌─────────────────────▼──────────────────────────────┐  │
-│  │  Kubernetes Cluster                                │  │
-│  │  ┌──────────────┐  ┌──────────────┐                │  │
-│  │  │ Namespace:   │  │ Namespace:   │  ...           │  │
-│  │  │ tenant-a     │  │ tenant-b     │                │  │
-│  │  │ (app pods,   │  │ (app pods,   │                │  │
-│  │  │  network     │  │  network     │                │  │
-│  │  │  policies,   │  │  policies,   │                │  │
-│  │  │  resource    │  │  resource    │                │  │
-│  │  │  quotas)     │  │  quotas)     │                │  │
-│  │  └──────────────┘  └──────────────┘                │  │
-│  │  ┌──────────────┐                                  │  │
-│  │  │ Namespace:   │                                  │  │
-│  │  │ platform-    │                                  │  │
-│  │  │ services     │                                  │  │
-│  │  │ (Kong, Vault,│                                  │  │
-│  │  │  Keycloak,   │                                  │  │
-│  │  │  Prometheus) │                                  │  │
-│  │  └──────────────┘                                  │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                          │
-│  Private Subnets: PostgreSQL, Kafka, Object Storage      │
-│ (accessible only from K8s cluster via private endpoints) │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                  NETWORK LAYER                                  │
+│  (VPC / VNet — cloud-provider managed)                          │
+│                                                                 │
+│  ┌────────────────────────────────────────────────────┐         │
+│  │  Ingress Layer                                     │         │
+│  │  Cloud Load Balancer → Ingress Controller          │         │
+│  │  (NGINX / Traefik) → Service Mesh (Istio/Linkerd)  │         │
+│  └─────────────────────┬──────────────────────────────┘         │
+│                        │                                        │
+│  ┌─────────────────────▼──────────────────────────────────────┐ │
+│  │  Kubernetes Cluster                                        │ │
+│  │  ┌──────────────┐  ┌──────────────┐       ┌──────────────┐ │ │
+│  │  │ Namespace:   │  │ Namespace:   │  ...  │ Namespace:   │ │ │
+│  │  │ tenant-a     │  │ tenant-b     │       │ services     │ │ │
+│  │  │ (app pods,   │  │ (app pods,   │       │ (Kong, Vault,│ │ │
+│  │  │  network     │  │  network     │       │  Keycloak,   │ │ │
+│  │  │  policies,   │  │  policies,   │       │  Prometheus) │ │ │
+│  │  │  resource    │  │  resource    │       └──────────────┘ │ │ 
+│  │  │  quotas)     │  │  quotas)     │                        │ │
+│  │  └──────────────┘  └──────────────┘                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  Private Subnets: PostgreSQL, Kafka, Object Storage             │
+│  (accessible only from K8s cluster via private endpoints)       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-#### Tenant Onboarding Flow (Cloud-Agnostic)
-
-```
-New Tenant Request
-       │
-       ▼
-GitOps Pipeline (Terraform + ArgoCD)
-       │
-       ├──► Create K8s namespace for tenant (with network policies + resource quotas)
-       ├──► Create object storage bucket (S3-compatible) + folder structure (Bronze/Silver/Gold)
-       ├──► Configure bucket IAM policies (tenant-scoped access)
-       ├──► Create PostgreSQL database (or schema) for tenant
-       ├──► Create Kafka topics for tenant (with ACLs)
-       ├──► Register Iceberg catalog for tenant in Trino / Spark
-       ├──► Deploy dbt project / Airflow DAGs (parameterised per tenant)
-       ├──► Create Superset organisation + deploy dashboard templates
-       ├──► Create Keycloak realm (or org) + federate tenant IdP (OIDC / SAML)
-       ├──► Create Vault namespace + tenant secrets path
-       ├──► Configure Kong routes (API key per tenant, rate limiting)
-       ├──► Create OpenSearch index for tenant (RAG, if enabled)
-       ├──► Register tenant in platform config DB (PostgreSQL)
-       └──► Set feature flags in Unleash / Flagsmith
-```
-
-#### Data Flow (Cloud-Agnostic)
+#### Data Flow 
 
 ```
 Tenant Source Systems (ERP, CRM, Files, APIs, DBs)
@@ -1159,8 +832,8 @@ Apache Kafka (event streaming) / Airflow (batch ingestion)
        │
        ▼
 ┌──────────────────────────────────────────┐
-│  Object Storage (S3-compatible)          │
-│  per-tenant bucket                       │
+│  Azure Blob Storage (S3-compatible API)  │
+│  per-tenant container                    │
 │  ┌────────┐  ┌────────┐  ┌────────┐      │
 │  │ Bronze │─►│ Silver │─►│  Gold  │      │
 │  │ (raw)  │  │(clean) │  │(curated│      │
@@ -1170,15 +843,15 @@ Apache Kafka (event streaming) / Airflow (batch ingestion)
                │
        ┌───────┼──────────────┐
        ▼       ▼              ▼
-  Superset   Trino           Spark
-  Dashboards (ad-hoc SQL)    (data engineering
-                              / ML)
+  Power BI   Trino           Spark
+  Embedded   (ad-hoc SQL)    (data engineering / ML)
+  (SaaS)                      
 ```
 
 ---
 
 <a name="option3-identity"></a>
-### 5.3 Identity & Access (Cloud-Agnostic)
+### 5.3 Identity & Access 
 
 The identity layer uses **Keycloak** (open-source) or **Auth0** (SaaS) as the identity platform. Keycloak supports multi-realm architecture — each tenant gets its own realm with federated SSO to their corporate IdP.
 
@@ -1204,9 +877,9 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Keycloak (Realm per Tenant
 | **Identity** | Keycloak / Auth0 | Realm-per-tenant (Keycloak) or organisation-per-tenant (Auth0); OIDC/SAML federation with tenant IdPs |
 | **API Gateway** | Kong / Traefik | Route-per-tenant; API key + rate limiting; JWT validation plugin |
 | **Compute** | Kubernetes | Namespace isolation + NetworkPolicy + ResourceQuota + Istio AuthorizationPolicy |
-| **Storage** | S3-compatible | Bucket-per-tenant with IAM policies; bucket-level encryption keys |
+| **Storage** | Azure Blob Storage | Container-per-tenant with RBAC policies; S3-compatible API for portability |
 | **Analytics** | Trino / Spark | Catalog-per-tenant or schema-per-tenant; Spark job submitted with tenant context |
-| **BI / Reporting** | Apache Superset / Metabase | Organisation-per-tenant; row-level security on datasets |
+| **BI / Reporting** | Power BI Embedded (SaaS) | Workspace-per-tenant; row-level security; embedded in SaaS portal |
 | **Secrets** | HashiCorp Vault | Namespace-per-tenant; policy-based access; dynamic secrets for databases |
 | **Config** | Unleash / Flagsmith | Feature flags scoped by tenant ID |
 | **Policy** | OPA Gatekeeper | Admission control policies enforce namespace isolation, resource limits, image policies |
@@ -1227,194 +900,22 @@ Kubernetes is the compute foundation. Multi-tenancy is enforced at multiple laye
 
 ---
 
-<a name="option3-ai"></a>
-### 5.4 AI & Analytics (Cloud-Agnostic)
-
-The AI layer is built from **LLM-agnostic** and **open-source** components. The platform can use any LLM provider (OpenAI, Anthropic, Google, Mistral, or self-hosted open-source models) without re-architecture. RAG is powered by open-source vector search (OpenSearch, Weaviate, Qdrant, or Milvus).
-
-#### Complete AI Architecture (Cloud-Agnostic)
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                  AI PLATFORM (CLOUD-AGNOSTIC)                          │
-│                                                                        │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     AI Application Layer                         │  │
-│  │                                                                  │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐  │  │
-│  │  │ Superset     │  │  Custom AI   │  │  AI Agents             │  │  │
-│  │  │ Natural      │  │  Chat / Q&A  │  │  (LangGraph /          │  │  │
-│  │  │ Language QA  │  │  (RAG-based) │  │   CrewAI / AutoGen)    │  │  │
-│  │  └──────────────┘  └──────────────┘  └────────────────────────┘  │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Orchestration Layer                          │  │
-│  │  LangChain / LlamaIndex │ Semantic Kernel                        │  │
-│  │  (agent orchestration, tool calling, multi-step reasoning)       │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     AI Models & Services                         │  │
-│  │  LLM Gateway (LiteLLM) — routes to:                              │  │
-│  │    OpenAI / Azure OpenAI / Anthropic / Mistral / self-hosted     │  │
-│  │  Vector Search: OpenSearch / Weaviate / Qdrant / Milvus          │  │
-│  │  Document Processing: Apache Tika / Unstructured.io              │  │
-│  │  Embeddings: OpenAI / Cohere / sentence-transformers (OSS)       │  │
-│  └──────────────────────────────┬───────────────────────────────────┘  │
-│                                 │                                      │
-│  ┌──────────────────────────────▼───────────────────────────────────┐  │
-│  │                     Data Foundation                              │  │
-│  │  S3-compatible storage (Iceberg/Parquet)                         │  │
-│  │  Apache Spark + Trino (SQL + distributed compute)                │  │
-│  │  Apache Kafka (real-time streaming)                              │  │
-│  │  Per-tenant bucket / catalog isolation                           │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-#### AI Capabilities Breakdown
-
-| Capability | Cloud-Agnostic Service | Role in Multi-Tenant SaaS | Multi-Tenant Isolation |
-|---|---|---|---|
-| **LLM / Generative AI** | LiteLLM Gateway → OpenAI / Anthropic / Mistral / vLLM | Natural language queries, summarisation, content generation. LiteLLM provides a unified API across all LLM providers — switch models without code changes | API-level isolation; tenant context injected per request |
-| **RAG** | OpenSearch / Weaviate / Qdrant + LangChain | Ground LLM answers in tenant-specific data. Hybrid search (vector + BM25) for maximum relevance | Per-tenant index (OpenSearch) or collection (Weaviate/Qdrant) |
-| **AI Agents** | LangGraph / CrewAI / AutoGen | Autonomous agents that plan, use tools, and reason over data. Agents query Trino, search OpenSearch, and execute multi-step workflows | Agent instances scoped per tenant; tool access restricted to tenant data |
-| **Orchestration** | LangChain / LlamaIndex / Semantic Kernel | Orchestration frameworks connecting LLMs to data, APIs, and tools. Agent planning, tool calling, context management | Tenant context passed via configuration; tools scoped per tenant |
-| **Document Processing** | Apache Tika / Unstructured.io | Extract structured data from documents (PDF, Word, images). Feed output into the data lake or directly into RAG pipelines | Per-tenant processing; output stored in tenant's S3 bucket |
-| **Embeddings** | OpenAI / Cohere / sentence-transformers | Generate vector embeddings for RAG. Can use cloud API or self-hosted models (e.g., sentence-transformers on K8s) | Shared embedding model; vectors stored per-tenant |
-| **Real-Time Analytics** | Apache Kafka + Apache Flink / Spark Streaming | Streaming ETL, real-time aggregations, anomaly detection | Kafka topics per tenant; Flink jobs parameterised per tenant |
-| **Machine Learning** | MLflow + Spark + KubeFlow | Custom model training, experiment tracking, model registry, serving. MLflow runs on any infrastructure | Experiment-per-tenant; models tagged with tenant ID |
-| **Content Safety** | Guardrails AI / NeMo Guardrails / custom filters | Filter harmful content, enforce output policies. Applied as middleware in the LLM pipeline | Applied globally; audit logs per tenant |
-
-#### LLM Gateway Pattern (LiteLLM)
-
-A critical design element for cloud-agnostic AI: the **LLM Gateway** abstracts the LLM provider from the application. Any LLM-consuming service talks to a single endpoint — the gateway routes requests to the configured model provider.
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                  LLM Gateway (LiteLLM)                       │
-│                                                              │
-│  Application Code ──► litellm.completion(model, messages)    │
-│                              │                               │
-│                    ┌─────────┼──────────┐                    │
-│                    ▼         ▼          ▼                    │
-│              ┌──────────┐ ┌──────────┐ ┌──────────┐          │
-│              │ OpenAI   │ │ Azure    │ │ Self-    │          │
-│              │ API      │ │ OpenAI   │ │ hosted   │          │
-│              │ (GPT-4o) │ │ (GPT-4.1)│ │ (vLLM /  │          │
-│              │          │ │          │ │  Ollama) │          │
-│              └──────────┘ └──────────┘ └──────────┘          │
-│                                                              │
-│  Benefits:                                                   │
-│  • Switch providers without code changes                     │
-│  • Fallback routing (if Provider A is down → route to B)     │
-│  • Cost-based routing (cheap model for simple tasks)         │
-│  • Per-tenant model assignment (tenant config)               │
-│  • Centralised usage tracking & rate limiting                │
-└──────────────────────────────────────────────────────────────┘
-```
-
-#### RAG Architecture Detail (Cloud-Agnostic)
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│                 RAG Flow (Per Tenant)                         │
-│                                                               │
-│  ┌─────────────┐     ┌─────────────────────┐                  │
-│  │ Tenant Docs │────►│ Apache Tika /       │                  │
-│  │ (contracts, │     │ Unstructured.io     │                  │
-│  │  reports,   │     │ (extract structure) │                  │
-│  │  manuals)   │     └────────┬────────────┘                  │
-│  └─────────────┘              │                               │
-│                               ▼                               │
-│                    ┌─────────────────────┐                    │
-│   S3 Gold Layer ──►│  OpenSearch /       │                    │
-│   (structured      │  Weaviate / Qdrant  │                    │
-│    tenant data)    │  (vector + keyword  │                    │
-│                    │   hybrid search)    │                    │
-│                    │  [per-tenant index] │                    │
-│                    └────────┬────────────┘                    │
-│                             │ retrieve top-K chunks           │
-│                             ▼                                 │
-│                    ┌─────────────────────┐                    │
-│                    │  LLM Gateway        │                    │
-│                    │  (LiteLLM → any LLM)│                    │
-│                    │  system prompt +    │                    │
-│                    │  retrieved context  │                    │
-│                    └────────┬────────────┘                    │
-│                             │                                 │
-│                             ▼                                 │
-│                    Grounded answer                            │
-│                    (cited sources, no hallucination)          │
-└───────────────────────────────────────────────────────────────┘
-```
-
-#### AI Agent Architecture (Cloud-Agnostic)
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    AI Agent Flow (Per Tenant)                  │
-│                                                                │
-│  User: "Summarise last quarter's performance and               │
-│         flag any anomalies"                                    │
-│         │                                                      │
-│         ▼                                                      │
-│  ┌──────────────────────────────────────────────────┐          │
-│  │  AI Agent (LangGraph / CrewAI)                   │          │
-│  │                                                  │          │
-│  │  1. Plan: Identify sub-tasks                     │          │
-│  │  2. Tool Call: Query Trino                       │◄── LangChain
-│  │     (SQL against tenant's Iceberg tables)        │    orchestrates
-│  │  3. Tool Call: Search OpenSearch index           │    tool calling
-│  │     (retrieve related documents / runbooks)      │          │
-│  │  4. Tool Call: Query Kafka / Flink               │          │
-│  │     (check real-time streaming metrics)          │          │
-│  │  5. Reason: Synthesise findings                  │          │
-│  │  6. Respond: Actionable summary + flagged items  │          │
-│  └──────────────────────────────────────────────────┘          │
-│         │                                                      │
-│         ▼                                                      │
-│  Answer grounded in tenant's actual data                       │
-│  (Iceberg Gold layer + documents + real-time streams)          │
-└────────────────────────────────────────────────────────────────┘
-```
-
 ### Multi-Cloud Deployment Strategy
 
-The same codebase and IaC templates deploy to any target cloud. The key is **abstraction at the infrastructure layer** — application code never references cloud-specific APIs directly.
+The same codebase and IaC templates deploy to any target cloud. The key is **abstraction at the infrastructure layer** — application code talks to S3-compatible APIs and standard interfaces. Azure SaaS services (Power BI Embedded, GitHub Actions) continue to work regardless of where the infrastructure runs.
 
 | Layer | Azure Deployment | AWS Deployment | GCP Deployment | On-Premises |
 |---|---|---|---|---|
 | **Kubernetes** | AKS | EKS | GKE | k3s / RKE2 / OpenShift |
-| **Object Storage** | Azure Blob (S3 compat) | AWS S3 | GCS (S3 compat) | MinIO |
+| **Object Storage** | Azure Blob Storage (S3-compat API) | AWS S3 | GCS (S3 compat) | MinIO |
 | **PostgreSQL** | Azure DB for PostgreSQL | Amazon RDS PostgreSQL | Cloud SQL PostgreSQL | Self-hosted PostgreSQL |
 | **Kafka** | Event Hubs (Kafka protocol) | Amazon MSK | Confluent on GCP | Self-hosted / Redpanda |
 | **Spark** | Databricks on Azure | Databricks on AWS / EMR | Databricks on GCP / Dataproc | Spark on K8s (Spark Operator) |
+| **BI / Reporting** | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) |
+| **CI/CD** | GitHub Actions | GitHub Actions | GitHub Actions | GitHub Actions |
 | **Load Balancer** | Azure LB + Front Door | AWS ALB + CloudFront | GCP LB + Cloud CDN | MetalLB + NGINX |
 | **DNS** | Azure DNS | Route 53 | Cloud DNS | CoreDNS / external |
 | **IaC** | Terraform (azurerm provider) | Terraform (aws provider) | Terraform (google provider) | Terraform (vsphere / bare metal) |
-
-### Pros — Option 3
-
-- **No cloud vendor lock-in** — move between Azure, AWS, GCP, or on-prem without re-architecture
-- **Open-source ecosystem** — leverage Kubernetes, Spark, Kafka, Trino, Iceberg, Superset, Keycloak, and hundreds of CNCF/ASF projects
-- **LLM-agnostic** — switch LLM providers (OpenAI ↔ Anthropic ↔ self-hosted) without code changes via LiteLLM gateway
-- **Cost flexibility** — use spot/preemptible instances, reserved capacity on any cloud, or bring on-prem hardware
-- **Team skills transfer** — K8s, Spark, Kafka, PostgreSQL expertise is portable across employers and clouds
-- **Regulatory flexibility** — deploy in sovereign clouds, government clouds, or air-gapped environments
-- **Avoid licence costs** — no Power BI per-user licensing, no Fabric capacity SKU, no Azure-specific premium tiers
-
-### Cons — Option 3
-
-- **Highest operational complexity** — the team must manage Kubernetes clusters, Kafka brokers, Spark clusters, PostgreSQL HA, Keycloak, Vault, and more
-- **No single vendor support** — troubleshooting spans multiple open-source communities and vendors
-- **Slower time-to-value** — more integration work vs. Azure-native managed services
-- **No built-in Copilot or AI assistant** — must build every AI experience from scratch
-- **Observability requires assembly** — Prometheus + Grafana + Loki + Tempo vs. Azure Monitor's single pane
-- **Security posture is DIY** — no equivalent to Microsoft Defender for Cloud; must assemble vulnerability scanning, threat detection, and compliance monitoring
-- **Data governance requires tooling** — no Microsoft Purview equivalent; must use OpenMetadata, DataHub, or Apache Atlas
-- **Multi-cloud IaC complexity** — Terraform modules per cloud; testing across providers adds overhead
 
 [↑ Back to top](#)
 
@@ -1425,16 +926,16 @@ The same codebase and IaC templates deploy to any target cloud. The key is **abs
 
 ### Architecture Components Mapping
 
-| Capability | Option 1 (With Fabric) | Option 2 (Without Fabric) | Option 3 (Cloud-Agnostic) |
+| Capability | Option 1 (With Fabric) | Option 2 (Without Fabric) | Option 3 (Portable) |
 |---|---|---|---|
-| **Unified Storage** | OneLake (auto-provisioned) | ADLS Gen2 (manually provisioned per tenant) | S3-compatible storage (Azure Blob / AWS S3 / MinIO) |
-| **Data Lakehouse** | Fabric Lakehouse (built-in) | ADLS Gen2 + Delta format + Synapse Spark | Apache Iceberg on S3-compatible storage + Spark |
-| **SQL Analytics** | Fabric SQL Warehouse | Synapse Dedicated SQL Pool / Serverless SQL | Trino / Presto (federated SQL) |
+| **Unified Storage** | OneLake (auto-provisioned) | ADLS Gen2 (manually provisioned per tenant) | Azure Blob Storage (S3-compatible API; swap to S3 / GCS / MinIO) |
+| **Data Lakehouse** | Fabric Lakehouse (built-in) | ADLS Gen2 + Delta Lake + Azure Databricks | Apache Iceberg on Azure Blob Storage + Spark |
+| **SQL Analytics** | Fabric SQL Warehouse | Databricks SQL Warehouses (Photon engine) | Trino / Presto (federated SQL) |
 | **Data Pipelines** | Fabric Pipelines + ADF | Azure Data Factory | Apache Airflow / Dagster |
-| **Data Engineering** | Fabric Notebooks (Spark) | Synapse Spark Pools | Apache Spark (Databricks / K8s Spark Operator) |
-| **Data Transformation** | Fabric Notebooks | Synapse / ADF Dataflows | dbt (SQL-based, open-source) |
+| **Data Engineering** | Fabric Notebooks (Spark) | Azure Databricks Spark Clusters / Notebooks | Apache Spark (Databricks / K8s Spark Operator) |
+| **Data Transformation** | Fabric Notebooks | Delta Live Tables / dbt on Databricks | dbt (SQL-based, open-source) |
 | **Real-Time Analytics** | Fabric Eventstream + KQL DB + Data Activator | Azure Event Hubs + Azure Data Explorer + Stream Analytics | Apache Kafka + Apache Flink / Spark Streaming |
-| **BI / Reporting** | Power BI (native in Fabric) | Power BI Embedded (separate service) | Apache Superset / Metabase (OSS, self-hosted) |
+| **BI / Reporting** | Power BI (native in Fabric) | Power BI Embedded (separate service) | Power BI Embedded (SaaS — consumable from any cloud) |
 | **AI Assistant** | Fabric Copilot (built-in) | Not available — must build custom | Not available — must build custom |
 | **AI Agents** | Azure AI Foundry Agent Service | Azure AI Foundry Agent Service | LangGraph / CrewAI / AutoGen (OSS) |
 | **AI Orchestration** | Semantic Kernel + Prompt Flow | Semantic Kernel + Prompt Flow | LangChain / LlamaIndex / Semantic Kernel |
@@ -1442,7 +943,7 @@ The same codebase and IaC templates deploy to any target cloud. The key is **abs
 | **RAG** | Azure AI Search + OpenAI + Document Intelligence | Azure AI Search + OpenAI + Document Intelligence | OpenSearch / Weaviate / Qdrant + any LLM |
 | **Document Processing** | Azure AI Document Intelligence → OneLake | Azure AI Document Intelligence → ADLS Gen2 | Apache Tika / Unstructured.io → S3 |
 | **Content Safety** | Azure AI Content Safety (shared) | Azure AI Content Safety (shared) | Guardrails AI / NeMo Guardrails (OSS) |
-| **ML / Custom Models** | Azure ML + Fabric Notebooks | Azure ML + Synapse Spark | MLflow + KubeFlow + Spark (OSS) |
+| **ML / Custom Models** | Azure ML + Fabric Notebooks | Azure ML + Databricks MLflow | MLflow + KubeFlow + Spark (OSS) |
 | **Application Compute** | Azure App Service / Functions | AKS + App Service / Functions | Kubernetes (AKS / EKS / GKE / on-prem) |
 | **Identity** | Microsoft Entra ID | Microsoft Entra ID | Keycloak / Auth0 (OIDC / SAML) |
 | **API Gateway** | Azure API Management | Azure API Management | Kong / Traefik / NGINX (OSS) |
@@ -1451,62 +952,7 @@ The same codebase and IaC templates deploy to any target cloud. The key is **abs
 | **Monitoring** | Azure Monitor + Fabric metrics | Azure Monitor + per-service metrics | Prometheus + Grafana + OpenTelemetry (CNCF) |
 | **Policy / Compliance** | Azure Policy + Microsoft Defender | Azure Policy + Microsoft Defender | OPA Gatekeeper + Falco + Trivy (OSS) |
 | **IaC** | Bicep / Terraform | Bicep / Terraform | Terraform / Pulumi / Crossplane (multi-cloud) |
-| **CI/CD** | Azure DevOps / GitHub Actions | Azure DevOps / GitHub Actions | GitHub Actions / GitLab CI + ArgoCD (GitOps) |
-
-### Trade-off Summary
-
-| Dimension | Option 1 (With Fabric) | Option 2 (Without Fabric) | Option 3 (Cloud-Agnostic) | Advantage |
-|---|---|---|---|---|
-| **Unified Experience** | Single pane for data + analytics + AI | Multiple services to compose | Multiple OSS tools to compose | **Option 1** |
-| **Time-to-Value** | Fastest — fewer moving parts | Moderate — more integration work | Slowest — most integration work | **Option 1** |
-| **Operational Complexity** | Lowest — Fabric is SaaS-managed | Moderate — must manage Synapse pools, ADX clusters | Highest — must manage K8s, Spark, Kafka, Postgres, etc. | **Option 1** |
-| **Multi-Tenancy (Data)** | Workspace-per-tenant (native) | Container / schema / DB per tenant (manual) | Bucket / schema / DB per tenant (manual) | **Option 1** |
-| **Multi-Tenancy (Compute)** | Shared F SKU or dedicated capacity | AKS namespaces + Synapse pool sizing | K8s namespaces + resource quotas + network policies | Tie |
-| **Customisation / Control** | Constrained to Fabric APIs | Full control over each Azure service | Full control over every component | **Option 3** |
-| **Cloud Portability** | Azure-only | Azure-only | Any cloud or on-prem | **Option 3** |
-| **AI Copilot (Built-In)** | Yes — Fabric Copilot | No — must build or go without | No — must build or go without | **Option 1** |
-| **LLM Flexibility** | Azure OpenAI only | Azure OpenAI only | Any LLM provider via LiteLLM gateway | **Option 3** |
-| **AI Agents** | Azure AI Foundry Agent Service | Azure AI Foundry Agent Service | LangGraph / CrewAI / AutoGen (OSS) | Tie |
-| **AI Orchestration** | Semantic Kernel + Prompt Flow | Semantic Kernel + Prompt Flow | LangChain / LlamaIndex / Semantic Kernel | Tie |
-| **RAG** | Azure AI Search + OpenAI | Azure AI Search + OpenAI | OpenSearch / Weaviate + any LLM | Tie |
-| **Content Safety** | Azure AI Content Safety (managed) | Azure AI Content Safety (managed) | Guardrails AI / NeMo Guardrails (DIY) | **Options 1 & 2** |
-| **Real-Time Analytics** | Fabric Eventstream + KQL | ADX + Event Hubs + Stream Analytics | Kafka + Flink / Spark Streaming | Tie |
-| **Cost Visibility** | Single F SKU (capacity model) | Per-service billing (granular) | Per-resource billing (most granular) | **Options 2 & 3** |
-| **Licence Costs** | Fabric F SKU + Power BI licences | Azure consumption + Power BI licences | No per-user BI licence; OSS tooling | **Option 3** |
-| **Service Maturity** | Fabric is newer; some APIs in preview | All services are GA with established SLAs | Mature OSS projects (Spark, Kafka, K8s, Postgres) | **Options 2 & 3** |
-| **Data Duplication** | Eliminated (OneLake) | Possible (data moves between services) | Minimised (Iceberg provides single-copy reads) | **Option 1** |
-| **Compliance** | Fabric inherits Azure certifications | Each service inherits Azure certifications | Compliance is self-managed (no built-in Defender / Purview) | **Options 1 & 2** |
-| **Open-Source Tooling** | Limited (within Fabric's boundaries) | Moderate (dbt, Spark, Trino on AKS) | Full flexibility (entire stack is OSS) | **Option 3** |
-| **Vendor Support** | Microsoft unified support | Microsoft unified support | Multi-vendor / community support | **Options 1 & 2** |
-| **Tenant Onboarding** | Simplest — fewer resources per tenant | More complex — more resources to provision | Most complex — K8s namespaces, IAM, Kafka topics, etc. | **Option 1** |
-| **Regulatory Flexibility** | Azure regions + Azure Government | Azure regions + Azure Government | Any cloud, sovereign cloud, on-prem, air-gapped | **Option 3** |
-
-### Decision Framework
-
-```
-Is multi-cloud / cloud-agnostic a hard requirement?
-    │
-    ├── YES ──► Option 3 (Cloud-Agnostic)
-    │           Build on Kubernetes + OSS stack
-    │           Portable across Azure / AWS / GCP / on-prem
-    │
-    └── NO ──► Azure-native path:
-               │
-               Does the organisation want a unified analytics SaaS platform with built-in AI?
-               │
-               ├── YES ──► Is Fabric SKU pricing acceptable?
-               │               YES ──► Option 1 (With Fabric)
-               │               NO  ──► Option 2 (Without Fabric) — use existing Azure EA
-               │
-               └── NO ──► Does the team need full control over each component?
-                              YES ──► Option 2 (Without Fabric)
-                              NO  ──► Option 1 (With Fabric) — reduces engineering burden
-```
-
-> **All three options deliver the same multi-tenant SaaS analytics platform.** The choice is:
-> - **Option 1**: Maximum platform leverage (Fabric) — fastest delivery, lowest ops
-> - **Option 2**: Full Azure-native control — mature services, granular billing
-> - **Option 3**: Maximum portability — no cloud lock-in, open-source stack, highest ops burden
+| **CI/CD** | Azure DevOps / GitHub Actions | Azure DevOps / GitHub Actions | GitHub Actions (platform-agnostic) |
 
 [↑ Back to top](#)
 
@@ -1520,7 +966,7 @@ Multi-tenant SaaS platforms must handle two fundamentally different tenant profi
 1. **Co-located tenants** — customers with no data-residency requirements who can be onboarded into the platform's primary region alongside existing tenants.
 2. **Data-residency tenants** — customers (often in regulated industries or jurisdictions like the EU, UK, Australia, or Middle East) who require all data, compute, and processing to remain within a specific geographic region.
 
-This section defines the Landing Zone strategy and deployment approach for both scenarios. The patterns apply to **all three options** — Option 1 (Fabric), Option 2 (Azure PaaS), and Option 3 (Cloud-Agnostic). For Option 3, the regional stamp uses Kubernetes clusters and OSS services in the target region/cloud instead of Azure-specific resources.
+This section defines the Landing Zone strategy and deployment approach for both scenarios. The patterns apply to **all three options** — Option 1 (Fabric), Option 2 (Azure PaaS), and Option 3 (Portable). For Option 3, the regional stamp uses Kubernetes clusters and OSS services in the target region/cloud instead of Azure-specific resources, while Azure SaaS services (Power BI Embedded, GitHub Actions) continue to work from the target region.
 
 ---
 
@@ -1559,7 +1005,7 @@ This is the **default, lowest-cost, and fastest onboarding path**. No new region
 │  │   ├── Container: tenant-b (existing)                                │
 │  │   └── Container: tenant-n (NEW)  ◄── new tenant                     │
 │  │                                                                     │
-│  └── [Non-Fabric] Synapse / ADX — schema or DB per tenant              │
+│  └── [Non Fabric] Databricks / ADX — Unity Catalog schema or DB/tenant │
 │                                                                        │
 │  Application Subscription                                              │
 │  ├── App Service / AKS (new namespace / slot for tenant)               │
@@ -1572,7 +1018,7 @@ This is the **default, lowest-cost, and fastest onboarding path**. No new region
 #### Onboarding Steps (Co-Located Tenant)
 
 ```
-New Tenant Request (no data residency requirement)
+New Customer Request (no data residency requirement)
        │
        ▼
 1. Validate tenant tier (Standard / Professional / Enterprise)
@@ -1582,7 +1028,7 @@ New Tenant Request (no data residency requirement)
        │
        ├──► [Fabric] Create Fabric Workspace in existing capacity
        │    OR
-       ├──► [Non-Fabric] Create ADLS container + Synapse schema / ADX DB
+       ├──► [Non-Fabric] Create ADLS container + Databricks schema / ADX DB
        │
        ├──► Configure RBAC / ACLs scoped to the tenant
        ├──► Deploy parameterised data pipelines (Fabric Pipelines / ADF)
@@ -1664,14 +1110,14 @@ This is the **higher-cost, higher-complexity path**, but it is non-negotiable fo
 │                            │     │                            │
 │  Analytics / Data          │     │  Analytics / Data          │
 │  ├── Fabric Capacity       │     │  ├── Fabric Capacity       │
-│  │   (or ADLS + Synapse)   │     │  │   (or ADLS + Synapse)   │
+│  │   (or ADLS + Databricks)│     │  │   (or ADLS + Databricks)│
 │  ├── Tenant Workspaces     │     │  ├── EU Tenant Workspaces  │
-│  └── AI Search indexes     │     │  └── AI Search indexes     │
+│  ├── AI Search indexes     │     │  ├──  AI Search indexes    │
+│  └── Power BI Embedded     │     │  └── Power BI Embedded     │
 │                            │     │                            │
 │  Application               │     │  Application               │
 │  ├── App Service / AKS     │     │  ├── App Service / AKS     │
-│  ├── Azure OpenAI          │     │  ├── Azure OpenAI          │
-│  └── Power BI Embedded     │     │  └── Power BI Embedded     │
+│  └── Azure OpenAI          │     │  └── Azure OpenAI          │
 │                            │     │                            │
 │  Local Observability       │     │  Local Observability       │
 │  ├── Log Analytics WS      │     │  ├── Log Analytics WS      │
@@ -1706,7 +1152,7 @@ Each regional stamp is a **self-contained, fully functional replica** of the pla
 | **Networking** | Hub VNet, Azure Firewall, Bastion, Private DNS Zones, VNet peering (if connected to global hub) or isolated |
 | **API Gateway** | Azure API Management instance (or APIM multi-region deployment) |
 | **Analytics (Fabric)** | Fabric Capacity (F SKU) provisioned in the target region + per-tenant workspaces |
-| **Analytics (Non-Fabric)** | ADLS Gen2 storage account, Synapse workspace, ADX cluster — all in the target region |
+| **Analytics (Non-Fabric)** | ADLS Gen2 storage account, Azure Databricks workspace, ADX cluster — all in the target region |
 | **Application** | App Service / AKS cluster / Azure Functions — deployed in the target region |
 | **AI Services** | Azure OpenAI (regional deployment), Azure AI Search (regional index), Document Intelligence |
 | **BI** | Power BI Embedded capacity in the target region |
@@ -1741,7 +1187,7 @@ Azure Front Door (global entry point)
 Route to EU Stamp APIM endpoint
      │
      ▼
-EU Stamp: APIM → App Service / AKS → Fabric / Synapse (all in West Europe)
+EU Stamp: APIM → App Service / AKS → Fabric / Databricks (all in West Europe)
      │
      ▼
 Data never leaves the EU region
@@ -1756,7 +1202,7 @@ Data never leaves the EU region
 #### Onboarding Steps (Data-Residency Tenant)
 
 ```
-New Tenant Request (data residency = EU)
+New Customer Request (data residency = EU)
        │
        ▼
 1. Check if an EU regional stamp already exists
@@ -1767,7 +1213,7 @@ New Tenant Request (data residency = EU)
        │            │
        │            ├──► Deploy Hub VNet + Firewall + Bastion in EU region
        │            ├──► Deploy APIM instance (or extend multi-region APIM)
-       │            ├──► Deploy Fabric Capacity in EU (or ADLS + Synapse + ADX)
+       │            ├──► Deploy Fabric Capacity in EU (or ADLS + Databricks + ADX)
        │            ├──► Deploy App Service / AKS in EU region
        │            ├──► Deploy Azure OpenAI + AI Search in EU region
        │            ├──► Deploy Power BI Embedded capacity in EU
@@ -1783,7 +1229,7 @@ New Tenant Request (data residency = EU)
        │
        ├──► [Fabric] Create Fabric Workspace in EU capacity
        │    OR
-       ├──► [Non-Fabric] Create ADLS container + Synapse schema in EU
+       ├──► [Non-Fabric] Create ADLS container + Databricks schema in EU
        │
        ├──► Configure RBAC / ACLs
        ├──► Deploy parameterised data pipelines (EU region)
@@ -1833,34 +1279,6 @@ Azure Policy is the **enforcement mechanism** that guarantees data does not leav
 | **Service availability** | Not all Azure services are available in every region. Validate service availability in the target region **before** committing to a stamp deployment (e.g., Azure OpenAI regional availability, Fabric capacity regions) |
 | **Tenant migration** | If a tenant's data-residency requirements change (e.g., they expand to require EU), a migration path must exist: export data → re-ingest into the new regional stamp → update Config DB routing → decommission old tenant resources |
 
-#### Summary — Regional Decision Tree
-
-```
-New Tenant Onboarding
-       │
-       ▼
-Does the tenant have data-residency requirements?
-       │
-       ├── NO ──► Onboard into the PRIMARY REGIONAL STAMP
-       │          (co-located with existing tenants)
-       │          ├── Fastest onboarding
-       │          ├── Lowest incremental cost
-       │          └── Shared infrastructure
-       │
-       └── YES ──► Which region?
-                    │
-                    ├── Regional stamp EXISTS for that region
-                    │   └──► Onboard tenant into existing regional stamp
-                    │        (same process as co-located, but in the target region)
-                    │
-                    └── Regional stamp DOES NOT EXIST
-                        └──► Deploy new regional stamp (IaC)
-                             ├── Full infrastructure in target region
-                             ├── Azure Policy for data residency enforcement
-                             ├── Front Door routing updated
-                             └──► Then onboard tenant into the new stamp
-```
-
 [↑ Back to top](#)
 
 ---
@@ -1903,7 +1321,12 @@ Does the tenant have data-residency requirements?
 | Resource | Link |
 |---|---|
 | Azure Data Lake Storage Gen2 | [Link](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) |
-| Azure Synapse Analytics overview | [Link](https://learn.microsoft.com/en-us/azure/synapse-analytics/overview-what-is) |
+| Azure Databricks modern analytics architecture | [Link](https://learn.microsoft.com/en-us/azure/architecture/solution-ideas/articles/azure-databricks-modern-analytics-architecture) |
+| Azure Databricks documentation | [Link](https://learn.microsoft.com/en-us/azure/databricks/) |
+| Azure Databricks Unity Catalog | [Link](https://learn.microsoft.com/en-us/azure/databricks/data-governance/unity-catalog/) |
+| Azure Databricks SQL Warehouses | [Link](https://learn.microsoft.com/en-us/azure/databricks/sql/) |
+| Delta Live Tables | [Link](https://learn.microsoft.com/en-us/azure/databricks/delta-live-tables/) |
+| Delta Lake documentation | [Link](https://learn.microsoft.com/en-us/azure/databricks/delta/) |
 | Azure Data Factory overview | [Link](https://learn.microsoft.com/en-us/azure/data-factory/introduction) |
 | Azure Data Explorer overview | [Link](https://learn.microsoft.com/en-us/azure/data-explorer/data-explorer-overview) |
 | Azure Event Hubs overview | [Link](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-about) |
@@ -1928,15 +1351,15 @@ Does the tenant have data-residency requirements?
 | Apache Kafka documentation | [Link](https://kafka.apache.org/documentation/) |
 | Apache Airflow documentation | [Link](https://airflow.apache.org/docs/) |
 | Apache Flink documentation | [Link](https://flink.apache.org/docs/stable/) |
-| Apache Superset documentation | [Link](https://superset.apache.org/docs/intro) |
-| Metabase documentation | [Link](https://www.metabase.com/docs/latest/) |
+| Power BI Embedded documentation | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi) |
+| Power BI Embedded multi-tenancy | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
+| GitHub Actions documentation | [Link](https://docs.github.com/en/actions) |
 | Keycloak documentation | [Link](https://www.keycloak.org/documentation) |
 | HashiCorp Vault documentation | [Link](https://developer.hashicorp.com/vault/docs) |
 | Prometheus documentation | [Link](https://prometheus.io/docs/introduction/overview/) |
 | Grafana documentation | [Link](https://grafana.com/docs/grafana/latest/) |
 | OpenTelemetry | [Link](https://opentelemetry.io/docs/) |
 | OPA (Open Policy Agent) | [Link](https://www.openpolicyagent.org/docs/latest/) |
-| ArgoCD (GitOps) | [Link](https://argo-cd.readthedocs.io/en/stable/) |
 | Kong API Gateway | [Link](https://docs.konghq.com/) |
 | Istio service mesh | [Link](https://istio.io/latest/docs/) |
 | LangChain documentation | [Link](https://python.langchain.com/docs/introduction/) |
@@ -1949,6 +1372,7 @@ Does the tenant have data-residency requirements?
 | Crossplane (K8s-native IaC) | [Link](https://docs.crossplane.io/) |
 | OpenMetadata (data governance) | [Link](https://docs.open-metadata.org/) |
 | Guardrails AI (LLM safety) | [Link](https://www.guardrailsai.com/docs) |
+| Azure Blob Storage (S3-compatible) | [Link](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-manage-find-blobs) |
 
 ### Landing Zone & Governance References
 
