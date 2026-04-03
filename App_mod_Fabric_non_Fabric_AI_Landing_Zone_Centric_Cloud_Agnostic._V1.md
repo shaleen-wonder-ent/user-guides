@@ -979,6 +979,45 @@ When a new tenant has **no data-residency requirements**, they are onboarded int
 
 This is the **default, lowest-cost, and fastest onboarding path**. No new regional infrastructure is deployed. The tenant's resources are provisioned as additional logical partitions within the existing stamp.
 
+---
+
+### What is the Deployment Stamp Pattern?
+
+The **Deployment Stamp** (also called **Scale Unit** or **Service Unit**) pattern deploys multiple independent copies of your entire application infrastructure — each copy is called a **stamp**. Every stamp is a self-contained, fully functional unit that can serve one or more tenants independently.
+
+Think of it like a franchise model: each stamp is an identical "restaurant" deployed from the same blueprint, but operating independently in its own location.
+
+**Why it matters for multi-tenant SaaS:**
+
+- **Horizontal scale** — when a single stamp reaches capacity (compute, storage, or connection limits), you deploy a new stamp rather than scaling up the existing one
+- **Blast radius isolation** — a failure in Stamp 1 does not affect tenants in Stamp 2
+- **Data residency** — deploy regional stamps to keep tenant data within a specific geography (e.g., EU stamp, AU stamp)
+- **Tenant tiering** — Standard tenants share a stamp; Enterprise tenants get a dedicated stamp
+- **Consistent deployments** — every stamp is provisioned from the same IaC template (Bicep / Terraform), parameterised by region and stamp ID
+
+**How it works:**
+
+```
+                    Global Router
+                  (Front Door / APIM)
+                        │
+           ┌────────────┼────────────┐
+           ▼            ▼            ▼
+      ┌─────────┐ ┌─────────┐ ┌─────────┐
+      │ Stamp 1 │ │ Stamp 2 │ │ Stamp 3 │
+      │ (AU)    │ │ (AU)    │ │ (EU)    │
+      │         │ │         │ │         │
+      │ Tenants │ │ Tenants │ │ Tenants │
+      │ A, B, C │ │ D, E, F │ │ G, H    │
+      └─────────┘ └─────────┘ └─────────┘
+      Each stamp is identical infrastructure
+      deployed from the same IaC template
+```
+
+A **Tenant Config DB** (e.g., Cosmos DB with geo-replication) maps each tenant to its assigned stamp. The global router looks up this mapping and directs traffic accordingly.
+
+**Reference:** [Deployment Stamp pattern — Azure Architecture Center](https://learn.microsoft.com/en-us/azure/architecture/patterns/deployment-stamp)
+
 #### Landing Zone Model
 
 ```
@@ -1336,43 +1375,6 @@ Azure Policy is the **enforcement mechanism** that guarantees data does not leav
 | Azure SQL elastic pools | [Link](https://learn.microsoft.com/en-us/azure/azure-sql/database/elastic-pool-overview) |
 | Azure Machine Learning | [Link](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning) |
 
-### Cloud-Agnostic / Open-Source References
-
-| Resource | Link |
-|---|---|
-| Kubernetes documentation | [Link](https://kubernetes.io/docs/home/) |
-| Kubernetes multi-tenancy guide | [Link](https://kubernetes.io/docs/concepts/security/multi-tenancy/) |
-| vCluster (virtual clusters) | [Link](https://www.vcluster.com/docs) |
-| Apache Spark overview | [Link](https://spark.apache.org/docs/latest/) |
-| Apache Iceberg documentation | [Link](https://iceberg.apache.org/docs/latest/) |
-| Delta Lake documentation | [Link](https://docs.delta.io/latest/index.html) |
-| Trino (distributed SQL) | [Link](https://trino.io/docs/current/) |
-| dbt (data build tool) | [Link](https://docs.getdbt.com/) |
-| Apache Kafka documentation | [Link](https://kafka.apache.org/documentation/) |
-| Apache Airflow documentation | [Link](https://airflow.apache.org/docs/) |
-| Apache Flink documentation | [Link](https://flink.apache.org/docs/stable/) |
-| Power BI Embedded documentation | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embedded-analytics-power-bi) |
-| Power BI Embedded multi-tenancy | [Link](https://learn.microsoft.com/en-us/power-bi/developer/embedded/embed-multi-tenancy) |
-| GitHub Actions documentation | [Link](https://docs.github.com/en/actions) |
-| Keycloak documentation | [Link](https://www.keycloak.org/documentation) |
-| HashiCorp Vault documentation | [Link](https://developer.hashicorp.com/vault/docs) |
-| Prometheus documentation | [Link](https://prometheus.io/docs/introduction/overview/) |
-| Grafana documentation | [Link](https://grafana.com/docs/grafana/latest/) |
-| OpenTelemetry | [Link](https://opentelemetry.io/docs/) |
-| OPA (Open Policy Agent) | [Link](https://www.openpolicyagent.org/docs/latest/) |
-| Kong API Gateway | [Link](https://docs.konghq.com/) |
-| Istio service mesh | [Link](https://istio.io/latest/docs/) |
-| LangChain documentation | [Link](https://python.langchain.com/docs/introduction/) |
-| LlamaIndex documentation | [Link](https://docs.llamaindex.ai/) |
-| LiteLLM (LLM gateway) | [Link](https://docs.litellm.ai/) |
-| OpenSearch documentation | [Link](https://opensearch.org/docs/latest/) |
-| Weaviate (vector DB) | [Link](https://weaviate.io/developers/weaviate) |
-| MLflow documentation | [Link](https://mlflow.org/docs/latest/index.html) |
-| Terraform documentation | [Link](https://developer.hashicorp.com/terraform/docs) |
-| Crossplane (K8s-native IaC) | [Link](https://docs.crossplane.io/) |
-| OpenMetadata (data governance) | [Link](https://docs.open-metadata.org/) |
-| Guardrails AI (LLM safety) | [Link](https://www.guardrailsai.com/docs) |
-| Azure Blob Storage (S3-compatible) | [Link](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-manage-find-blobs) |
 
 ### Landing Zone & Governance References
 
@@ -1398,7 +1400,7 @@ Azure Policy is the **enforcement mechanism** that guarantees data does not leav
 | Resource | Link |
 |---|---|
 | Microsoft Entra External ID (B2B federation) | [Link](https://learn.microsoft.com/en-us/entra/external-id/what-is-b2b) |
-| Federation with external IdPs via SAML | [Link](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-saml-single-sign-on) |
+| Federation with external IdPs via SAML | [Link](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/add-application-portal-setup-sso) |
 | Claims-based identity on Azure | [Link](https://learn.microsoft.com/en-us/entra/identity-platform/security-tokens) |
 | Identity approaches for multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity) |
 
