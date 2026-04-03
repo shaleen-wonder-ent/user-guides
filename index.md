@@ -253,7 +253,11 @@ Please select a guide from the list below:
 
 * [Multi-Tenant SaaS Landing Zone Architecture on Azure](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric.md)
 
+ ---
 
+* [Multi-Tenant SaaS Landing Zone Architecture](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric_Cloud_Agnostic.md)
+
+---
   
 
 <!--
