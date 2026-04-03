@@ -389,7 +389,7 @@ Understanding the differences between Member and Guest users is critical for mak
 
 ### Complete Comparison Table
 
-| Feature | Domain Federation (Member) | External Identity (Guest) | Winner for MedAdvantage360 |
+| Feature | Domain Federation (Member) | External Identity (Guest) | Winner for MedAdvantagREDACTED |
 |---------|---------------------------|--------------------------|---------------------------|
 | **User Type** | `Member` | `Guest` | **Member** - cleaner model |
 | **UPN Format** | `jdoe@company.com` | `jdoe_company.com#EXT#@tenant.onmicrosoft.com` | **Member** - professional |
