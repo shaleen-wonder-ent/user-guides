@@ -250,6 +250,10 @@ Please select a guide from the list below:
 * [Microsoft Entra ID — Sign-in Log Retention: Cost Estimation](./Retention_Architecture_Price.md)
 
   ---
+
+* [Multi-Tenant SaaS Landing Zone Architecture on Azure](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric.md)
+
+
   
 
 <!--
