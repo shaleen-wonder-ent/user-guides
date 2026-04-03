@@ -276,14 +276,14 @@ Azure Data Factory / Fabric Pipelines (parameterised per tenant)
 │  │ (raw)  │  │(clean) │  │(curated│  │
 │  └────────┘  └────────┘  └────────┘  │
 │          OneLake (Delta/Parquet)     │
-└──────────────┬───────────────────────┘
-               │
-       ┌───────┼──────────┐
-       ▼       ▼          ▼
-  Power BI  Fabric SQL   Fabric
-  Reports   Warehouse    Notebooks
-            (ad-hoc      (data science
-             queries)     / ML)
+└────────────────────┬─────────────────┘
+                     │
+       ┌─────────────┼────────────┐
+       ▼             ▼            ▼
+  Power BI    Fabric SQL        Fabric
+  Reports     Warehouse        Notebooks
+           (ad-hoc queries)  (data science / ML)
+                 
 ```
 
 ---
@@ -697,13 +697,13 @@ Azure Data Factory (parameterised per tenant)
 │  │ (raw)  │  │(clean) │  │(curated│      │
 │  └────────┘  └────────┘  └────────┘      │
 │          Delta / Parquet format          │
-└──────────────┬───────────────────────────┘
-               │
-       ┌───────┼──────────────┐
-       ▼       ▼              ▼
-  Power BI  Synapse SQL    Synapse Spark
-  Reports   (ad-hoc        (data engineering
-             queries)       / ML)
+└──────────────────┬───────────────────────┘
+                   │
+       ┌───────────┼──────────────┐
+       ▼           ▼              ▼
+  Power BI      Synapse SQL      Synapse Spark
+  Reports     (ad-hoc queries) (data engineering / ML)
+                    
 ```
 
 ---
