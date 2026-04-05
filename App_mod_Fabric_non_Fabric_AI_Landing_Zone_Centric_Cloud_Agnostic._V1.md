@@ -606,6 +606,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 | **Secrets** | Azure Key Vault | Customer-managed keys (Enterprise tier) |
 | **Config** | Azure App Configuration | Feature filters keyed by tenant ID |
 
+[↑ Back to top](#)
 ---
 
 <a name="option3"></a>
