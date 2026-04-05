@@ -18,9 +18,7 @@
    - [Architecture Overview](#option3-arch)
    - [Complete Landing Zone](#option3-lz)
    - [Identity & Access](#option3-identity)
-   - [AI & Analytics](#option3-ai)
-6. [Side-by-Side Comparison](#comparison)
-7. [Regional Landing Zone Strategy](#regional-lz)
+6. [Regional Landing Zone Strategy](#regional-lz)
    - [Co-Located Tenants (Same Region)](#colocated-tenants)
    - [Data-Residency Tenants (Sovereign Region)](#data-residency-tenants)
 8. [Reference Architectures & Resources](#references)
@@ -921,11 +919,12 @@ Kubernetes is the compute foundation. Multi-tenancy is enforced at multiple laye
 | **OPA Gatekeeper** | Admission controller enforcing policies (e.g., tenants can only pull approved images, cannot use hostNetwork) |
 | **vCluster** (Enterprise tier) | Virtual cluster inside the physical cluster — strongest namespace-level isolation without a dedicated cluster |
 
+[↑ Back to top](#)
 
 ---
 
 <a name="regional-lz"></a>
-## 7. Regional Landing Zone Strategy
+## 6. Regional Landing Zone Strategy
 
 Multi-tenant SaaS platforms must handle two fundamentally different tenant profiles from a regional perspective:
 
