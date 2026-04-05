@@ -1369,26 +1369,6 @@ Azure Policy is the **enforcement mechanism** that guarantees data does not leav
 | Claims-based identity on Azure | [Link](https://learn.microsoft.com/en-us/entra/identity-platform/security-tokens) |
 | Identity approaches for multitenant solutions | [Link](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/identity) |
 
-### AI & Analytics References
-
-| Resource | Link |
-|---|---|
-| Fabric AI / Copilot overview | [Link](https://learn.microsoft.com/en-us/fabric/fundamentals/copilot-fabric-overview) |
-| Copilot in Power BI | [Link](https://learn.microsoft.com/en-us/power-bi/create-reports/copilot-introduction) |
-| Azure OpenAI on your data (RAG) | [Link](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/use-your-data) |
-| Implement RAG with Azure OpenAI | [Link](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview) |
-| Azure AI Search | [Link](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) |
-| **Azure AI Foundry overview** | [Link](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry) |
-| **Azure AI Foundry Agent Service** | [Link](https://learn.microsoft.com/en-us/azure/ai-services/agents/overview) |
-| **Semantic Kernel overview** | [Link](https://learn.microsoft.com/en-us/semantic-kernel/overview/) |
-| **Semantic Kernel — Agents** | [Link](https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/) |
-| **Azure AI Document Intelligence** | [Link](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview) |
-| **Azure AI Content Safety** | [Link](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/overview) |
-| **Prompt Flow in Azure AI Foundry** | [Link](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/prompt-flow) |
-| **Azure OpenAI models (GPT-4o, GPT-4.1)** | [Link](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) |
-| **Responsible AI in Azure** | [Link](https://learn.microsoft.com/en-us/azure/ai-services/responsible-use-of-ai-overview) |
-| **Azure Machine Learning** | [Link](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning) |
-| **RAG solution architecture** | [Link](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/architecture/baseline-openai-e2e-chat) |
 
 ### Multitenant Approach Guides (by Layer)
 
