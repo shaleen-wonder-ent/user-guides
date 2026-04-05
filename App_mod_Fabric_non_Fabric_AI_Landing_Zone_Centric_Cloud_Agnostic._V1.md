@@ -1288,7 +1288,7 @@ Azure Policy is the **enforcement mechanism** that guarantees data does not leav
 ---
 
 <a name="references"></a>
-## 8. Reference Architectures & Resources
+## 7. Reference Architectures & Resources
 
 ### Core Multi-Tenancy References
 
