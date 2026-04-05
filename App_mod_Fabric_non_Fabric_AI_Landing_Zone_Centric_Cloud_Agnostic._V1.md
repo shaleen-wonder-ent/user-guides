@@ -14,7 +14,6 @@
    - [Architecture Overview](#option2-arch)
    - [Complete Landing Zone](#option2-lz)
    - [Identity & Access](#option2-identity)
-   - [AI & Analytics](#option2-ai)
 5. [Option 3 – Portable (OSS + Azure SaaS)](#option3)
    - [Architecture Overview](#option3-arch)
    - [Complete Landing Zone](#option3-lz)
@@ -607,6 +606,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 | **Config** | Azure App Configuration | Feature filters keyed by tenant ID |
 
 [↑ Back to top](#)
+
 ---
 
 <a name="option3"></a>
