@@ -855,6 +855,17 @@ Apache Kafka (event streaming) / Airflow (batch ingestion)
 
 The identity layer uses **Keycloak** (open-source) or **Auth0** (SaaS) as the identity platform. Keycloak supports multi-realm architecture — each tenant gets its own realm with federated SSO to their corporate IdP.
 
+**How Power BI Embedded works with Keycloak (not Entra ID for users):**
+
+Power BI Embedded only understands Entra ID — but end users never authenticate to Entra directly. The solution uses the **"App Owns Data"** embedding pattern (the standard ISV pattern):
+
+1. **Users authenticate to the SaaS app via Keycloak** — Keycloak issues a JWT with tenant context (realm, roles, `tenant_id`)
+2. **The app backend holds a service principal** registered in Microsoft Entra ID — this is a server-side credential stored in Vault, not user-facing
+3. **The app backend calls the Power BI REST API** using the service principal to generate an **embed token** — the embed token includes `EffectiveIdentity` with the tenant's RLS roles and `tenant_id`
+4. **The embedded PBI iframe in the browser** uses the embed token — the end user never sees an Entra login prompt
+
+This means Keycloak handles all user-facing authentication, while a single Entra ID service principal handles the PBI backend plumbing. They coexist cleanly.
+
 ```
 Tenant User
     │
@@ -862,14 +873,25 @@ Tenant User
 Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Keycloak (Realm per Tenant)
                                                       │
                                                Keycloak issues JWT
-                                               (with tenant context:
-                                                realm, roles, tenant_id)
-                                                      │
-                                        ┌─────────────┼───────────────┐
-                                        ▼             ▼               ▼
-                                  K8s Services   Trino / Spark    Kong Gateway
-                                 (namespace      (catalog          (route
-                                  scoped)         scoped)           per tenant)
+                                        (with tenant context: realm, roles, tenant_id)
+                                                            │
+                                        ┌───────────────────┼──────────────────────┐
+                                        ▼                   ▼                      ▼
+                                  K8s Services           Trino / Spark          Kong Gateway
+                                (namespace scoped)      (catalog scoped)       (route per tenant)                                                        
+                                        │
+                                        ▼
+                                  App Backend
+                                  (extracts tenant_id from Keycloak JWT)
+                                        │
+                                        ▼
+                                  Power BI Embedded API
+                                  (service principal in Entra ID generates embed token with
+                                   EffectiveIdentity = tenant_id + RLS roles)
+                                        │
+                                        ▼
+                                  Embedded PBI iframe
+                                  (user sees tenant-scoped reports — no Entra login)
 ```
 
 | Layer | Service | Tenant Isolation Mechanism |
@@ -879,7 +901,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Keycloak (Realm per Tenant
 | **Compute** | Kubernetes | Namespace isolation + NetworkPolicy + ResourceQuota + Istio AuthorizationPolicy |
 | **Storage** | Azure Blob Storage | Container-per-tenant with RBAC policies; S3-compatible API for portability |
 | **Analytics** | Trino / Spark | Catalog-per-tenant or schema-per-tenant; Spark job submitted with tenant context |
-| **BI / Reporting** | Power BI Embedded (SaaS) | Workspace-per-tenant; row-level security; embedded in SaaS portal |
+| **BI / Reporting** | Power BI Embedded (SaaS) | "App Owns Data" pattern — Entra ID service principal (server-side) generates embed tokens with `EffectiveIdentity` per tenant; users authenticate via Keycloak, not Entra |
 | **Secrets** | HashiCorp Vault | Namespace-per-tenant; policy-based access; dynamic secrets for databases |
 | **Config** | Unleash / Flagsmith | Feature flags scoped by tenant ID |
 | **Policy** | OPA Gatekeeper | Admission control policies enforce namespace isolation, resource limits, image policies |
@@ -898,63 +920,6 @@ Kubernetes is the compute foundation. Multi-tenancy is enforced at multiple laye
 | **OPA Gatekeeper** | Admission controller enforcing policies (e.g., tenants can only pull approved images, cannot use hostNetwork) |
 | **vCluster** (Enterprise tier) | Virtual cluster inside the physical cluster — strongest namespace-level isolation without a dedicated cluster |
 
----
-
-### Multi-Cloud Deployment Strategy
-
-The same codebase and IaC templates deploy to any target cloud. The key is **abstraction at the infrastructure layer** — application code talks to S3-compatible APIs and standard interfaces. Azure SaaS services (Power BI Embedded, GitHub Actions) continue to work regardless of where the infrastructure runs.
-
-| Layer | Azure Deployment | AWS Deployment | GCP Deployment | On-Premises |
-|---|---|---|---|---|
-| **Kubernetes** | AKS | EKS | GKE | k3s / RKE2 / OpenShift |
-| **Object Storage** | Azure Blob Storage (S3-compat API) | AWS S3 | GCS (S3 compat) | MinIO |
-| **PostgreSQL** | Azure DB for PostgreSQL | Amazon RDS PostgreSQL | Cloud SQL PostgreSQL | Self-hosted PostgreSQL |
-| **Kafka** | Event Hubs (Kafka protocol) | Amazon MSK | Confluent on GCP | Self-hosted / Redpanda |
-| **Spark** | Databricks on Azure | Databricks on AWS / EMR | Databricks on GCP / Dataproc | Spark on K8s (Spark Operator) |
-| **BI / Reporting** | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) | Power BI Embedded (SaaS) |
-| **CI/CD** | GitHub Actions | GitHub Actions | GitHub Actions | GitHub Actions |
-| **Load Balancer** | Azure LB + Front Door | AWS ALB + CloudFront | GCP LB + Cloud CDN | MetalLB + NGINX |
-| **DNS** | Azure DNS | Route 53 | Cloud DNS | CoreDNS / external |
-| **IaC** | Terraform (azurerm provider) | Terraform (aws provider) | Terraform (google provider) | Terraform (vsphere / bare metal) |
-
-[↑ Back to top](#)
-
----
-
-<a name="comparison"></a>
-## 6. Side-by-Side Comparison
-
-### Architecture Components Mapping
-
-| Capability | Option 1 (With Fabric) | Option 2 (Without Fabric) | Option 3 (Portable) |
-|---|---|---|---|
-| **Unified Storage** | OneLake (auto-provisioned) | ADLS Gen2 (manually provisioned per tenant) | Azure Blob Storage (S3-compatible API; swap to S3 / GCS / MinIO) |
-| **Data Lakehouse** | Fabric Lakehouse (built-in) | ADLS Gen2 + Delta Lake + Azure Databricks | Apache Iceberg on Azure Blob Storage + Spark |
-| **SQL Analytics** | Fabric SQL Warehouse | Databricks SQL Warehouses (Photon engine) | Trino / Presto (federated SQL) |
-| **Data Pipelines** | Fabric Pipelines + ADF | Azure Data Factory | Apache Airflow / Dagster |
-| **Data Engineering** | Fabric Notebooks (Spark) | Azure Databricks Spark Clusters / Notebooks | Apache Spark (Databricks / K8s Spark Operator) |
-| **Data Transformation** | Fabric Notebooks | Delta Live Tables / dbt on Databricks | dbt (SQL-based, open-source) |
-| **Real-Time Analytics** | Fabric Eventstream + KQL DB + Data Activator | Azure Event Hubs + Azure Data Explorer + Stream Analytics | Apache Kafka + Apache Flink / Spark Streaming |
-| **BI / Reporting** | Power BI (native in Fabric) | Power BI Embedded (separate service) | Power BI Embedded (SaaS — consumable from any cloud) |
-| **AI Assistant** | Fabric Copilot (built-in) | Not available — must build custom | Not available — must build custom |
-| **AI Agents** | Azure AI Foundry Agent Service | Azure AI Foundry Agent Service | LangGraph / CrewAI / AutoGen (OSS) |
-| **AI Orchestration** | Semantic Kernel + Prompt Flow | Semantic Kernel + Prompt Flow | LangChain / LlamaIndex / Semantic Kernel |
-| **Generative AI** | Azure OpenAI (native integration) | Azure OpenAI (manual integration) | LLM Gateway (LiteLLM) → any provider |
-| **RAG** | Azure AI Search + OpenAI + Document Intelligence | Azure AI Search + OpenAI + Document Intelligence | OpenSearch / Weaviate / Qdrant + any LLM |
-| **Document Processing** | Azure AI Document Intelligence → OneLake | Azure AI Document Intelligence → ADLS Gen2 | Apache Tika / Unstructured.io → S3 |
-| **Content Safety** | Azure AI Content Safety (shared) | Azure AI Content Safety (shared) | Guardrails AI / NeMo Guardrails (OSS) |
-| **ML / Custom Models** | Azure ML + Fabric Notebooks | Azure ML + Databricks MLflow | MLflow + KubeFlow + Spark (OSS) |
-| **Application Compute** | Azure App Service / Functions | AKS + App Service / Functions | Kubernetes (AKS / EKS / GKE / on-prem) |
-| **Identity** | Microsoft Entra ID | Microsoft Entra ID | Keycloak / Auth0 (OIDC / SAML) |
-| **API Gateway** | Azure API Management | Azure API Management | Kong / Traefik / NGINX (OSS) |
-| **Data Governance** | Microsoft Purview (auto-wired) | Microsoft Purview (manual configuration) | OpenMetadata / DataHub / Apache Atlas (OSS) |
-| **Secrets** | Azure Key Vault | Azure Key Vault | HashiCorp Vault (OSS / Enterprise) |
-| **Monitoring** | Azure Monitor + Fabric metrics | Azure Monitor + per-service metrics | Prometheus + Grafana + OpenTelemetry (CNCF) |
-| **Policy / Compliance** | Azure Policy + Microsoft Defender | Azure Policy + Microsoft Defender | OPA Gatekeeper + Falco + Trivy (OSS) |
-| **IaC** | Bicep / Terraform | Bicep / Terraform | Terraform / Pulumi / Crossplane (multi-cloud) |
-| **CI/CD** | Azure DevOps / GitHub Actions | Azure DevOps / GitHub Actions | GitHub Actions (platform-agnostic) |
-
-[↑ Back to top](#)
 
 ---
 
