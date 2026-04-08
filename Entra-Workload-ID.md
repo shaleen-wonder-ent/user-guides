@@ -443,7 +443,6 @@ Decision: Protect Critical + Important tiers:
 
 - [Microsoft Entra Workload ID — Product Page](https://www.microsoft.com/en-us/security/business/identity-access/microsoft-entra-workload-id)
 - [Workload ID FAQ — Microsoft Learn](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-faqs)
-- [Workload Identity Federation — Microsoft Learn](https://learn.microsoft.com/en-us/entra/identity-platform/workload-identity-federation)
 - [Conditional Access for Workload Identities — Microsoft Learn](https://learn.microsoft.com/en-us/entra/identity/conditional-access/workload-identity)
 - [Microsoft Entra Licensing — Microsoft Learn](https://learn.microsoft.com/en-us/entra/fundamentals/licensing)
 - [Demystifying Microsoft Entra Workload ID Licensing](https://secureazcloud.com/microsoft-security/f/demystifying-microsoft-entra-workload-id-licensing)
