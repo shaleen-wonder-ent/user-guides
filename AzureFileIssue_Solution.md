@@ -981,21 +981,21 @@ spec:
                           Do they need Azure Backup (vaulted)?
                                     │
                          ┌──── YES ─┤── NO ────┐
-                         │          │           │
-                         ▼          │           ▼
+                         │          │          │
+                         ▼          │          ▼
                   Stay on SMB       │     Switch to NFS
                   Apply mount       │     (5-8x IOPS boost)
                   option fixes      │     + automate snapshots
                   (Section 4)       │     via CronJob
                          │          │           │
                          ▼          │           ▼
-              Does it pass          │     ✅ Problem solved
+              Does it pass          │      Problem solved
               IOPS thresholds?      │
                     │               │
-             YES ───┤─── NO        │
+             YES ───┤─── NO         │
               │     │     │         │
               ▼     │     ▼         │
-           ✅ Done  │  Consider NFS │
+             Done   │  Consider NFS │
                     │  anyway +     │
                     │  third-party  │
                     │  backup       │
