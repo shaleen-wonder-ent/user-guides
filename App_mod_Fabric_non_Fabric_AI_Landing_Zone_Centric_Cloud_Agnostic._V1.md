@@ -35,10 +35,10 @@ This document provides a reference architecture for building a **multi-tenant Sa
 | **Platform** | Microsoft Fabric + Azure PaaS | Azure PaaS (Databricks, AKS, ADLS, SQL) — no Fabric | Portable (Kubernetes + OSS + Azure SaaS services) |
 | **Cloud** | Azure-native | Azure-native | Portable (runs on Azure, AWS, GCP, or on-prem — uses Azure SaaS services that are cloud-agnostic) |
 | **Multi-tenancy** | Fabric workspace isolation | Azure subscription / resource-level isolation | Kubernetes namespace + database-level isolation |
-| **Analytics** | OneLake + Lakehouse + Power BI Embedded | ADLS Gen2 + Azure Databricks + Power BI Embedded | Azure Blob Storage + Apache Spark + Power BI Embedded |
+| **Analytics** | OneLake + Lakehouse + Power BI Embedded | ADLS Gen2 + Azure Databricks + Power BI Embedded | Cloud-native object storage (Azure Blob / S3 / GCS) + Apache Spark + Power BI Embedded |
 | **AI** | Fabric Copilot + Azure OpenAI | Azure OpenAI + Azure AI Search | LLM-agnostic (OpenAI / Anthropic / OSS) + OpenSearch |
 
-Options 1 and 2 are fully Azure-native. Option 3 uses open-source and portable technologies combined with **Azure SaaS services that are cloud-agnostic** (Power BI Embedded, GitHub Actions, Azure Blob Storage) — services that work from any cloud without architectural lock-in. The compute and analytics layers remain portable, while Azure SaaS services provide enterprise-grade capabilities consumable from any hyperscaler. The choice depends on whether the organisation prioritises platform leverage, component control, or multi-cloud portability.
+Options 1 and 2 are fully Azure-native. Option 3 uses open-source and portable technologies combined with **Azure SaaS services that are cloud-agnostic** (Power BI Embedded, GitHub Actions) — services that work from any cloud without architectural lock-in. The storage layer uses the **native object storage of whichever cloud the platform is deployed on** (Azure Blob Storage on Azure, S3 on AWS, GCS on GCP, MinIO on-prem), with Apache Iceberg as the open table format providing a storage-agnostic abstraction. The compute and analytics layers remain portable, while Azure SaaS services provide enterprise-grade capabilities consumable from any hyperscaler. The choice depends on whether the organisation prioritises platform leverage, component control, or multi-cloud portability.
 
 [↑ Back to top](#)
 
@@ -613,9 +613,11 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 <a name="option3-arch"></a>
 ### 5.1 Architecture Overview
 
-This option builds the multi-tenant SaaS analytics platform using **portable, open-source technologies** combined with **Azure SaaS services that are cloud-agnostic** — services that can be consumed from any hyperscaler without architectural lock-in. The platform runs on Kubernetes as the universal compute layer, uses Azure Blob Storage (which exposes an S3-compatible API for portability), PostgreSQL for operational data, Apache Spark for analytics, and open-source AI tooling for LLM and RAG capabilities.
+This option builds the multi-tenant SaaS analytics platform using **portable, open-source technologies** combined with **Azure SaaS services that are cloud-agnostic** — services that can be consumed from any hyperscaler without architectural lock-in. The platform runs on Kubernetes as the universal compute layer, uses the **cloud-native object storage of the target hyperscaler** (Azure Blob Storage on Azure, AWS S3 on AWS, GCS on GCP, or MinIO on-prem), PostgreSQL for operational data, Apache Spark for analytics, and open-source AI tooling for LLM and RAG capabilities.
 
-The core principle: **the compute, analytics, and orchestration layers can run on Azure, AWS, GCP, or on-premises** without re-architecture. Where Azure services are **SaaS / API-consumable from any cloud** (Power BI Embedded, GitHub Actions, Azure Blob Storage with S3-compatible endpoints), they are used because they add enterprise value without creating architectural lock-in. If the solution moves to AWS or GCP tomorrow, these SaaS services continue to work — only the infrastructure layer (K8s cluster, managed database) needs to be re-provisioned.
+> **Important — Storage Portability Note:** Each cloud provider has its own object storage service with its own API (Azure Blob REST API, AWS S3 API, GCS JSON/XML API). Portability is achieved at the **application and table format layer** — Apache Iceberg (the open table format used in this architecture) supports all major object stores via pluggable storage connectors (e.g., `iceberg-azure`, `iceberg-aws`, `iceberg-gcp`). Spark, Trino, and dbt all read/write through Iceberg's catalog, so switching clouds means changing the **storage connector configuration** — not rewriting application code. The application layer uses an **object storage abstraction** (e.g., Apache Hadoop `FileSystem` API, or cloud SDK wrappers) to keep storage access portable.
+
+The core principle: **the compute, analytics, and orchestration layers can run on Azure, AWS, GCP, or on-premises** without re-architecture. Where Azure services are **SaaS / API-consumable from any cloud** (Power BI Embedded, GitHub Actions), they are used because they add enterprise value without creating architectural lock-in. The **object storage layer uses the native service of the target cloud** — Azure Blob Storage on Azure, S3 on AWS, GCS on GCP — with Apache Iceberg providing a cloud-agnostic table format abstraction. If the solution moves to AWS or GCP tomorrow, these SaaS services continue to work, and the storage layer is swapped by changing the Iceberg storage connector configuration — only the infrastructure layer (K8s cluster, managed database, object storage) needs to be re-provisioned.
 
 Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database-per-tenant** (or schema-per-tenant), and **application-level tenant routing**.
 
@@ -641,7 +643,8 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 │  │                  Data Platform (Open-Source)                 │    │
 │  │                                                              │    │
 │  │  ┌──────────────────────────────────────────────────────┐    │    │
-│  │  │      Azure Blob Storage (S3-compatible API)          │    │    │
+│  │  │  Cloud-Native Object Storage                         │    │    │
+│  │  │  (Azure Blob / AWS S3 / GCS / MinIO)                 │    │    │
 │  │  │  Tenant A Container │ Tenant B Container │ Tenant C  │    │    │
 │  │  │  (container-per-tenant or prefix-per-tenant + RBAC)  │    │    │
 │  │  └──────────────────────────┬───────────────────────────┘    │    │
@@ -678,7 +681,7 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 | Component | Role | Multi-Tenancy Model | Portable? |
 |---|---|---|---|
 | **Kubernetes** | Universal compute platform | Namespace-per-tenant with network policies + resource quotas | Yes — AKS / EKS / GKE / on-prem |
-| **Azure Blob Storage** | Data lake (Bronze/Silver/Gold) | Container-per-tenant or prefix isolation + RBAC | Yes — S3-compatible API; swap to AWS S3 / GCS / MinIO by changing endpoint |
+| **Cloud-Native Object Storage** (Azure Blob / S3 / GCS / MinIO) | Data lake (Bronze/Silver/Gold) | Container-per-tenant (or bucket-per-tenant on S3/GCS) + RBAC | Yes — use the native object store of the target cloud; portability via Apache Iceberg storage connectors + Hadoop FileSystem abstraction |
 | **Apache Spark** | Distributed analytics engine | Spark jobs parameterised per tenant | Yes — Databricks / EMR / Dataproc / self-hosted |
 | **Trino / Presto** | Federated SQL query engine | Catalog-per-tenant or schema isolation | Yes — runs on any K8s cluster |
 | **dbt** | Data transformation (SQL-based) | dbt project per tenant or parameterised models | Yes — dbt Core is OSS |
@@ -699,9 +702,9 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 | Concern | Azure-Native Answer | Portable Answer | Why Portable |
 |---|---|---|---|
 | **Compute** | Azure App Service / Functions | Kubernetes (K8s) | K8s runs identically on AKS, EKS, GKE, or bare metal |
-| **Object Storage** | ADLS Gen2 | Azure Blob Storage (S3-compatible API) | S3-compatible endpoint means code works against AWS S3 / GCS / MinIO unchanged; Azure Blob is the primary target |
+| **Object Storage** | ADLS Gen2 | Cloud-native object storage (Azure Blob / S3 / GCS / MinIO) | Use the native object store of each cloud; Apache Iceberg + Hadoop FileSystem abstraction makes the data layer portable — switch clouds by changing storage connector config, not application code |
 | **SQL Analytics** | Databricks SQL Warehouses | Trino / Presto / Spark SQL | No proprietary query engine lock-in |
-| **Data Lake Format** | Parquet on ADLS | Apache Iceberg on Azure Blob Storage | Iceberg provides ACID, schema evolution, time travel — engine-independent; portable across clouds |
+| **Data Lake Format** | Parquet on ADLS | Apache Iceberg on cloud-native object storage | Iceberg provides ACID, schema evolution, time travel — engine-independent; pluggable storage connectors (`iceberg-azure`, `iceberg-aws`, `iceberg-gcp`) make it portable across clouds |
 | **ETL / Pipelines** | Azure Data Factory | Apache Airflow / Dagster | OSS schedulers with portable operators |
 | **Streaming** | Azure Event Hubs | Apache Kafka / Redpanda | Kafka protocol is supported by every cloud and on-prem |
 | **BI / Reporting** | Power BI Embedded | Power BI Embedded (SaaS) | Power BI Embedded is a SaaS API — consumable from any cloud; same service regardless of where compute runs |
@@ -717,7 +720,7 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 | Layer | Isolation Options |
 |---|---|
 | **Compute (Kubernetes)** | Namespace-per-tenant *(default)* / Virtual cluster per tenant (vCluster) *(high isolation)* / Dedicated cluster per tenant *(max isolation)* |
-| **Storage (Azure Blob)** | Container-per-tenant *(strongest)* / Prefix-per-tenant + RBAC policies *(moderate)* / Shared container + application-enforced ACL *(weakest)* |
+| **Storage (Cloud-Native Object Store)** | Container-per-tenant on Azure Blob or bucket-per-tenant on S3/GCS *(strongest)* / Prefix-per-tenant + RBAC/IAM policies *(moderate)* / Shared container/bucket + application-enforced ACL *(weakest)* |
 | **Analytics (Spark / Trino)** | Catalog-per-tenant / Schema-per-tenant / Shared schema + row-level filtering |
 | **Operational DB (PostgreSQL)** | Database-per-tenant / Schema-per-tenant / Shared schema + `tenant_id` column |
 | **Streaming (Kafka)** | Topic-per-tenant with ACLs / Shared topic with tenant-keyed partitions |
@@ -728,7 +731,7 @@ Multi-tenancy is achieved through **Kubernetes namespace isolation**, **database
 <a name="option3-lz"></a>
 ### 5.2 Complete Landing Zone (Portable)
 
-The landing zone follows the same hub-and-spoke model but uses portable networking and Kubernetes as the core compute layer, combined with Azure SaaS services (Power BI Embedded, GitHub Actions) that are consumable from any cloud. When deployed on Azure, managed services (AKS, Azure Database for PostgreSQL, Azure Blob) are used — but the compute and analytics layers are re-deployable on any cloud.
+The landing zone follows the same hub-and-spoke model but uses portable networking and Kubernetes as the core compute layer, combined with Azure SaaS services (Power BI Embedded, GitHub Actions) that are consumable from any cloud. When deployed on Azure, managed services (AKS, Azure Database for PostgreSQL, Azure Blob Storage) are used. When deployed on AWS, substitute with EKS, RDS PostgreSQL, and S3. On GCP, use GKE, Cloud SQL, and GCS. On-prem, use self-managed K8s, PostgreSQL, and MinIO. The compute and analytics layers are re-deployable on any cloud — only the infrastructure provisioning (IaC) and storage connector configuration change.
 
 ```
 Cloud Provider (Azure / AWS / GCP / On-Prem)
@@ -762,13 +765,14 @@ Cloud Provider (Azure / AWS / GCP / On-Prem)
     │   │
     │   └── CI/CD: GitHub Actions (platform-agnostic, deploys to any cloud)
     │
-    ├── Data Lake: Azure Blob Storage (S3-compatible API)
-    │   ├── Container: tenant-a (Bronze / Silver / Gold)
-    │   ├── Container: tenant-b
-    │   ├── Container: tenant-n...
-    │   └── Container: platform-shared (templates, reference data)
+    ├── Data Lake: Cloud-Native Object Storage
+    │   │  (Azure Blob on Azure │ S3 on AWS │ GCS on GCP │ MinIO on-prem)
+    │   ├── Container/Bucket: tenant-a (Bronze / Silver / Gold)
+    │   ├── Container/Bucket: tenant-b
+    │   ├── Container/Bucket: tenant-n...
+    │   └── Container/Bucket: platform-shared (templates, reference data)
     │   (Format: Apache Iceberg tables on Parquet files)
-    │   (Portable: swap to AWS S3 / GCS / MinIO by changing endpoint config)
+    │   (Portable: switch cloud by changing Iceberg storage connector config)
     │
     ├── Analytics Compute
     │   ├── Apache Spark Cluster (Databricks / EMR / Dataproc / K8s Spark Operator)
@@ -831,8 +835,9 @@ Apache Kafka (event streaming) / Airflow (batch ingestion)
        │
        ▼
 ┌──────────────────────────────────────────┐
-│  Azure Blob Storage (S3-compatible API)  │
-│  per-tenant container                    │
+│  Cloud-Native Object Storage             │
+│  (Azure Blob / S3 / GCS / MinIO)         │
+│  per-tenant container / bucket           │
 │  ┌────────┐  ┌────────┐  ┌────────┐      │
 │  │ Bronze │─►│ Silver │─►│  Gold  │      │
 │  │ (raw)  │  │(clean) │  │(curated│      │
@@ -898,7 +903,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Keycloak (Realm per Tenant
 | **Identity** | Keycloak / Auth0 | Realm-per-tenant (Keycloak) or organisation-per-tenant (Auth0); OIDC/SAML federation with tenant IdPs |
 | **API Gateway** | Kong / Traefik | Route-per-tenant; API key + rate limiting; JWT validation plugin |
 | **Compute** | Kubernetes | Namespace isolation + NetworkPolicy + ResourceQuota + Istio AuthorizationPolicy |
-| **Storage** | Azure Blob Storage | Container-per-tenant with RBAC policies; S3-compatible API for portability |
+| **Storage** | Cloud-native object storage (Azure Blob / S3 / GCS / MinIO) | Container-per-tenant (or bucket-per-tenant) with RBAC/IAM policies; portability via Apache Iceberg storage connectors |
 | **Analytics** | Trino / Spark | Catalog-per-tenant or schema-per-tenant; Spark job submitted with tenant context |
 | **BI / Reporting** | Power BI Embedded (SaaS) | "App Owns Data" pattern — Entra ID service principal (server-side) generates embed tokens with `EffectiveIdentity` per tenant; users authenticate via Keycloak, not Entra |
 | **Secrets** | HashiCorp Vault | Namespace-per-tenant; policy-based access; dynamic secrets for databases |
