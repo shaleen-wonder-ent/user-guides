@@ -226,8 +226,12 @@ Please select a guide from the list below:
 * [Azure Logic App (Consumption) — Auto-Close ServiceNow Incident on Azure Monitor Alert Resolution](./LogicApp-GH-Detailed.md)
 
   ---
-
+  
 * [Azure Files SMB — AKS Persistent Volume IOPS Troubleshooting Guide](./AzureFileIssue.md)
+
+  ---
+
+* [AKS Live PV Mount Options Change — Runbook](./AzureFileIssue_Solution.md)
 
   ---
   
@@ -252,11 +256,6 @@ Please select a guide from the list below:
   ---
 
 * [Multi-Tenant SaaS Landing Zone Architecture](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric_Cloud_Agnostic._V1.md)
-
- ---
- 
-
-* [Point of View: Fastest Approach to Restore Mission-Critical Applications After Azure Tenant Compromise](./Solution-for-Cyber-attack.md)
 
 ---
 <!--
