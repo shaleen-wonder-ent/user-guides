@@ -1,4 +1,4 @@
-# AKS Live PV Mount Options Change — Runbook
+# AKS Production PV Mount Options Change — Runbook (v2)
 
 > **Objective:** Add missing SMB mount options (`mfsymlinks`, `cache=strict`, `nosharesock`, `nobrl`,
 > `actimeo=30`) to existing Azure Files PVs in a production AKS cluster with minimal disruption.
@@ -6,6 +6,8 @@
 > **Context:** The team has already applied some mount options but is missing key performance-related
 > ones. Since Kubernetes treats `mountOptions` as **immutable**, PV/PVC must be recreated. This
 > runbook provides a safe, step-by-step approach for production.
+>
+
 
 ---
 
@@ -19,6 +21,7 @@
 6. [Post-Change Validation](#6-post-change-validation)
 7. [Rollback Plan](#7-rollback-plan)
 8. [NFS Migration — Current State & Feasibility](#8-nfs-migration--current-state--feasibility)
+9. [Reference Links](#9-reference-links)
 
 ---
 
@@ -94,6 +97,87 @@ kubectl get pods -n $NAMESPACE -o json | jq -r "
 "
 ```
 
+<!-- SME FEEDBACK: Added node CPU monitoring check -->
+### 1.5 Check AKS Node Resource Utilization
+
+> SMB encryption/decryption consumes CPU on the node. Small VM sizes may bottleneck
+> IOPS even when storage capacity is adequate. Check node CPU during IOPS tests.
+
+```bash
+# Check node VM sizes
+az aks nodepool list --cluster-name <cluster> --resource-group <rg> \
+  --query "[].{Name:name, VMSize:vmSize, Count:count}" -o table
+
+# Check real-time CPU on nodes running the affected pods
+kubectl top nodes
+
+# If CPU is consistently >80% during IO-heavy operations on small VMs
+# (e.g., Standard_B2s, Standard_D2s_v3), consider upgrading VM size
+# as mount option changes alone may not fully resolve the IOPS gap.
+```
+
+<!-- SME FEEDBACK: Added SMB Multichannel verification -->
+### 1.6 Verify SMB Multichannel Status (Phase 1.5 Optimization)
+
+> SMB Multichannel is enabled by default on Premium Azure Files and can improve throughput
+> on VMs with sufficient network bandwidth. Verify it's active before making other changes.
+>
+> Ref: [Improve SMB Azure File Share Performance](https://learn.microsoft.com/en-us/azure/storage/files/smb-performance)
+
+```bash
+# Check if SMB Multichannel is enabled on the storage account
+az storage account file-service-properties show \
+  --account-name <storageaccount> \
+  --resource-group <rg> \
+  --query "protocolSettings.smb.multichannel" -o json
+
+# If not enabled (Premium shares only):
+az storage account file-service-properties update \
+  --account-name <storageaccount> \
+  --resource-group <rg> \
+  --enable-smb-multichannel true
+
+# Check AKS node kernel version (needs 5.x+ for multichannel support)
+kubectl get nodes -o json | jq -r '.items[] | "\(.metadata.name) \(.status.nodeInfo.kernelVersion)"'
+```
+
+<!-- SME FEEDBACK: Added POSIX file lock verification for nobrl -->
+### 1.7 Verify Application File Locking Requirements (Critical for `nobrl`)
+
+> **⚠️ IMPORTANT:** The `nobrl` option disables byte-range locking over SMB. If any application
+> component uses POSIX advisory locks for concurrent file access coordination, enabling `nobrl`
+> can cause **data corruption** in multi-writer scenarios.
+>
+> Ref: [Recommended mountOptions settings on Azure Files](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/storage/mountoptions-settings-azure-files)
+
+```bash
+# Check if any process in the pod is using file locks
+kubectl exec -it <pod-name> -n <namespace> -- sh -c "cat /proc/locks 2>/dev/null || echo 'No locks file'"
+
+# Alternative: Check with lsof for lock indicators
+kubectl exec -it <pod-name> -n <namespace> -- sh -c "lsof 2>/dev/null | grep -i lock || echo 'lsof not available'"
+```
+
+**Decision:**
+- If **no POSIX file locks are used** → ✅ Safe to add `nobrl`
+- If **POSIX file locks ARE used** → ❌ **Omit `nobrl`** from mount options (at the cost of some IOPS)
+- If **uncertain** → Confirm with the application team before proceeding
+
+<!-- SME FEEDBACK: Added Windows client access check -->
+### 1.8 Check for Windows Client Access Requirements
+
+> If planning for future NFS migration: NFS is **Linux-only**. Confirm no Windows-based
+> process or user needs to access the file share.
+
+```bash
+# List all node pools and their OS types
+az aks nodepool list --cluster-name <cluster> --resource-group <rg> \
+  --query "[].{Name:name, OSType:osType, VMSize:vmSize}" -o table
+
+# If any Windows node pools exist and use this share, NFS migration
+# is NOT possible for those workloads without maintaining a parallel SMB share.
+```
+
 ---
 
 ## 2. Risk & Impact Analysis
@@ -120,6 +204,9 @@ kubectl get pods -n $NAMESPACE -o json | jq -r "
 | Mount failure after recreate | 🟡 **Low** — if YAML is correct | Pre-validate YAML, have backup ready |
 | Application downtime | 🟡 **Expected** — 3-5 min per PV | Schedule during maintenance window |
 | Wrong mount options applied | 🟡 **Low** | Validate with node debug pod after |
+| Data corruption from `nobrl` | 🟡 **Conditional** — only if app uses POSIX locks | Verify in Section 1.7 before enabling |
+| Stale attributes from `actimeo=30` | 🟢 **Low** — 30 sec cache delay | Reduce to `actimeo=5` if real-time visibility needed |
+| Inconsistent mounts during rollout | 🟢 **Low** — brief period with mixed options | Use scale-to-zero approach (Option A) for clean cutover |
 
 ### What is NOT at Risk
 
@@ -137,6 +224,10 @@ kubectl get pods -n $NAMESPACE -o json | jq -r "
 [ ] Documented current mount options for every PV (Section 1.2)
 [ ] Identified missing options per PV (Section 1.3)
 [ ] Identified all deployments/pods using each PVC (Section 1.4)
+[ ] Checked AKS node CPU utilization (Section 1.5)
+[ ] Verified SMB Multichannel status (Section 1.6)
+[ ] Confirmed application does NOT use POSIX file locks — or decided to omit nobrl (Section 1.7)
+[ ] Confirmed no Windows clients need access — or noted for NFS planning (Section 1.8)
 [ ] Backed up all PV and PVC YAMLs (Section 4, Step 1)
 [ ] Confirmed maintenance window with stakeholders
 [ ] Tested the full procedure in non-prod environment
@@ -316,6 +407,8 @@ echo ""
 ```
 
 > 🛑 **STOP HERE if the output is NOT `Retain`.** Do not proceed until confirmed.
+>
+> Ref: [Recommended mountOptions settings on Azure Files](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/storage/mountoptions-settings-azure-files)
 
 ---
 
@@ -351,6 +444,10 @@ echo "StorageClass:     $(kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{
 
 Create the updated PV YAML — **replace placeholders** with values from Step 3:
 
+<!-- SME FEEDBACK: Added conditional note about nobrl -->
+> **⚠️ Before creating this YAML:** If Section 1.7 determined that the application
+> uses POSIX file locks, **remove the `nobrl` line** from the mount options below.
+
 ```yaml
 # file: pv-updated.yaml
 apiVersion: v1
@@ -363,19 +460,19 @@ spec:
   accessModes:
     - ReadWriteMany                                 # ← Same as Step 3 "Access Modes"
   persistentVolumeReclaimPolicy: Retain
-  # ─────────────────────────────────────────────
-  #  UPDATED MOUNT OPTIONS (add missing ones)
+  # ────────────���────────────────────────────────
+  #  UPDATED MOUNT OPTIONS
   # ─────────────────────────────────────────────
   mountOptions:
     - dir_mode=0777
     - file_mode=0777
     - uid=0
     - gid=0
-    - mfsymlinks                                    # ← NEW: Symbolic link support
-    - cache=strict                                  # ← NEW: Client-side read caching
-    - nosharesock                                   # ← NEW: Dedicated TCP per mount
-    - nobrl                                         # ← NEW: Skip byte-range locks
-    - actimeo=30                                    # ← NEW: Attribute cache 30 sec
+    - mfsymlinks                                    # Symbolic link support
+    - cache=strict                                  # Client-side read caching
+    - nosharesock                                   # Dedicated TCP per mount
+    - nobrl                                         # Skip byte-range locks — REMOVE if app uses POSIX locks (see Section 1.7)
+    - actimeo=30                                    # Attribute cache 30 sec — reduce to 5 if real-time visibility needed
   # ─────────────────────────────────────────────
   csi:
     driver: file.csi.azure.com                      # ← Same as Step 3 "CSI Driver"
@@ -387,6 +484,11 @@ spec:
       name: <SECRET_NAME>                           # ← Same as Step 3 "Secret Name"
       namespace: <SECRET_NAMESPACE>                 # ← Same as Step 3 "Secret Namespace"
 ```
+
+<!-- SME FEEDBACK: Added actimeo tuning note -->
+> **Tuning `actimeo`:** The value `30` means file/directory attribute changes are not visible
+> across pods for up to 30 seconds. This is acceptable for most workloads. If the application
+> requires near-real-time attribute visibility across pods, reduce to `actimeo=5` or lower.
 
 ---
 
@@ -528,6 +630,12 @@ Follow the same **Step 0** from Option A above to identify your `$PV_NAME`,
 
 ### Step 2: Create a New PV with Updated Options (Pointing to SAME Azure Share)
 
+> **Key insight from SME review:** The new PV points to the **identical Azure File Share** —
+> no data duplication occurs. This is static provisioning referencing the existing share.
+
+<!-- SME FEEDBACK: Added conditional nobrl note -->
+> **⚠️ If Section 1.7 determined the app uses POSIX file locks, remove `nobrl` below.**
+
 ```yaml
 # file: pv-new-optimized.yaml
 apiVersion: v1
@@ -548,8 +656,8 @@ spec:
     - mfsymlinks
     - cache=strict
     - nosharesock
-    - nobrl
-    - actimeo=30
+    - nobrl                                          # REMOVE if app uses POSIX locks (see Section 1.7)
+    - actimeo=30                                     # Reduce to 5 if real-time attribute visibility needed
   csi:
     driver: file.csi.azure.com
     volumeHandle: <VOLUME_HANDLE>-optimized          # ← Must be unique (add suffix)
@@ -604,6 +712,11 @@ kubectl edit deployment $DEPLOYMENT_NAME -n $NAMESPACE
 Kubernetes will perform a **rolling update** — new pods mount the optimized PV,
 old pods terminate gracefully. Downtime is near-zero for multi-replica deployments.
 
+<!-- SME FEEDBACK: Note about inconsistent mount options during rollout -->
+> **Note:** During the rolling update, some pods may briefly use old mount settings while
+> others use new ones. This is acceptable for the brief transition period. If a completely
+> clean cutover is required, use Option A (scale-to-zero) instead.
+
 ### Step 5: Validate and Clean Up
 
 ```bash
@@ -630,12 +743,16 @@ mount | grep cifs
 # Confirm these options are present:
 # ✅ cache=strict
 # ✅ nosharesock
-# ✅ nobrl
+# ✅ nobrl (if enabled)
 # ✅ actimeo=30
 # ✅ mfsymlinks
 ```
 
-### 6.2 Run IOPS Benchmark
+<!-- SME FEEDBACK: Added IOPS validation as explicit post-change step -->
+### 6.2 Run IOPS Benchmark (Post-Change Validation)
+
+> The SME review identified that a post-change IOPS validation step is essential to
+> confirm the improvement meets expectations.
 
 ```bash
 # From inside the application pod
@@ -675,6 +792,10 @@ kubectl debug node/<node> -it --image=mcr.microsoft.com/cbl-mariner/busybox:2.0 
 
 # Check Azure Storage metrics for throttling
 # Azure Portal → Storage Account → Monitoring → Metrics → Transactions → Split by Response Type
+
+# Monitor node CPU during IO operations (SME recommendation)
+kubectl top nodes
+kubectl top pods -n $NAMESPACE
 ```
 
 ---
@@ -876,7 +997,6 @@ Something went wrong after the change?
       ▼              ▼              ▼
   Data impact:   Data impact:   Data impact:
   ✅ None        ✅ None        ⚠️ Sync needed
-
 ```
 
 ---
@@ -888,7 +1008,7 @@ Something went wrong after the change?
 > "They chose SMB because at that time there was no backup facility for NFS.
 > Now they want to know — is backup available for NFS?"
 
-### Answer: Partially
+### Answer: Partially — Snapshots Yes, Azure Backup No
 
 | Feature | SMB (Current) | NFS (Current State — Apr 2026) |
 |---------|--------------|-------------------------------|
@@ -898,24 +1018,156 @@ Something went wrong after the change?
 | **Max snapshots** | 200 | 200 |
 | **Soft delete** | ✅ GA | ⚠️ Preview |
 | **Vaulted backup (offsite, immutable)** | ✅ GA (since 2025) | ❌ Not yet available |
-| **Third-party backup (Veeam, Commvault)** | ✅ Supported | ✅ Supported |
+| **Third-party backup (Veeam, Commvault, Veritas)** | ✅ Supported | ✅ Supported |
 
-### What This Means
+Ref: [Azure Backup Support Matrix](https://learn.microsoft.com/en-us/azure/backup/azure-file-share-support-matrix)
 
-- **NFS snapshots work** — you can create / restore / automate them via CLI or API
-- **Azure Backup (the managed "Configured" backup in your portal)** still does **NOT support NFS**
-- If the team relies on **Azure Backup with Recovery Services vault** (retention policies,
-  compliance, geo-redundancy), **they cannot replicate this on NFS today**
+### NFS Prerequisites and Current Status
 
-### Recommendation
+<!-- SME FEEDBACK: Strengthened NFS prerequisite checks -->
 
-| If the team... | Then... |
-|---|---|
-| **Requires Azure Backup (vaulted, managed)** | Stay on **SMB**, apply mount option optimizations from this runbook |
-| **Can use automated snapshots** (CLI CronJob) as backup | Switch to **NFS** for the IOPS fix |
-| **Wants NFS performance + backup** | Use NFS + automate snapshots via Kubernetes CronJob + third-party backup tool |
+| Prerequisite | Current Status | Notes |
+|---|---|---|
+| Premium tier storage account | ✅ Already met | NFS requires Premium_LRS or Premium_ZRS |
+| Linux AKS nodes | ✅ Already met | NFS is Linux-only; not supported on Windows |
+| Private endpoint or service endpoint | ⚠️ **Needs verification** | NFS does not support public access |
+| Secure transfer (HTTPS) disabled | ⚠️ **Needs verification** | NFS requires `--https-only false` on the storage account |
+| No Windows clients need access | ⚠️ **Needs verification** | NFS is Linux-only (see Section 1.8) |
+| **Backup strategy finalized** | ⚠️ **Must be completed** | **Cannot go-live with NFS without a validated backup plan** |
 
-### NFS Snapshot Automation (If They Choose NFS Later)
+<!-- SME FEEDBACK: Made dedicated FileStorage account the primary recommendation -->
+### Dedicated FileStorage Account for NFS (Recommended)
+
+> **⚠️ Security implication:** Setting `--https-only false` on an existing storage account
+> removes TLS encryption for **all protocols on that account**. If the account also hosts
+> SMB shares requiring encrypted transit, this weakens their security.
+>
+> **Recommended approach:** Create a **dedicated FileStorage account** for NFS shares.
+
+```bash
+# Create a dedicated FileStorage account for NFS
+az storage account create \
+  --name <new-nfs-storageaccount> \
+  --resource-group <rg> \
+  --location <same-region-as-aks> \
+  --sku Premium_LRS \
+  --kind FileStorage \
+  --https-only false \
+  --default-action Deny
+
+# Create private endpoint for the new account
+az network private-endpoint create \
+  --name pe-nfs-storageaccount \
+  --resource-group <rg> \
+  --vnet-name <aks-vnet> \
+  --subnet <pe-subnet> \
+  --private-connection-resource-id "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<new-nfs-storageaccount>" \
+  --group-id file \
+  --connection-name pe-nfs-connection
+```
+
+### NFS StorageClass
+
+<!-- SME FEEDBACK: Changed nconnect from 8 to 4 (Microsoft default), added noresvport -->
+> **Updated per SME review:**
+> - Changed `nconnect` from `8` to `4` to align with
+>   [Microsoft's official recommendation](https://learn.microsoft.com/en-us/azure/storage/files/nfs-performance).
+>   Higher values (up to 8) can be tested after initial deployment for additional throughput.
+> - Added `noresvport` per
+>   [Microsoft's recommended NFS settings](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/storage/mountoptions-settings-azure-files)
+>   to improve availability during failover.
+
+```yaml
+# file: storageclass-nfs.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: azurefile-premium-nfs
+provisioner: file.csi.azure.com
+parameters:
+  protocol: nfs
+  skuName: Premium_LRS
+mountOptions:
+  - nconnect=4                     # Microsoft recommended default; test with 8 for higher throughput
+  - noresvport                     # Improves availability during failover/reconnection
+  - actimeo=30                     # Attribute cache timeout; reduce to 5 if real-time visibility needed
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+```
+
+Ref:
+- [Improve NFS Azure file share performance](https://learn.microsoft.com/en-us/azure/storage/files/nfs-performance)
+- [Azure Files CSI Driver Performance Optimization](https://deepwiki.com/kubernetes-sigs/azurefile-csi-driver/6.3-performance-optimization)
+
+### NFS Data Migration
+
+<!-- SME FEEDBACK: Added rsync note for larger datasets -->
+
+```yaml
+# file: migration-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pv-data-migration
+  namespace: <namespace>
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        image: mcr.microsoft.com/cbl-mariner/busybox:2.0
+        command:
+          - sh
+          - -c
+          - |
+            echo "Starting migration..."
+            cp -av /src/* /dst/
+            echo "Migration complete!"
+            echo "Source file count: $(find /src -type f | wc -l)"
+            echo "Dest file count: $(find /dst -type f | wc -l)"
+        volumeMounts:
+        - name: smb-source
+          mountPath: /src
+          readOnly: true
+        - name: nfs-dest
+          mountPath: /dst
+      volumes:
+      - name: smb-source
+        persistentVolumeClaim:
+          claimName: <existing-smb-pvc-name>
+      - name: nfs-dest
+        persistentVolumeClaim:
+          claimName: <nfs-pvc-name>
+      restartPolicy: Never
+  backoffLimit: 2
+```
+
+> **For larger datasets (>50 GiB):** Consider using `rsync` instead of `cp -av` for
+> resumability and progress reporting. Replace the command with:
+> ```bash
+> rsync -avh --progress /src/ /dst/
+> ```
+> For the current 15.37 GiB share, `cp -av` should complete in a few minutes.
+
+<!-- SME FEEDBACK: Made backup validation a prerequisite gate for NFS go-live -->
+### ⚠️ NFS Go-Live Gate: Backup Strategy Must Be Validated FIRST
+
+> **Do NOT cut production to NFS until a backup strategy is implemented and tested.**
+> Azure Backup does not support NFS. You must have an alternative in place.
+
+**Choose and validate one of these approaches in a test environment:**
+
+| Approach | RPO | Cross-Region? | Complexity | Cost |
+|---|---|---|---|---|
+| NFS snapshots (automated CronJob) | Minutes | ❌ Same storage account | Low | Low |
+| Third-party backup (Veeam, Commvault, Veritas) | Per policy | ✅ Yes | Medium | Medium-High |
+| Custom rsync to secondary storage | Minutes | ✅ Yes (if cross-region target) | Medium | Low-Medium |
+| **NFS snapshots + rsync combo** (recommended) | Minutes for local, configurable for rsync | ✅ Yes | Medium | Low-Medium |
+
+Ref: [NFS Azure File Share Snapshots GA Announcement](https://d365hub.com/Posts/Details/1ae71a26-5205-4ba3-8676-12442f1e5280/announcing-the-general-availability-of-nfs-azure-file-share-snapshots)
+
+### NFS Snapshot Automation CronJob
 
 ```yaml
 # file: nfs-snapshot-cronjob.yaml
@@ -962,16 +1214,13 @@ spec:
           restartPolicy: Never
 ```
 
-### Official Documentation References
+### Recommendation
 
-- NFS Snapshot GA Announcement:
-  [https://techcommunity.microsoft.com/blog/azurestorageblog/announcing-the-general-availability-of-nfs-azure-file-share-snapshots/4038596](https://techcommunity.microsoft.com/blog/azurestorageblog/announcing-the-general-availability-of-nfs-azure-file-share-snapshots/4038596)
-- Azure Files Snapshot Documentation:
-  [https://learn.microsoft.com/en-us/azure/storage/files/storage-snapshots-files](https://learn.microsoft.com/en-us/azure/storage/files/storage-snapshots-files)
-- Azure Backup Support Matrix (confirms NFS not supported):
-  [https://learn.microsoft.com/en-us/azure/backup/azure-file-share-support-matrix](https://learn.microsoft.com/en-us/azure/backup/azure-file-share-support-matrix)
-- NFS Protocol Overview:
-  [https://learn.microsoft.com/en-us/azure/storage/files/files-nfs-protocol](https://learn.microsoft.com/en-us/azure/storage/files/files-nfs-protocol)
+| If the team... | Then... |
+|---|---|
+| **Requires Azure Backup (vaulted, managed)** | Stay on **SMB**, apply mount option optimizations from this runbook |
+| **Can use automated snapshots** (CLI CronJob) as backup | Switch to **NFS** for the IOPS fix |
+| **Wants NFS performance + backup** | Use NFS + automate snapshots via CronJob + third-party backup or rsync |
 
 ---
 
@@ -989,15 +1238,57 @@ spec:
                   (Section 4)       │     via CronJob
                          │          │           │
                          ▼          │           ▼
-              Does it pass          │      Problem solved
+              Does it pass          │     ✅ Problem solved ✅  
               IOPS thresholds?      │
                     │               │
              YES ───┤─── NO         │
               │     │     │         │
               ▼     │     ▼         │
-             Done   │  Consider NFS │
+        ✅ Done ✅ │  Consider NFS │
                     │  anyway +     │
                     │  third-party  │
                     │  backup       │
                     └───────────────┘
 ```
+
+---
+
+## 9. Reference Links
+
+### Microsoft Official Documentation
+
+| Topic | Link |
+|---|---|
+| Recommended mountOptions for Azure Files in AKS | [learn.microsoft.com](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/storage/mountoptions-settings-azure-files) |
+| Azure Backup Support Matrix (NFS not supported) | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/backup/azure-file-share-support-matrix) |
+| Improve NFS Azure File Share Performance | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/nfs-performance) |
+| Improve SMB Azure File Share Performance (Multichannel) | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/smb-performance) |
+| Azure Files for AKS Workloads | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/azure-kubernetes-service-workloads) |
+| Create Persistent Volumes with Azure Files in AKS | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/aks/create-volume-azure-files) |
+| Azure Files Scalability and Performance Targets | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/storage-files-scale-targets) |
+| Azure Files Share Snapshots | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/storage-snapshots-files) |
+| NFS Protocol in Azure Files | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/files-nfs-protocol) |
+| Mount NFS Azure File Share on Linux | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/files/storage-files-how-to-mount-nfs-shares) |
+| Require Secure Transfer (https-only) | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/storage/common/storage-require-secure-transfer) |
+
+### Community & Announcements
+
+| Topic | Link |
+|---|---|
+| NFS Snapshot GA Announcement (Jan 2024) | [techcommunity.microsoft.com](https://techcommunity.microsoft.com/blog/azurestorageblog/announcing-the-general-availability-of-nfs-azure-file-share-snapshots/4038596) |
+| NFS Snapshot GA Details | [d365hub.com](https://d365hub.com/Posts/Details/1ae71a26-5205-4ba3-8676-12442f1e5280/announcing-the-general-availability-of-nfs-azure-file-share-snapshots) |
+| Vaulted Backup for Azure Files GA (2025) | [techcommunity.microsoft.com](https://techcommunity.microsoft.com/blog/azurestorageblog/general-availability-vaulted-backup-for-azure-files---boost-your-data-security-a/4395344) |
+| Azure Files CSI Driver Performance Optimization | [deepwiki.com](https://deepwiki.com/kubernetes-sigs/azurefile-csi-driver/6.3-performance-optimization) |
+| Enhancing Azure Files Resilience and Performance | [techcommunity.microsoft.com](https://techcommunity.microsoft.com/blog/azurestorageblog/enhancing-azure-files-resilience-and-performance/4146833) |
+
+### SME Review Links
+
+| Topic | Link |
+|---|---|
+| mountOptions settings for Azure Files (nobrl, actimeo, etc.) | [learn.microsoft.com](https://learn.microsoft.com/en-us/troubleshoot/azure/azure-kubernetes/storage/mountoptions-settings-azure-files) |
+| Azure Backup Support Matrix (snapshot tier) | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/backup/azure-file-share-support-matrix?tabs=snapshot-tier) |
+| Azure Files CSI Driver Performance (deepwiki analysis) | [deepwiki.com](https://deepwiki.com/kubernetes-sigs/azurefile-csi-driver/6.3-performance-optimization) |
+| NFS Snapshot GA (d365hub mirror) | [d365hub.com](https://d365hub.com/Posts/Details/1ae71a26-5205-4ba3-8676-12442f1e5280/announcing-the-general-availability-of-nfs-azure-file-share-snapshots) |
+
+---
+
