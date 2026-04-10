@@ -185,6 +185,7 @@ Azure Management Group
     │   │   ├── Azure Firewall (egress filtering)
     │   │   ├── Azure Bastion (secure admin access)
     │   │   ├── Private DNS Zones
+    │   │   ├── VPN Gateway / ExpressRoute (hybrid connectivity to on-premises / other clouds)
     │   │   └── APIM (internal mode – API gateway)
     │   ├── Azure Key Vault (platform-level secrets)
     │   ├── Azure Monitor + Log Analytics Workspace
@@ -222,22 +223,24 @@ Azure Management Group
 #### Hub-and-Spoke Network 
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                     HUB VNet                         │
-│  Azure Firewall │ Private DNS │ Bastion │ APIM       │
-└───────────────────────┬──────────────────────────────┘
-          ┌─────────────┼──────────────┐
-          ▼             ▼              ▼
-   ┌────────────┐ ┌────────────┐ ┌────────────┐
-   │ App Spoke  │ │ Enterprise │ │ Platform   │
-   │ VNet       │ │ Tenant     │ │ Shared     │
-   │ (App Svc,  │ │ Spoke VNet │ │ Services   │
-   │  Functions,│ │ (Dedicated │ │ (Monitor,  │
-   │  OpenAI,   │ │  Fabric    │ │  Purview,  │
-   │  AI Search)│ │  Capacity) │ │  Key Vault)│
-   └────────────┘ └────────────┘ └────────────┘
-          │             │              │
-          └─────────────┼──────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                          HUB VNet                            │
+│  Azure Firewall │ Private DNS │ Bastion │ APIM               │
+│  VPN Gateway / ExpressRoute (hybrid connectivity)            │
+└─────────────────────────┬────────────────────────────────────┘
+      │                   │
+      │         ┌─────────┼──────────────┐
+      ▼         ▼         ▼              ▼
+ ┌──────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+ │ On-Prem  │ │ App Spoke  │ │ Enterprise │ │ Platform   │
+ │ / Other  │ │ VNet       │ │ Tenant     │ │ Shared     │
+ │ Cloud    │ │ (App Svc,  │ │ Spoke VNet │ │ Services   │
+ │ (IPsec / │ │  Functions,│ │ (Dedicated │ │ (Monitor,  │
+ │  ER)     │ │  OpenAI,   │ │  Fabric    │ │  Purview,  │
+ │          │ │  AI Search)│ │  Capacity) │ │  Key Vault)│
+ └──────────┘ └────────────┘ └────────────┘ └────────────┘
+                    │             │              │
+                    └─────────────┼──────────────┘
                         ▼
               Microsoft Fabric
               (Managed VNet / Private Links)
@@ -473,6 +476,7 @@ Azure Management Group
     │   │   ├── Azure Firewall (egress filtering)
     │   │   ├── Azure Bastion (secure admin access)
     │   │   ├── Private DNS Zones
+    │   │   ├── VPN Gateway / ExpressRoute (hybrid connectivity to on-premises / other clouds)
     │   │   └── APIM (internal mode – API gateway)
     │   ├── Azure Key Vault (platform-level secrets)
     │   ├── Azure Monitor + Log Analytics Workspace
@@ -526,21 +530,23 @@ Azure Management Group
 #### Hub-and-Spoke Network – Without Fabric
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                     HUB VNet                         │
-│  Azure Firewall │ Private DNS │ Bastion │ APIM       │
-└───────────────────────┬──────────────────────────────┘
-          ┌─────────────┼──────────────────┐
-          ▼             ▼                  ▼
-   ┌────────────┐ ┌──────────────┐  ┌────────────┐
-   │ Data       │ │ App Spoke    │  │ Enterprise │
-   │ Platform   │ │ VNet         │  │ Tenant     │
-   │ Spoke VNet │ │ (AKS, App    │  │ Spoke VNet │
-   │ (ADLS,     │ │  Service,    │  │ (Dedicated │
-   │  Databricks│ │  Functions,  │  │  storage,  │
-   │  ADF, ADX, │ │  OpenAI,     │  │  Databricks│
-   │  Event Hub)│ │  AI Search)  │  │  ADX, KV)  │
-   └────────────┘ └──────────────┘  └────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                          HUB VNet                            │
+│  Azure Firewall │ Private DNS │ Bastion │ APIM               │
+│  VPN Gateway / ExpressRoute (hybrid connectivity)            │
+└─────────────────────────┬────────────────────────────────────┘
+      │                   │
+      │         ┌─────────┼──────────────────┐
+      ▼         ▼         ▼                  ▼
+ ┌──────────┐ ┌────────────┐ ┌──────────────┐  ┌────────────┐
+ │ On-Prem  │ │ Data       │ │ App Spoke    │  │ Enterprise │
+ │ / Other  │ │ Platform   │ │ VNet         │  │ Tenant     │
+ │ Cloud    │ │ Spoke VNet │ │ (AKS, App    │  │ Spoke VNet │
+ │ (IPsec / │ │ (ADLS,     │ │  Service,    │  │ (Dedicated │
+ │  ER)     │ │  Databricks│ │  Functions,  │  │  storage,  │
+ │          │ │  ADF, ADX, │ │  OpenAI,     │  │  Databricks│
+ └──────────┘ │  Event Hub)│ │  AI Search)  │  │  ADX, KV)  │
+              └────────────┘ └──────────────┘  └────────────┘
 ```
 
 #### Data Flow
@@ -615,7 +621,7 @@ Tenant's Corporate IdP ──SAML 2.0 / OIDC──► Microsoft Entra ID (B2B Fe
 
 This option builds the multi-tenant SaaS analytics platform using **portable, open-source technologies** combined with **Azure SaaS services that are cloud-agnostic** — services that can be consumed from any hyperscaler without architectural lock-in. The platform runs on Kubernetes as the universal compute layer, uses the **cloud-native object storage of the target hyperscaler** (Azure Blob Storage on Azure, AWS S3 on AWS, GCS on GCP, or MinIO on-prem), PostgreSQL for operational data, Apache Spark for analytics, and open-source AI tooling for LLM and RAG capabilities.
 
-> **Important — Storage Portability Note:** Each cloud provider has its own object storage service with its own API (Azure Blob REST API, AWS S3 API, GCS JSON/XML API). Portability is achieved at the **application and table format layer** — Apache Iceberg (the open table format used in this architecture) supports all major object stores via pluggable storage connectors (e.g., `iceberg-azure`, `iceberg-aws`, `iceberg-gcp`). Spark, Trino, and dbt all read/write through Iceberg's catalog, so switching clouds means changing the **storage connector configuration** — not rewriting application code. The application layer uses an **object storage abstraction** (e.g., Apache Hadoop `FileSystem` API, or cloud SDK wrappers) to keep storage access portable.
+> **Important — Storage Portability Note:** Azure Blob Storage does **not** natively expose an S3-compatible API. Each cloud provider has its own object storage service with its own API (Azure Blob REST API, AWS S3 API, GCS JSON/XML API). Portability is achieved at the **application and table format layer** — Apache Iceberg (the open table format used in this architecture) supports all major object stores via pluggable storage connectors (e.g., `iceberg-azure`, `iceberg-aws`, `iceberg-gcp`). Spark, Trino, and dbt all read/write through Iceberg's catalog, so switching clouds means changing the **storage connector configuration** — not rewriting application code. The application layer uses an **object storage abstraction** (e.g., Apache Hadoop `FileSystem` API, or cloud SDK wrappers) to keep storage access portable.
 
 The core principle: **the compute, analytics, and orchestration layers can run on Azure, AWS, GCP, or on-premises** without re-architecture. Where Azure services are **SaaS / API-consumable from any cloud** (Power BI Embedded, GitHub Actions), they are used because they add enterprise value without creating architectural lock-in. The **object storage layer uses the native service of the target cloud** — Azure Blob Storage on Azure, S3 on AWS, GCS on GCP — with Apache Iceberg providing a cloud-agnostic table format abstraction. If the solution moves to AWS or GCP tomorrow, these SaaS services continue to work, and the storage layer is swapped by changing the Iceberg storage connector configuration — only the infrastructure layer (K8s cluster, managed database, object storage) needs to be re-provisioned.
 
@@ -991,37 +997,37 @@ A **Tenant Config DB** (e.g., Cosmos DB with geo-replication) maps each tenant t
 #### Landing Zone Model
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│              PRIMARY REGION (e.g. Australia East)                      │
-│                                                                        │
-│  Platform Subscription (shared)                                        │
-│  ├── Hub VNet (Firewall, Bastion, Private DNS, APIM)                   │
-│  ├── Azure Monitor / Log Analytics                                     │
-│  ├── Microsoft Purview                                                 │
-│  ├── Azure Key Vault (platform-level)                                  │
-│  ├── Tenant Config DB (Azure SQL / Cosmos DB)                          │
-│  ├── Azure App Configuration                                           │
-│  └── CI/CD Pipelines (Azure DevOps / GitHub Actions)                   │
-│                                                                        │
-│  Analytics / Fabric Subscription                                       │
-│  ├── [Fabric] Fabric Capacity → Workspace per tenant                   │
-│  │   ├── Workspace: Tenant A (existing)                                │
-│  │   ├── Workspace: Tenant B (existing)                                │
-│  │   └── Workspace: Tenant N (NEW — onboarded here)  ◄── new tenant    │
-│  │                                                                     │
-│  ├── [Non-Fabric] ADLS Gen2 → Container per tenant                     │
-│  │   ├── Container: tenant-a (existing)                                │
-│  │   ├── Container: tenant-b (existing)                                │
-│  │   └── Container: tenant-n (NEW)  ◄── new tenant                     │
-│  │                                                                     │
-│  └── [Non Fabric] Databricks / ADX — Unity Catalog schema or DB/tenant │
-│                                                                        │
-│  Application Subscription                                              │
-│  ├── App Service / AKS (new namespace / slot for tenant)               │
-│  ├── Azure OpenAI (shared instance, tenant-scoped requests)            │
-│  ├── Azure AI Search (new index or security-trimmed shared index)      │
-│  └── Power BI Embedded (new workspace for tenant)                      │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│              PRIMARY REGION (e.g. Australia East)                           │
+│                                                                             │
+│  Platform Subscription (shared)                                             │
+│  ├── Hub VNet (Firewall, Bastion, Private DNS, VPN GW / ExpressRoute, APIM) │
+│  ├── Azure Monitor / Log Analytics                                          │
+│  ├── Microsoft Purview                                                      │
+│  ├── Azure Key Vault (platform-level)                                       │
+│  ├── Tenant Config DB (Azure SQL / Cosmos DB)                               │
+│  ├── Azure App Configuration                                                │
+│  └── CI/CD Pipelines (Azure DevOps / GitHub Actions)                        │
+│                                                                             │
+│  Analytics / Fabric Subscription                                            │
+│  ├── [Fabric] Fabric Capacity → Workspace per tenant                        │
+│  │   ├── Workspace: Tenant A (existing)                                     │
+│  │   ├── Workspace: Tenant B (existing)                                     │
+│  │   └── Workspace: Tenant N (NEW — onboarded here)  ◄── new tenant         │
+│  │                                                                          │
+│  ├── [Non-Fabric] ADLS Gen2 → Container per tenant                          │
+│  │   ├── Container: tenant-a (existing)                                     │
+│  │   ├── Container: tenant-b (existing)                                     │
+│  │   └── Container: tenant-n (NEW)  ◄── new tenant                          │
+│  │                                                                          │
+│  └── [Non Fabric] Databricks / ADX — Unity Catalog schema or DB/tenant      │
+│                                                                             │
+│  Application Subscription                                                   │
+│  ├── App Service / AKS (new namespace / slot for tenant)                    │
+│  ├── Azure OpenAI (shared instance, tenant-scoped requests)                 │
+│  ├── Azure AI Search (new index or security-trimmed shared index)           │
+│  └── Power BI Embedded (new workspace for tenant)                           │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 #### Onboarding Steps (Co-Located Tenant)
@@ -1115,6 +1121,7 @@ This is the **higher-cost, higher-complexity path**, but it is non-negotiable fo
 │  ├── Firewall              │     │  ├── Firewall              │
 │  ├── Bastion               │     │  ├── Bastion               │
 │  ├── APIM                  │     │  ├── APIM                  │
+│  ├── VPN GW / ExpressRoute │     │  ├── VPN GW / ExpressRoute │
 │  └── Private DNS           │     │  └── Private DNS           │
 │                            │     │                            │
 │  Analytics / Data          │     │  Analytics / Data          │
@@ -1158,7 +1165,7 @@ Each regional stamp is a **self-contained, fully functional replica** of the pla
 
 | Layer | Resources Deployed in the Regional Stamp |
 |---|---|
-| **Networking** | Hub VNet, Azure Firewall, Bastion, Private DNS Zones, VNet peering (if connected to global hub) or isolated |
+| **Networking** | Hub VNet, Azure Firewall, Bastion, Private DNS Zones, VPN Gateway / ExpressRoute (hybrid connectivity to on-premises / other clouds), VNet peering (if connected to global hub) or isolated |
 | **API Gateway** | Azure API Management instance (or APIM multi-region deployment) |
 | **Analytics (Fabric)** | Fabric Capacity (F SKU) provisioned in the target region + per-tenant workspaces |
 | **Analytics (Non-Fabric)** | ADLS Gen2 storage account, Azure Databricks workspace, ADX cluster — all in the target region |
@@ -1220,7 +1227,7 @@ New Customer Request (data residency = EU)
        │
        ├── NO ──► Step 2: Deploy a new EU regional stamp
        │            │
-       │            ├──► Deploy Hub VNet + Firewall + Bastion in EU region
+       │            ├──► Deploy Hub VNet + Firewall + Bastion + VPN Gateway / ExpressRoute in EU region
        │            ├──► Deploy APIM instance (or extend multi-region APIM)
        │            ├──► Deploy Fabric Capacity in EU (or ADLS + Databricks + ADX)
        │            ├──► Deploy App Service / AKS in EU region
