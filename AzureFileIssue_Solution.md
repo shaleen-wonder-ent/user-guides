@@ -812,7 +812,8 @@ kubectl top pods -n $NAMESPACE
 
 ---
 
-### 7.1 Rollback for Option A (In-Place PV/PVC Recreate)
+### 7.1 Rollback for Option A 
+(In-Place PV/PVC Recreate)
 
 > **When to use:** You completed Section 4 (deleted old PV/PVC, created new ones with
 > updated mount options), but something is wrong — pods are crashing, mount is failing,
@@ -882,7 +883,8 @@ echo "✅ Rollback complete — original mount options restored"
 
 ---
 
-### 7.2 Rollback for Option B (Blue-Green PV Migration)
+### 7.2 Rollback for Option B 
+(Blue-Green PV Migration)
 
 > **When to use:** You completed Section 5 (created a new `-optimized` PV/PVC and
 > updated the deployment to use it), but something is wrong.
