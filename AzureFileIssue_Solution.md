@@ -1,4 +1,4 @@
-# AKS Production PV Mount Options Change — Runbook (v2)
+# AKS Production PV Mount Options Change — Runbook
 
 > **Objective:** Add missing SMB mount options (`mfsymlinks`, `cache=strict`, `nosharesock`, `nobrl`,
 > `actimeo=30`) to existing Azure Files PVs in a production AKS cluster with minimal disruption.
