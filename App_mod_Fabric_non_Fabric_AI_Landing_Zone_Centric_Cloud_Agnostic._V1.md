@@ -176,6 +176,8 @@ Multi-tenancy is achieved through **Fabric workspace isolation** — each tenant
 <a name="option1-lz"></a>
 ### 3.2 Complete Landing Zone
 
+> **Subscription Model Guidance:** The landing zone below uses **separate Azure subscriptions** for Platform, Analytics, Application, and per-tenant Enterprise workloads. This is the **recommended target-state** for large-scale, multi-team SaaS platforms — it provides RBAC blast-radius isolation, independent Azure Policy scoping, clean cost allocation, and avoids per-subscription resource limits. However, **separate subscriptions are not mandatory from day one.** For early-stage or smaller deployments, a **single subscription with resource group separation** (e.g., `rg-platform`, `rg-fabric`, `rg-app`, `rg-tenant-a`) provides a simpler starting point. As the platform scales, tenant count grows, or compliance requirements tighten, split into dedicated subscriptions. The architecture below represents the mature, production-grade layout.
+
 ```
 Azure Management Group
 └── SaaS Platform Management Group
@@ -241,10 +243,10 @@ Azure Management Group
  └──────────┘ └────────────┘ └────────────┘ └────────────┘
                     │             │              │
                     └─────────────┼──────────────┘
-                        ▼
-              Microsoft Fabric
-              (Managed VNet / Private Links)
-              OneLake + Workspaces
+                                  ▼
+                           Microsoft Fabric
+                        (Managed VNet / Private Links)
+                          OneLake + Workspaces
 ```
 
 
@@ -466,6 +468,8 @@ Multi-tenancy is achieved through **Azure resource-level isolation** — separat
 
 <a name="option2-lz"></a>
 ### 4.2 Complete Landing Zone
+
+> **Subscription Model Guidance:** The landing zone below uses **separate Azure subscriptions** for Platform, Data Platform, Application, and per-tenant Enterprise workloads. This is the **recommended target-state** for large-scale, multi-team SaaS platforms — it provides RBAC blast-radius isolation, independent Azure Policy scoping, clean cost allocation, and avoids per-subscription resource limits. However, **separate subscriptions are not mandatory from day one.** For early-stage or smaller deployments, a **single subscription with resource group separation** (e.g., `rg-platform`, `rg-data`, `rg-app`, `rg-tenant-a`) provides a simpler starting point. As the platform scales, tenant count grows, or compliance requirements tighten, split into dedicated subscriptions. The architecture below represents the mature, production-grade layout.
 
 ```
 Azure Management Group
