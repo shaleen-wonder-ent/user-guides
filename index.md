@@ -253,11 +253,18 @@ Please select a guide from the list below:
   
 * [Microsoft Entra ID — Sign-in Log Retention: Cost Estimation](./Retention_Architecture_Price.md)
 
-  ---
+---
 
 * [Multi-Tenant SaaS Landing Zone Architecture](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric_Cloud_Agnostic._V1.md)
 
 ---
+
+* [Azure Managed HSM for CMK Encryption](./HSM.md)
+
+---
+
+
+
 <!--
 
 * [Multi-Tenant SaaS Landing Zone Architecture](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric_Cloud_Agnostic.md)
