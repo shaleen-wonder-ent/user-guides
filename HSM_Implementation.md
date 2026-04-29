@@ -1,4 +1,4 @@
-# Azure Key Vault Managed HSM — Production Deployment Architecture & Flow for Contoso
+# Azure Key Vault Managed HSM — Production Deployment Architecture & Flow
 
 ---
 
