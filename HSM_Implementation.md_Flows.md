@@ -1,4 +1,4 @@
-# Contoso Managed HSM —  Diagrams 
+# Managed HSM —  Diagrams 
 
 ---
 
