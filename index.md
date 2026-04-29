@@ -263,6 +263,14 @@ Please select a guide from the list below:
 
 ---
 
+* [Azure Key Vault Managed HSM — Production Deployment Architecture & Flow](./HSM_Implementation.md)
+
+---
+
+* [Azure Managed HSM for CMK Diagrams](./HSM_Implementation.md_Flows.md)
+
+---
+
 
 
 <!--
