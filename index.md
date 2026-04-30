@@ -271,6 +271,9 @@ Please select a guide from the list below:
 
 ---
 
+* [Azure Key Vault Managed HSM — Explanation](./HSM_Implementation_Explained.md)
+
+---
 
 
 <!--
