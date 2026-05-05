@@ -104,7 +104,7 @@ Active Directory (Source of Truth)
 | **Federation with External IdPs (e.g. SiteMinder)** | ✅ Federated authentication using a third-party IdP (SiteMinder) fully supported — no policy enforcement on federated sessions | ✅ Same federated domain / workforce tenant support + Conditional Access applicable to federated users | ✅ Same as P1 + risk-based controls on federated sessions |
 | **Conditional Access (CA) Policies** | ❌ Not available — Security Defaults only (tenant-wide, no granularity). Must be disabled before enabling CA in P1/P2. | ✅ Full CA (device, location, app, user/group). Security Defaults must be turned off when using CA. | ✅ All P1 CA + risk-based conditions via Identity Protection |
 | **Multi-Factor Authentication (MFA)** | ⚠️ Security Defaults only — MFA enforced for all users with no exceptions or targeting | ✅ Granular MFA via CA (per user/group/app, trusted location exclusions) | ✅ Adaptive/risk-based MFA — challenge only on suspicious sign-ins |
-| **B2B Guest User Collaboration** | ✅ Basic guest access — first 50,000 MAUs free per month (resets monthly); no CA for guests | ✅ CA policies apply to guests + dynamic groups supported | ✅ P1 + Access Reviews + risk evaluation for guests |
+| **B2B Guest User Collaboration** | ✅ Basic guest access — no CA for guests | ✅ CA policies apply to guests + dynamic groups supported | ✅ P1 + Access Reviews + risk evaluation for guests |
 | **Dynamic Group Membership** | ❌ Static groups only | ✅ Attribute-based (user or device) dynamic groups | ✅ Included |
 | **Identity Protection (Risk Detection)** | ❌ | ❌ | ✅ User & sign-in risk detection (note: limited for federated/external IdP accounts — see below) |
 | **Privileged Identity Management (PIM)** | ❌ | ❌ | ✅ JIT role activation + approval workflows |
@@ -153,7 +153,9 @@ All Entra ID tiers fully support **federated authentication using a third-party 
 
 > ℹ️ **Note:** B2B guest access is a **separate and distinct scenario** from workforce federation. It applies only when users from **outside the organisation** (partners, vendors, clients) need access to internal Fabric workspaces. It is **not applicable** to the SiteMinder federation scenario where all users are internal Member users.
 
-All tiers allow B2B guest invitations using the same MAU-based billing model. The first **50,000 monthly active guest users are free per month** (this allowance resets monthly; usage beyond 50,000 MAUs in a given month incurs additional charges). Refer to the [Microsoft External ID pricing page](https://azure.microsoft.com/en-us/pricing/details/active-directory/external-identities/) for current rates and to verify the MAU free tier policy. This free allowance applies equally across Free, P1, and P2 tiers.
+All tiers allow B2B guest invitations. The free MAU allowance and per-MAU billing described below apply **only to B2B guest users (UserType = Guest)** — they do **not** apply to internal Member users under workforce federation.
+
+> ⚠️ **Scope note:** The MAU free allowance and External ID pricing referenced here is specific to **B2B guest (external) identities only**. Internal workforce users federated via SiteMinder are unaffected by External ID pricing and are licensed under standard Entra ID user tiers.
 
 | Tier | Guest Capabilities |
 |---|---|
@@ -226,14 +228,12 @@ Required for any service principal carrying privileged access to Fabric data or 
 
 ## 📚 Reference Notes
 
-> 1. **Federated SSO & User Sync Requirement:** Microsoft states: *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization is responsible for ensuring the same account exists in Entra ID."* — [Microsoft Entra hybrid identity documentation](https://learn.microsoft.com/en-us/entra/identity/hybrid/)
+> 1. **Federated SSO & User Sync Requirement:** Microsoft states: *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization is responsible for ensuring the same account exists in Entra ID."* — [Microsoft Entra Hybrid Identity Documentation](https://learn.microsoft.com/en-us/entra/identity/hybrid/)
 >
-> 2. **External ID Guest Pricing:** First 50,000 MAUs per month are free; usage beyond this threshold is billed on a per-MAU basis. — [Microsoft External ID Pricing](https://azure.microsoft.com/en-us/pricing/details/active-directory/external-identities/)
+> 2. **Workload Identities Premium:** Required for Conditional Access and risk detection targeting service principals. Pricing is not a fixed published list price — contact Microsoft sales or refer to your enterprise agreement. — [Microsoft Entra Workload Identities](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview)
 >
-> 3. **Workload Identities Premium:** Required for Conditional Access and risk detection targeting service principals. Pricing is not a fixed published list price — contact Microsoft sales or refer to your enterprise agreement. — [Microsoft Entra Workload Identities](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview)
->
-> 4. **Security Defaults vs Conditional Access:** These are mutually exclusive. Organisations adopting CA policies must disable Security Defaults. — [Microsoft Security Defaults documentation](https://learn.microsoft.com/en-us/entra/fundamentals/security-defaults)
+> 3. **Security Defaults vs Conditional Access:** These are mutually exclusive. Organisations adopting CA policies must disable Security Defaults. — [Microsoft Security Defaults Documentation](https://learn.microsoft.com/en-us/entra/fundamentals/security-defaults)
 
 ---
 
-> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026.*
+> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026. This document covers workforce federation scenarios only. B2B guest and B2C/External ID scenarios are out of scope.*
