@@ -9,6 +9,91 @@ This advisory is relevant for organizations implementing **Microsoft Fabric** al
 
 Microsoft Fabric uses **Microsoft Entra ID** as its identity backbone for user authentication, role assignments, and workspace identities. Where Entra ID acts as a relying party in a federated trust model, the security controls available are **directly determined by which Entra ID tier is in use**.
 
+> 🔑 **Important — Scope Clarification:** The federation model described in this document is a **workforce authentication model** using a third-party IdP (SiteMinder) within a **workforce tenant**. It does **not** imply B2B collaboration (guest users from external organisations) or B2C/External ID (customer identities). All users remain **internal Entra ID Member users**.
+
+| Scenario | Applicable Here? |
+|---|---|
+| Workforce federation (SiteMinder ↔ Entra ID) | ✅ Yes |
+| B2B collaboration (guest users from external orgs) | ❌ No |
+| B2C / External ID (customer/consumer identities) | ❌ No |
+
+---
+
+## 🏗️ How Federation Works — SiteMinder, Active Directory & Entra ID
+
+Understanding the architecture is essential before evaluating licensing tiers. The following explains how these components relate to each other.
+
+### Does SiteMinder Store Users?
+
+**No. SiteMinder does not store users.** It is purely an **authentication broker and policy enforcement engine** — not a user directory. The actual users are stored in a backend identity store. SiteMinder supports integration with multiple directory types including **Active Directory (AD)**, **CA Directory**, and generic **LDAP** directories. However, in most enterprise deployments, **Active Directory is the authoritative user store** behind SiteMinder. SiteMinder sits in front of that store and orchestrates authentication against it.
+
+```
+┌──────────────────────────────────────────────┐
+│  Active Directory / LDAP / CA Directory      │
+│  (Source of Truth — stores users)            │
+│  * Active Directory is most common in        │
+│    enterprise deployments                    │
+└──────────────────────────────────────────────┘
+            ▲
+            │ SiteMinder queries AD/LDAP
+            │ to verify credentials
+            ▼
+┌──────────────────────────────────┐
+│  CA SiteMinder (Policy Server)   │
+│  • Intercepts app requests       │
+│  • Authenticates via AD/LDAP     │
+│  • Enforces access policies      │
+│  • Issues SAML assertions        │
+└──────────────────────────────────┘
+```
+
+### Are Users Created in Entra ID When They Come via SiteMinder?
+
+**No. Users are not automatically created in Entra ID at login time.** They must already exist in Entra ID as **Member (internal) users**, pre-synced from the same Active Directory that SiteMinder authenticates against — typically via **Azure AD Connect**.
+
+> 📌 **Microsoft's guidance states:** *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization (via Azure AD Connect) is responsible for ensuring the same account exists in Entra ID."* This means the sync is a prerequisite — not an outcome — of federation.
+
+> If a user does not already exist as a synced object in Entra ID, the federated login will **fail** — Entra cannot match the SAML assertion to any user object and will not issue a token.
+
+### Are SiteMinder-Federated Users Guests or Internal Members?
+
+**They are internal Member users — not guests.** Guest (B2B) users are a completely separate concept and only apply when users from **outside the organisation** are invited in. SiteMinder-federated users are the organisation's own employees, authenticated via the organisation's own infrastructure.
+
+### The Full Architecture
+
+```
+Active Directory (Source of Truth)
+        │
+        ├─── Azure AD Connect ──────────────► Entra ID
+        │                                    (Member users, pre-synced)
+        │                                             │
+        └─── SiteMinder                               │
+                │                                     │
+                │ Authenticates user                  │
+                │ against AD                          │
+                │                                     │
+                ▼                                     │
+        SAML Assertion issued ───────────────► Entra matches assertion
+        "This is John, authenticated"          to existing Member user
+                                                       │
+                                                       ▼
+                                              CA policies applied (P1/P2)
+                                                       │
+                                                       ▼
+                                              Fabric access granted ✅
+```
+
+### Key Takeaways
+
+| Question | Answer |
+|---|---|
+| Does SiteMinder store users? | ❌ No — authentication broker only; users live in AD/LDAP |
+| Where are users actually stored? | Active Directory (most common), CA Directory, or LDAP |
+| Does SiteMinder authenticate users? | ✅ Yes — by delegating credential verification to AD/LDAP |
+| Are federated users Guests in Entra? | ❌ No — they are **Member (internal)** users |
+| Are new users created in Entra at login? | ❌ No — users must already exist, synced via Azure AD Connect |
+| What if the user doesn't exist in Entra? | ❌ Login fails — no matching object = no token issued |
+
 ---
 
 ## 🔢 Core Feature Comparison
@@ -16,17 +101,17 @@ Microsoft Fabric uses **Microsoft Entra ID** as its identity backbone for user a
 | Capability | Free (Standard) | Premium P1 | Premium P2 |
 |---|---|---|---|
 | **SSO (SAML / WS-Fed / OIDC)** | ✅ Full protocol support — unlimited cloud app SSO | ✅ Same protocol support as Free + CA enforcement capabilities | ✅ Same as P1 |
-| **Federation with External IdPs (e.g. SiteMinder)** | ✅ Full SAML 2.0 / WS-Fed integration supported — no policy enforcement on federated sessions | ✅ Same federation support + Conditional Access applicable to federated users | ✅ Same as P1 + risk-based controls on federated sessions |
+| **Federation with External IdPs (e.g. SiteMinder)** | ✅ Federated authentication using a third-party IdP (SiteMinder) fully supported — no policy enforcement on federated sessions | ✅ Same federated domain / workforce tenant support + Conditional Access applicable to federated users | ✅ Same as P1 + risk-based controls on federated sessions |
 | **Conditional Access (CA) Policies** | ❌ Not available — Security Defaults only (tenant-wide, no granularity). Must be disabled before enabling CA in P1/P2. | ✅ Full CA (device, location, app, user/group). Security Defaults must be turned off when using CA. | ✅ All P1 CA + risk-based conditions via Identity Protection |
 | **Multi-Factor Authentication (MFA)** | ⚠️ Security Defaults only — MFA enforced for all users with no exceptions or targeting | ✅ Granular MFA via CA (per user/group/app, trusted location exclusions) | ✅ Adaptive/risk-based MFA — challenge only on suspicious sign-ins |
 | **B2B Guest User Collaboration** | ✅ Basic guest access — first 50,000 MAUs free per month (resets monthly); no CA for guests | ✅ CA policies apply to guests + dynamic groups supported | ✅ P1 + Access Reviews + risk evaluation for guests |
-| **Dynamic Group Membership** | ❌ Static groups only | ✅ Attribute/role-based dynamic groups | ✅ Included |
+| **Dynamic Group Membership** | ❌ Static groups only | ✅ Attribute-based (user or device) dynamic groups | ✅ Included |
 | **Identity Protection (Risk Detection)** | ❌ | ❌ | ✅ User & sign-in risk detection (note: limited for federated/external IdP accounts — see below) |
 | **Privileged Identity Management (PIM)** | ❌ | ❌ | ✅ JIT role activation + approval workflows |
 | **Access Reviews / Identity Governance** | ❌ | ❌ | ✅ Scheduled reviews + entitlement management |
 | **SSPR (Self-Service Password Reset)** | ⚠️ Password *change* only (signed-in users who know current password). Forgotten password reset requires M365 Business or P1. No on-prem write-back. | ✅ Full SSPR (including forgotten password reset) + on-prem AD write-back | ✅ Same as P1 |
 | **On-Prem App Integration (App Proxy)** | ❌ | ✅ Included | ✅ Included |
-| **Workload Identity CA (Service Principals)** | ❌ | ❌ | ❌ Requires separate **Workload Identities Premium** add-on (pricing varies by agreement — contact Microsoft sales) |
+| **Workload Identity CA (Service Principals)** | ❌ | ❌ | ❌ Requires separate **Workload Identities Premium** add-on (per service principal — contact Microsoft sales for pricing) |
 | **Managed Identities (e.g. Fabric Workspace Identity)** | ✅ Free — no license required | ✅ Free — no license required | ✅ Free — no license required. Not subject to CA policies even with Workload ID add-on, but can be included in Access Reviews (P2). |
 | **Approx. Price** | Free (included with M365) | ~$6/user/month | ~$9/user/month |
 
@@ -34,9 +119,9 @@ Microsoft Fabric uses **Microsoft Entra ID** as its identity backbone for user a
 
 ---
 
-## 🔗 Federation with External IdPs (e.g. SiteMinder) — What Each Tier Means in Practice
+## 🔗 Federated Authentication Using a Third-Party IdP (SiteMinder) — What Each Tier Means in Practice
 
-All Entra ID tiers fully support SAML 2.0 / WS-Fed federation — the **technical trust** and SSO integration with a third-party IdP like SiteMinder works identically across tiers. The **security posture layered on top** of that federation is what changes:
+All Entra ID tiers fully support **federated authentication using a third-party IdP (SiteMinder)** within a **federated domain in a workforce tenant**. The technical trust and SSO integration works identically across tiers. The **security posture layered on top** of that federation is what changes:
 
 | Tier | What You Get |
 |---|---|
@@ -66,13 +151,15 @@ All Entra ID tiers fully support SAML 2.0 / WS-Fed federation — the **technica
 
 ## 👥 B2B Guest Users — Governance & Security
 
-All tiers allow B2B guest invitations using the same MAU-based billing model. The first **50,000 monthly active guest users are free per month** (this allowance resets monthly; usage beyond 50,000 MAUs in a given month incurs additional charges per Microsoft's External ID pricing). This free allowance applies equally across Free, P1, and P2 tiers.
+> ℹ️ **Note:** B2B guest access is a **separate and distinct scenario** from workforce federation. It applies only when users from **outside the organisation** (partners, vendors, clients) need access to internal Fabric workspaces. It is **not applicable** to the SiteMinder federation scenario where all users are internal Member users.
+
+All tiers allow B2B guest invitations using the same MAU-based billing model. The first **50,000 monthly active guest users are free per month** (this allowance resets monthly; usage beyond 50,000 MAUs in a given month incurs additional charges). Refer to the [Microsoft External ID pricing page](https://azure.microsoft.com/en-us/pricing/details/active-directory/external-identities/) for current rates and to verify the MAU free tier policy. This free allowance applies equally across Free, P1, and P2 tiers.
 
 | Tier | Guest Capabilities |
 |---|---|
 | **Free** | Guests can access Fabric if permissions are granted. No CA enforcement on guest sign-ins. No built-in mechanism to review, expire, or govern guest accounts over time. |
-| **P1** | CA policies fully apply to guest users (MFA, device compliance, location). Dynamic groups (e.g. all users where `userType = Guest`) allow automated, policy-driven guest management without manual intervention. |
-| **P2** | Adds **Access Reviews** — scheduled re-certification of guest access to Fabric workspaces and other resources. Essential where guest accounts accumulate across multiple engagements or projects and need periodic validation. Risk-based evaluation of guest sign-ins is also available, though limited for guests authenticated via external IdPs (see Identity Protection note). |
+| **P1** | CA policies fully apply to guest users (MFA, device compliance, location). Attribute-based dynamic groups (e.g. all users where `userType = Guest`) allow automated, policy-driven guest management without manual intervention. |
+| **P2** | Adds **Access Reviews** — scheduled re-certification of guest access to Fabric workspaces and other resources. Essential where guest accounts accumulate across multiple engagements or projects and need periodic validation. |
 
 ---
 
@@ -81,7 +168,7 @@ All tiers allow B2B guest invitations using the same MAU-based billing model. Th
 ### Service Principals
 - Creating and using service principals is **supported in all tiers** at no additional user license cost.
 - **Conditional Access for service principals** and **risk detection for workload identities** are **not** covered by standard P1/P2 user licenses.
-- These capabilities require the separate **Workload Identities Premium add-on**. Pricing varies by enterprise agreement — contact Microsoft sales for current rates (commonly referenced at approximately $3/SP/month, but not published as a fixed list price).
+- These capabilities require the separate **Workload Identities Premium add-on**, licensed per service principal. This add-on is required to create CA policies targeting service principals or to leverage risk-based blocking for SP sign-ins. Pricing is not published as a fixed list price — contact Microsoft sales or refer to your enterprise agreement for current rates.
 - Without this add-on, CA policies cannot be created or modified to target service principals, and risk-based blocking for SP sign-ins is unavailable.
 
 ### Managed Identities (e.g. Fabric Workspace Identity)
@@ -95,13 +182,14 @@ All tiers allow B2B guest invitations using the same MAU-based billing model. Th
 
 ## 🔍 Identity Protection — Nuances for Federated & Guest Accounts
 
-Entra ID P2's Identity Protection can evaluate sign-in signals for **any account** in the directory — including guests and federated users — based on observable session data such as IP address, location, and behavioural patterns.
+Entra ID P2's Identity Protection provides risk assessments **primarily for identities whose credentials and sign-ins are directly managed by Entra ID**. For federated accounts, initial authentication occurs outside Entra ID (e.g. via SiteMinder), which means risk signals available to Identity Protection are inherently partial.
 
-However, the following limitations apply:
+Specifically:
 
-- **Credential-level risk signals** (e.g. leaked password detection) are **only effective for cloud-managed accounts** whose credentials are held by Entra ID. Accounts whose passwords are managed by an external IdP (e.g. SiteMinder) are outside the scope of this detection.
-- **Risk-based CA for federated users** can still mitigate some risk (e.g. blocking sign-ins from anomalous IPs or locations), but it is **not a full substitute** for risk controls in the on-prem IdP itself.
-- Stakeholders should understand P2's risk-based CA as a **complementary layer**, not a replacement for security enforcement within the external IdP.
+- **Credential-level risk signals** (e.g. leaked password detection) are **only effective for cloud-managed accounts** whose credentials are held by Entra ID. Accounts authenticated via a federated domain in a workforce tenant (e.g. via SiteMinder) are outside the scope of this detection.
+- **Behavioural session signals** (IP address, location anomalies, atypical travel) **can still be evaluated** by Identity Protection for federated users after the SAML assertion is accepted by Entra ID.
+- **Risk-based CA for federated users** can therefore still mitigate some risk (e.g. blocking sign-ins from anomalous IPs or locations), but it is **not a full substitute** for risk controls enforced within the external IdP itself.
+- Stakeholders should understand P2's risk-based CA as a **complementary layer**, not a replacement for security enforcement within SiteMinder or other external IdPs.
 
 ---
 
@@ -110,11 +198,11 @@ However, the following limitations apply:
 | Requirement | Minimum Tier |
 |---|---|
 | Basic Fabric access with Entra SSO | Free |
-| Third-party IdP federation — SSO only, no Entra policy enforcement | Free |
+| Workforce federation with third-party IdP (SiteMinder) — SSO only, no Entra policy enforcement | Free |
 | Enforce MFA / device policies on federated users | **P1 — Required** |
 | Conditional Access for Fabric workspaces (internal + guest) | **P1 — Required** |
 | Disable Security Defaults and adopt custom CA policies | **P1** |
-| Dynamic groups for guest/user policy automation | **P1** |
+| Attribute-based dynamic groups for user/guest policy automation | **P1** |
 | Risk-based MFA and adaptive sign-in protection | **P2 — Recommended** |
 | Guest Access Reviews / periodic re-certification | **P2 — Recommended** |
 | PIM for Fabric / Entra admin roles | **P2 — Recommended** |
@@ -126,14 +214,26 @@ However, the following limitations apply:
 ## 🏁 Final Recommendation
 
 ### 1️⃣ Entra ID Premium P1 — All Internal Users *(Non-negotiable)*
-The baseline for any production Fabric deployment involving third-party IdP federation. Without P1, no Entra-side conditional policies can be enforced on federated or guest users. Upon adopting P1, **Security Defaults should be disabled** in favour of custom Conditional Access policies.
+The baseline for any production Fabric deployment involving federated authentication using a third-party IdP (SiteMinder) within a workforce tenant. Without P1, no Entra-side conditional policies can be enforced on federated users. Upon adopting P1, **Security Defaults should be disabled** in favour of custom Conditional Access policies.
 
 ### 2️⃣ Entra ID Premium P2 — Admins, Privileged Users & Sensitive Workspaces *(Strongly Recommended)*
-Provides Identity Protection, PIM, and Access Reviews — essential for compliance and ongoing governance in a multi-IdP, multi-tenant environment. Note that risk-based capabilities for federated accounts are partial and should be treated as a complementary control layer.
+Provides Identity Protection, PIM, and Access Reviews — essential for compliance and ongoing governance in a multi-IdP, workforce tenant environment. Note that Identity Protection's risk-based capabilities for federated accounts are partial (behavioural signals only) and should be treated as a complementary control layer alongside SiteMinder's own protections.
 
 ### 3️⃣ Workload Identities Premium Add-on — Evaluate per Service Principal *(As Needed)*
-Required for any service principal carrying privileged access to Fabric data or external systems. Not applicable to managed identities. Pricing is agreement-based — engage Microsoft sales for accurate figures.
+Required for any service principal carrying privileged access to Fabric data or external systems. Licensed per service principal — not applicable to managed identities. Contact Microsoft sales or refer to your enterprise agreement for current pricing.
 
 ---
 
-> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026. Guest usage pricing is subject to Microsoft's External ID MAU billing model — refer to the [Azure Active Directory B2C documentation](https://learn.microsoft.com/en-us/azure/active-directory-b2c/) for current rates.*
+## 📚 Reference Notes
+
+> 1. **Federated SSO & User Sync Requirement:** Microsoft states: *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization is responsible for ensuring the same account exists in Entra ID."* — [Microsoft Entra hybrid identity documentation](https://learn.microsoft.com/en-us/entra/identity/hybrid/)
+>
+> 2. **External ID Guest Pricing:** First 50,000 MAUs per month are free; usage beyond this threshold is billed on a per-MAU basis. — [Microsoft External ID Pricing](https://azure.microsoft.com/en-us/pricing/details/active-directory/external-identities/)
+>
+> 3. **Workload Identities Premium:** Required for Conditional Access and risk detection targeting service principals. Pricing is not a fixed published list price — contact Microsoft sales or refer to your enterprise agreement. — [Microsoft Entra Workload Identities](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview)
+>
+> 4. **Security Defaults vs Conditional Access:** These are mutually exclusive. Organisations adopting CA policies must disable Security Defaults. — [Microsoft Security Defaults documentation](https://learn.microsoft.com/en-us/entra/fundamentals/security-defaults)
+
+---
+
+> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026.*
