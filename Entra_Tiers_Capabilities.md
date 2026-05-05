@@ -136,4 +136,4 @@ Required for any service principal carrying privileged access to Fabric data or 
 
 ---
 
-> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026. Guest usage pricing is subject to Microsoft's External ID MAU billing model — refer to the [Microsoft External ID pricing page](https://learn.microsoft.com/en-us/azure/active-directory-b2c/) for current rates.*
+> 📎 *All feature details are based on Microsoft's official Entra ID documentation and current licensing terms as of May 2026. Guest usage pricing is subject to Microsoft's External ID MAU billing model — refer to the [Azure Active Directory B2C documentation](https://learn.microsoft.com/en-us/azure/active-directory-b2c/) for current rates.*
