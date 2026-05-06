@@ -23,8 +23,7 @@ Microsoft Fabric uses **Microsoft Entra ID** as its identity backbone for user a
 
 Understanding the architecture is essential before evaluating licensing tiers. The following explains how these components relate to each other.
 
-
-**Since, SiteMinder does not store users.** It is purely an **authentication broker and policy enforcement engine** — not a user directory, the actual users are stored in a backend identity store. SiteMinder supports integration with multiple directory types including **Active Directory (AD)**, **CA Directory**, and generic **LDAP** directories. However, in most enterprise deployments, **Active Directory is the authoritative user store** behind SiteMinder. SiteMinder sits in front of that store and orchestrates authentication against it.
+Since, SiteMinder does not store users. It is purely an **authentication broker and policy enforcement engine** — not a user directory, the actual users are stored in a backend identity store. SiteMinder supports integration with multiple directory types including **Active Directory (AD)**, **CA Directory**, and generic **LDAP** directories. However, in most enterprise deployments, **Active Directory is the authoritative user store** behind SiteMinder. SiteMinder sits in front of that store and orchestrates authentication against it.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -49,6 +48,31 @@ Understanding the architecture is essential before evaluating licensing tiers. T
 ### Are Users Created in Entra ID When They Come via SiteMinder?
 
 **Users are not automatically created in Entra ID at login time.** They must already exist in Entra ID as **Member (internal) users**, pre-synced from the same Active Directory that SiteMinder authenticates against — typically via **Azure AD Connect**.
+
+This Azure AD Connect sync is a **separate process from federation** and must be configured independently. Federation defines *how* users authenticate; Azure AD Connect defines *which* users exist in Entra ID. Both are required and must be in place before federated sign-in to Fabric can work.
+
+```
+Step 1 — Azure AD Connect (Sync)
+        │
+        │  Copy user objects from on-prem AD → Entra ID
+        │  Users now exist in Entra as Member users
+        │
+        ▼
+Step 2 — Federation Setup (SiteMinder ↔ Entra)
+        │
+        │  Establish SAML trust between SiteMinder and Entra
+        │  Tell Entra: "for @company.com users, redirect auth to SiteMinder"
+        │
+        ▼
+Step 3 — User Logs In
+        │
+        │  Entra redirects to SiteMinder → SiteMinder authenticates
+        │  → SAML assertion returned → Entra matches to existing user object
+        │
+        ▼
+Step 4 — Access Granted ✅
+
+```
 
 > 📌 **Microsoft's guidance states:** *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization (via Azure AD Connect) is responsible for ensuring the same account exists in Entra ID."* This means the sync is a prerequisite — not an outcome — of federation.
 
