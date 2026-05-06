@@ -23,9 +23,8 @@ Microsoft Fabric uses **Microsoft Entra ID** as its identity backbone for user a
 
 Understanding the architecture is essential before evaluating licensing tiers. The following explains how these components relate to each other.
 
-### Does SiteMinder Store Users?
 
-**No. SiteMinder does not store users.** It is purely an **authentication broker and policy enforcement engine** — not a user directory. The actual users are stored in a backend identity store. SiteMinder supports integration with multiple directory types including **Active Directory (AD)**, **CA Directory**, and generic **LDAP** directories. However, in most enterprise deployments, **Active Directory is the authoritative user store** behind SiteMinder. SiteMinder sits in front of that store and orchestrates authentication against it.
+**Since, SiteMinder does not store users.** It is purely an **authentication broker and policy enforcement engine** — not a user directory, the actual users are stored in a backend identity store. SiteMinder supports integration with multiple directory types including **Active Directory (AD)**, **CA Directory**, and generic **LDAP** directories. However, in most enterprise deployments, **Active Directory is the authoritative user store** behind SiteMinder. SiteMinder sits in front of that store and orchestrates authentication against it.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -35,8 +34,8 @@ Understanding the architecture is essential before evaluating licensing tiers. T
 │    enterprise deployments                    │
 └──────────────────────────────────────────────┘
             ▲
-            │ SiteMinder queries AD/LDAP
-            │ to verify credentials
+            │ SiteMinder queries AD/LDAP to verify credentials
+            │ 
             ▼
 ┌──────────────────────────────────┐
 │  CA SiteMinder (Policy Server)   │
@@ -49,7 +48,7 @@ Understanding the architecture is essential before evaluating licensing tiers. T
 
 ### Are Users Created in Entra ID When They Come via SiteMinder?
 
-**No. Users are not automatically created in Entra ID at login time.** They must already exist in Entra ID as **Member (internal) users**, pre-synced from the same Active Directory that SiteMinder authenticates against — typically via **Azure AD Connect**.
+**Users are not automatically created in Entra ID at login time.** They must already exist in Entra ID as **Member (internal) users**, pre-synced from the same Active Directory that SiteMinder authenticates against — typically via **Azure AD Connect**.
 
 > 📌 **Microsoft's guidance states:** *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization (via Azure AD Connect) is responsible for ensuring the same account exists in Entra ID."* This means the sync is a prerequisite — not an outcome — of federation.
 
@@ -87,7 +86,6 @@ Active Directory (Source of Truth)
 
 | Question | Answer |
 |---|---|
-| Does SiteMinder store users? | ❌ No — authentication broker only; users live in AD/LDAP |
 | Where are users actually stored? | Active Directory (most common), CA Directory, or LDAP |
 | Does SiteMinder authenticate users? | ✅ Yes — by delegating credential verification to AD/LDAP |
 | Are federated users Guests in Entra? | ❌ No — they are **Member (internal)** users |
@@ -102,7 +100,7 @@ Active Directory (Source of Truth)
 |---|---|---|---|
 | **SSO (SAML / WS-Fed / OIDC)** | ✅ Full protocol support — unlimited cloud app SSO | ✅ Same protocol support as Free + CA enforcement capabilities | ✅ Same as P1 |
 | **Federation with External IdPs (e.g. SiteMinder)** | ✅ Federated authentication using a third-party IdP (SiteMinder) fully supported — no policy enforcement on federated sessions | ✅ Same federated domain / workforce tenant support + Conditional Access applicable to federated users | ✅ Same as P1 + risk-based controls on federated sessions |
-| **Conditional Access (CA) Policies** | ❌ Not available — Security Defaults only (tenant-wide, no granularity). Must be disabled before enabling CA in P1/P2. | ✅ Full CA (device, location, app, user/group). Security Defaults must be turned off when using CA. | ✅ All P1 CA + risk-based conditions via Identity Protection |
+| **Conditional Access (CA) Policies** | ❌ Not available — Security Defaults only (tenant-wide, no granularity). | ✅ Full CA (device, location, app, user/group). Security Defaults must be turned off when using CA. | ✅ All P1 CA + risk-based conditions via Identity Protection |
 | **Multi-Factor Authentication (MFA)** | ⚠️ Security Defaults only — MFA enforced for all users with no exceptions or targeting | ✅ Granular MFA via CA (per user/group/app, trusted location exclusions) | ✅ Adaptive/risk-based MFA — challenge only on suspicious sign-ins |
 | **B2B Guest User Collaboration** | ✅ Basic guest access — no CA for guests | ✅ CA policies apply to guests + dynamic groups supported | ✅ P1 + Access Reviews + risk evaluation for guests |
 | **Dynamic Group Membership** | ❌ Static groups only | ✅ Attribute-based (user or device) dynamic groups | ✅ Included |
@@ -170,7 +168,7 @@ All tiers allow B2B guest invitations. The free MAU allowance and per-MAU billin
 ### Service Principals
 - Creating and using service principals is **supported in all tiers** at no additional user license cost.
 - **Conditional Access for service principals** and **risk detection for workload identities** are **not** covered by standard P1/P2 user licenses.
-- These capabilities require the separate **Workload Identities Premium add-on**, licensed per service principal. This add-on is required to create CA policies targeting service principals or to leverage risk-based blocking for SP sign-ins. Pricing is not published as a fixed list price — contact Microsoft sales or refer to your enterprise agreement for current rates.
+- These capabilities require the separate **Workload Identities Premium add-on**, licensed per service principal. This add-on is required to create CA policies targeting service principals or to leverage risk-based blocking for SP sign-ins. 
 - Without this add-on, CA policies cannot be created or modified to target service principals, and risk-based blocking for SP sign-ins is unavailable.
 
 ### Managed Identities (e.g. Fabric Workspace Identity)
@@ -222,7 +220,7 @@ The baseline for any production Fabric deployment involving federated authentica
 Provides Identity Protection, PIM, and Access Reviews — essential for compliance and ongoing governance in a multi-IdP, workforce tenant environment. Note that Identity Protection's risk-based capabilities for federated accounts are partial (behavioural signals only) and should be treated as a complementary control layer alongside SiteMinder's own protections.
 
 ### 3️⃣ Workload Identities Premium Add-on — Evaluate per Service Principal *(As Needed)*
-Required for any service principal carrying privileged access to Fabric data or external systems. Licensed per service principal — not applicable to managed identities. Contact Microsoft sales or refer to your enterprise agreement for current pricing.
+Required for any service principal carrying privileged access to Fabric data or external systems. Licensed per service principal — not applicable to managed identities. 
 
 ---
 
@@ -230,7 +228,7 @@ Required for any service principal carrying privileged access to Fabric data or 
 
 > 1. **Federated SSO & User Sync Requirement:** Microsoft states: *"Single sign-on relies on identical user accounts being represented in both on-premises AD and in Microsoft Entra ID. Directory synchronization is responsible for ensuring the same account exists in Entra ID."* — [Microsoft Entra Hybrid Identity Documentation](https://learn.microsoft.com/en-us/entra/identity/hybrid/)
 >
-> 2. **Workload Identities Premium:** Required for Conditional Access and risk detection targeting service principals. Pricing is not a fixed published list price — contact Microsoft sales or refer to your enterprise agreement. — [Microsoft Entra Workload Identities](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview)
+> 2. **Workload Identities Premium:** Required for Conditional Access and risk detection targeting service principals. — [Microsoft Entra Workload Identities](https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview)
 >
 > 3. **Security Defaults vs Conditional Access:** These are mutually exclusive. Organisations adopting CA policies must disable Security Defaults. — [Microsoft Security Defaults Documentation](https://learn.microsoft.com/en-us/entra/fundamentals/security-defaults)
 
