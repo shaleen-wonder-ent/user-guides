@@ -1,4 +1,4 @@
-# Azure Key Vault Managed HSM — Existing Workloads (Central India, Single Region)
+# Azure Key Vault Managed HSM — Existing Workloads (Single Region)
 
 > This guide explains the Contoso Managed HSM rollout for **existing, already-running** SQL Managed Instances and VMs in **Central India only**. It is deliberately simplified for **process understanding**: multi-region replication, disaster recovery, and Storage are out of scope here. The goal is for the team to clearly understand **what changes**, **what stays the same**, **when downtime happens and when it doesn't**, and **which scenarios apply to which VM / MI**.
 
@@ -67,6 +67,8 @@ To keep this document focused on **process understanding**, the following are de
 
 If any of those apply to a specific workload, switch to the multi-region guide for that workload.
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ## The Big Picture — What Are We Doing?
@@ -84,6 +86,8 @@ If any of those apply to a specific workload, switch to the multi-region guide f
 - Because no data is being re-encrypted, the operation itself is fast (seconds to minutes per resource).
 - For **SQL MI**: the protector swap is **online** — the database keeps serving queries.
 - For **VM disks**: the swap is also fast at the storage layer, but Azure requires the VM to be **stopped and deallocated** to change which Disk Encryption Set (DES) a disk is associated with. **The downtime is from the stop/start, not from any re-encryption.**
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -120,6 +124,8 @@ If any of those apply to a specific workload, switch to the multi-region guide f
 7. After all workloads are migrated, you rotate keys on a schedule.
 ```
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ## The Three Separate Things You Create
@@ -129,6 +135,8 @@ If any of those apply to a specific workload, switch to the multi-region guide f
 | **3 RSA keys + Security Domain** | Security Officers (one-time) | HSM activation | Offline (safe deposit box) | Only for HSM disaster recovery (rebuilding the vault itself) |
 | **CMK keys** (`Contoso-SQLMI-CMK`, `Contoso-DISK-CMK`) | Key Management Team (Crypto User role) | After HSM is active, **before any migration cutover** | Inside the HSM hardware (never leaves) | Wrapping / unwrapping DEKs |
 | **Service connection** (TDE protector switch on SQL MI; new DES for VMs) | Key Management Team or Infra Team | **Migration window** for each existing workload | Azure resource configuration | Telling existing Azure services “stop using the MS key — use this HSM key now” |
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -143,6 +151,8 @@ If any of those apply to a specific workload, switch to the multi-region guide f
 | **Security Domain** | **Offline** — safe deposit box | Master key to rebuild the entire HSM if it is ever lost |
 
 > **For existing workloads, the DEK already exists.** It was created by Azure on day one when the database / disk was first provisioned. The migration does **not** create a new DEK — it only changes the CMK that wraps that existing DEK. This is why the operation is near-instant for SQL MI and very fast (only stop/start time) for VMs.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -171,6 +181,8 @@ WHEN DATA IS ACCESSED (in memory):
 Plaintext DEK exists ONLY in memory, temporarily. Never written to disk.
 ```
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ## Important: DEK vs DES — They Sound Similar but Are Completely Different
@@ -185,6 +197,8 @@ Plaintext DEK exists ONLY in memory, temporarily. Never written to disk.
 | **Lives inside HSM?** | ❌ No — lives with the data (encrypted) | ❌ No — lives in Azure Resource Manager |
 | **Needed for which services here?** | ✅ Both SQL MI and VM disks already have DEKs today | ✅ VM disks only — SQL MI does NOT use DES |
 | **Analogy** | The actual padlock on the box | The cable that connects the padlock to the safe |
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -201,6 +215,8 @@ Even if an attacker gets access to:
 | Azure AD credentials without RBAC | ❌ No | RBAC denies access to the key |
 
 **The only way to read the data:** valid Azure AD credentials **+** correct RBAC role **+** network access to the HSM **+** the CMK is available and enabled. All four conditions must be true simultaneously.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -264,6 +280,8 @@ Even if an attacker gets access to:
 └────────────────────────────────────────────────────────────────┘
 ```
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ## Section by Section — Plain English (Existing Workloads)
@@ -278,6 +296,8 @@ Even if an attacker gets access to:
 
 This guide assumes a **single-region** deployment so the team can build clear mental models around the protector swap, the DEK behavior, and the downtime characteristics. **Multi-region replication, geo-replicas, failover groups, and DR are explicitly out of scope** — those concerns are addressed in the multi-region version of this document.
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 1: High-Level Architecture
@@ -288,11 +308,15 @@ One Managed HSM resource in **Central India** (`Contoso-PROD-HSM`). All keys, RB
 
 **Cost note:** Single region, single HSM — ~$2,304/month for the HSM hardware. Costs start the moment the HSM is provisioned, **not** when you start migrating workloads. So there's a real incentive to keep the gap between "HSM ready" and "workloads migrated" as short as possible.
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 2: What Microsoft Does Behind the Scenes
 
 Identical to the fresh-deployment guide. Marvell LiquidSecurity HSM, 3 partitions on different racks inside the Central India datacenter, Confidential Compute envelope, etc. The hardware story doesn't change just because the workloads pre-exist.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -311,6 +335,8 @@ Quick recap (see the fresh-deployment guide for full detail):
 5. **Set up the Private Endpoint** in the workload VNet so VMs / management calls can reach the HSM privately
 
 > ⚠️ **Do NOT begin Phase 1 migrations until Phase 0 is fully complete and the HSM is reachable from the workload subnets.** A failed reachability test at the moment of the SQL MI protector switch is the most common cause of a stuck migration.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -437,6 +463,8 @@ This is the only realistic downtime scenario for SQL MI in this migration. It is
 - **No version pinning:** SQL MI's TDE protector configuration **always resolves to the latest enabled version** of the key. Operators **cannot** pin SQL MI to an older key version. If a rollback is required, the only option is to introduce a **new** key (or a new key version) and switch the protector to it.
 - **Long-term retention (LTR) backups:** Existing pre-migration LTR backups remain encrypted with whatever protector was active when they were taken (Microsoft retains the old MS key automatically). **Post-migration backups, however, are pinned to the CMK version that was active when they were taken.** Every CMK version must be retained for the **longest retention horizon** (PITR + LTR — potentially years) or those backups become unrestorable.
 - **Point-in-time restore (PITR):** The backup chain spans the protector switch transparently.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -643,6 +671,8 @@ In this single-region design, **one accidental "Disable" toggle on `Contoso-DISK
 - Set Activity Log alerts on disable / delete / expiration events for this specific key
 - **Never** test key-state changes against the production disk CMK — use a separate test-only key in the same HSM if validation is needed
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 6: Network (Private Endpoint)
@@ -656,6 +686,8 @@ One Private Endpoint in Central India, in the workload VNet, exposing the HSM. E
   - **For DES:** Same architecture — DES's wrap/unwrap calls go via the Microsoft backbone, not Contoso's VNet.
   - ⚠️ Disabling public access on Managed HSM **without** one of these two paths in place will break SQL MI TDE configuration and break post-migration TDE-protector access — **even if Contoso's VNet has PE.** This is the most common post-migration outage cause.
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 7: RBAC
@@ -665,11 +697,15 @@ One Private Endpoint in Central India, in the workload VNet, exposing the HSM. E
 - Test the RBAC by attempting a wrap/unwrap from the workload subnet **before** the protector switch.
 - Remember the role-name trap: **Crypto User** = key management; **Crypto Officer** does NOT manage keys.
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 8: Security Domain
 
 Identical to the fresh-deployment guide. The Security Domain is about the HSM itself — it doesn't care whether the workloads are new or existing. Three RSA keys held by three named officers, 2-of-3 quorum to recover. Lives offline.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -683,6 +719,8 @@ Identical to the fresh-deployment guide. The Security Domain is about the HSM it
 > - SQL MI in a failover group
 > - VM with Azure Site Recovery (ASR) replication enabled
 > - Any cross-region dependency on the workload being migrated
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -702,6 +740,8 @@ Managed HSM supports **automatic key rotation** on a schedule, plus on-demand ro
 | Managed disks via DES (auto-rotation) | within **1 hour** — DES updates all referenced disks, snapshots, and images | None — VMs are **not** rebooted during automatic key rotation |
 
 **⚠️ Mandatory retention rule:** Keep **all previous CMK versions** for at least the longest backup retention horizon (PITR + LTR). Newer rotations always use the latest version, but historical backups are pinned to the version that was active at backup time. For a SQL MI with a 7-year LTR policy, this means every CMK version generated during those 7 years must be retained — a multi-year retention policy is a multi-year key-management commitment.
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -727,6 +767,8 @@ Managed HSM supports **automatic key rotation** on a schedule, plus on-demand ro
 
 - DEKs — one per existing resource, already encrypting data today
 
+[⬆ Back to top](#table-of-contents)
+
 ---
 
 ### Section 12: Pricing (Single Region)
@@ -745,6 +787,8 @@ Cost starts the moment the HSM is provisioned in Phase 0, **not** when workloads
 - Engineering hours for per-VM cutover windows (DCs migrated serially)
 - Rebuild-path effort for any Scenario B VMs (ADE-ever)
 - Convert-path effort for any Scenario C VMs (unmanaged)
+
+[⬆ Back to top](#table-of-contents)
 
 ---
 
@@ -766,7 +810,7 @@ Cost starts the moment the HSM is provisioned in Phase 0, **not** when workloads
 | **Risk level** | 🟡 Medium (throttling caps + post-cutover Inaccessible timers) | 🔴 **High** (downtime per VM + ADE-ever eligibility + key-disable shuts down all CMK-using VMs in ~1 hour + no-snapshot rollback constraint) |
 | **Recommended order** | Phase 1a — do all in-scope MIs first | Phase 1b — eligibility gate first, then one VM at a time (one DC at a time for any DC VMs) |
 
-
+[⬆ Back to top](#table-of-contents)
 
 ---
 
