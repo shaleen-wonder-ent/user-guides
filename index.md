@@ -275,6 +275,10 @@ Please select a guide from the list below:
 
 ---
 
+* [Azure Key Vault Managed HSM — Existing Workloads — Explanation](./HSM_Implementation_Existing_workload.md)
+
+---
+
 
 <!--
 
