@@ -279,6 +279,10 @@ Please select a guide from the list below:
 
 ---
 
+* [Microsoft Entra ID – Federation & IAM Considerations for Microsoft Fabric](./Entra_Tiers_Capabilities.md)
+
+---
+
 
 <!--
 
