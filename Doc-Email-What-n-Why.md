@@ -307,14 +307,4 @@ The InspectAI flow is identical, but with larger documents and a longer per-mess
 
 ---
 
-## 📚 Glossary (For Non-Engineers Reading This)
 
-- **PaaS** — Platform as a Service. Azure manages the OS, patching, scaling. We just deploy code/config.
-- **Private Endpoint (PE)** — a private IP inside our network that points to a PaaS service, so traffic never touches the public internet.
-- **Managed Identity** — an Azure-managed credential that lets one service authenticate to another without storing passwords.
-- **Geo-DR** — Geographic Disaster Recovery; a paired region we can fail over to if the primary region has an outage.
-- **CMK** — Customer-Managed Key; we own the encryption key (in Key Vault), Azure uses it to encrypt our data.
-- **KEDA** — Kubernetes Event-Driven Autoscaling; the engine that scales Container Apps based on queue depth.
-- **WAF** — Web Application Firewall; inspects HTTP traffic for attacks (SQLi, XSS, bots).
-- **RA-GZRS** — Read-Access Geo-Zone-Redundant Storage; the most durable Azure Blob redundancy tier.
-- **PITR** — Point-in-Time Restore; for SQL, lets us restore the DB to any point in the last 35 days.
