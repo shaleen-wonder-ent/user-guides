@@ -266,41 +266,6 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 
 ---
 
-## 8. Decision Points to Settle Before You Start
-
-Before kicking off Phase 0, settle these:
-
-1. **Tagging taxonomy** — recommended: `env / bu / patchring / criticality`. Confirm or amend.
-2. **Patch ring strategy** — typical: Ring 0 (canary, 5%) → Ring 1 (early, 15%) → Ring 2 (broad, 50%) → Ring 3 (final, 30%). Cadence: Ring 0 within 24h of Patch Tuesday, Ring 3 within 14 days.
-3. **Air-gap scope** — list any segments that must stay on WSUS.
-4. **Branch sites** — list any sites needing Connected Cache, and whether any will stay on a **hybrid WSUS-content-source + AUM** model during transition (see §4.3.1).
-5. **Third-party app patching** — explicit confirmation that Adobe/Chrome/Java/etc. are handled by **Intune / ConfigMgr / a 3rd-party tool** and NOT expected from AUM. List the tool that will own this.
-6. **RBAC model** — who owns maintenance configs (platform team), who reads dashboards (security, audit, app owners)?
-7. **Subscription strategy** — single sub for all Arc resources vs. per-BU sub. (Per-BU often simplifies cost showback.)
-8. **Defender for Servers** — in scope for this project or separate workstream? Recommend separate.
-9. **Power BI executive layer** — in or out of Phase 1?
-
----
-
-## 9. Implementation Deliverables Checklist
-
-| Deliverable | Phase | Format |
-|---|---|---|
-| Tagging + RBAC design doc | 0 | Markdown / Word |
-| Log Analytics + DCR Bicep template | 0 | `infra/aum/*.bicep` |
-| Bulk Arc onboarding script + GPO | 1 | PowerShell + GPO ADMX guidance |
-| Day-0 history backfill scripts (Win/Linux/SQL) | 1 | PowerShell + Bash + T-SQL |
-| Custom table `LegacyPatchHistory_CL` schema + ingestion pipeline | 1 | DCR + sample data |
-| Maintenance configurations (Bicep) for all rings | 1 | `infra/aum/maintenance-configs.bicep` |
-| Azure Policy assignments (tag enforcement + AUM auto-enable) | 1 | `infra/aum/policy.bicep` |
-| Workbook v1 (union of pre + post) | 1 | Workbook JSON, importable |
-| Wave runbooks for production rollout | 2 | Markdown runbooks |
-| WSUS decommission checklist | 3 | Markdown checklist |
-| Operator enablement workshop | 3 | 3-hour live session + recording |
-| Final architecture + handover doc | 3 | Markdown / Word |
-
----
-
 ## Appendix A — Day-0 History Backfill Scripts
 
 ### A.1 Windows — `Get-HotFix` + WU log
