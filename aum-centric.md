@@ -27,6 +27,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 
 ### Common pain points
+
 | # | Pain | Operational cost |
 |---|---|---|
 | 1 | Multiple tools, each with its own UI and dataset | High context-switching; team specialism per tool |
@@ -60,6 +61,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 
 ### What changes
+
 | Capability | Before | After |
 |---|---|---|
 | **Distribution** | WSUS server fleet | Microsoft Update + Delivery Optimization (or Connected Cache for branch sites) |
@@ -135,6 +137,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 **Yes for the vast majority of enterprise estates.** A WSUS + multi-scanner setup with mostly-connected servers is exactly where AUM shines — a clean replacement is the norm.
 
 #### Replacement scorecard
+
 | Capability you need today | WSUS does it | AUM does it | Notes |
 |---|:-:|:-:|---|
 | Schedule patches by ring (dev → test → prod) | ✅ (computer groups + GPO) | ✅ (maintenance configs + tag-based dynamic scope) | AUM is more flexible — tag-driven |
