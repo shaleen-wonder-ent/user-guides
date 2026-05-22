@@ -283,6 +283,9 @@ Please select a guide from the list below:
 
 ---
 
+* [Azure ARC AUM-Centric Patch Management](./aum-centric.md)
+
+---
 
 <!--
 
