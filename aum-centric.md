@@ -270,6 +270,9 @@ gantt
 
 ## 6. Reference Architecture
 
+<img width="1632" height="951" alt="reference-architecture" src="https://github.com/user-attachments/assets/41e7e7bb-7a17-44b9-b25a-e4c925f8bb44" />
+
+
 ```mermaid
 flowchart TB
     subgraph CustomerNet["Customer network"]
