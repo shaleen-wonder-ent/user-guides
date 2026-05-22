@@ -1,49 +1,32 @@
-# AUM-Centric Patch Management — Proposal & Solution
+# AUM-Centric Patch Management — A Practical Guide
 
-> **Prepared for:** Customer post-demo follow-up
-> **Date:** 21 May 2026
-> **Author:** Microsoft Solutions team
 > **Scope:** Replace existing WSUS + multi-tool patch workflow with an Azure Update Manager (AUM)–centric single pane of glass, anchored on Azure Arc for the on-prem estate.
 
 ---
 
 ## 1. Executive Summary
 
-The customer's current patch management estate is built around **WSUS for distribution**, **multiple secondary tools for verification**, and a **manual reconciliation step for false positives**. The team owns the toolchain, the reports, and the gaps between them.
+If your current patch management estate is built around **WSUS for distribution**, **multiple secondary tools for verification**, and a **manual reconciliation step for false positives**, your team owns the toolchain, the reports, and the gaps between them.
 
-We propose a **single-console model**: onboard every Windows/Linux server and SQL host to **Azure Arc** (free), and let **Azure Update Manager (AUM)** become the **only place** the customer assesses, schedules, executes, audits, and reports on OS-level patching. WSUS is retired (or retained only for true air-gapped pockets); the secondary verification tools become redundant; false-positive reconciliation collapses because AUM's data source is the OS's own update agent (WU / package manager), not a third-party scanner.
+This guide proposes a **single-console model**: onboard every Windows/Linux server and SQL host to **Azure Arc** (free), and let **Azure Update Manager (AUM)** become the **only place** you assess, schedule, execute, audit, and report on OS-level patching. WSUS is retired (or retained only for true air-gapped pockets); the secondary verification tools become redundant; false-positive reconciliation collapses because AUM's data source is the OS's own update agent (WU / package manager), not a third-party scanner.
 
-To preserve **historical continuity**, we ingest each server's pre-Arc patch history (`Get-HotFix`, `dpkg/yum/dnf history`, SQL CU registry) **once at onboarding** into a Log Analytics custom table. From Day 1 the customer's Workbook UNIONs that one-time history with AUM's ongoing data — a single timeline per server, per business unit, per estate.
+To preserve **historical continuity**, ingest each server's pre-Arc patch history (`Get-HotFix`, `dpkg/yum/dnf history`, SQL CU registry) **once at onboarding** into a Log Analytics custom table. From Day 1, your Workbook UNIONs that one-time history with AUM's ongoing data — a single timeline per server, per business unit, per estate.
 
 **Outcome promise:** *one console, one report, one schedule engine, one audit trail — across on-prem, Azure, AWS, GCP, Windows, Linux, and SQL.*
 
 ---
 
-## 2. Current State (as described by the customer)
+## 2. Current State — A Common Pattern
 
-<img width="1321" height="741" alt="current-state" src="https://github.com/user-attachments/assets/0b058a8f-c8c5-445b-b443-6b0039a5684d" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/0b058a8f-c8c5-445b-b443-6b0039a5684d"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-```mermaid
-flowchart LR
-    subgraph OnPrem["On-prem estate"]
-        VM1[Windows VMs]
-        VM2[Linux VMs]
-        SQL[SQL instances]
-    end
 
-    WSUS[WSUS<br/>distribution] --> VM1
-    WSUS --> VM2
-    Tool1[3rd-party scanner #1<br/>verification] --> VM1
-    Tool2[3rd-party scanner #2<br/>compliance report] --> VM1
-    Tool3[Manual scripts<br/>SQL CU check] --> SQL
-
-    VM1 --> Manual[Operator manually<br/>reconciles false positives]
-    VM2 --> Manual
-    SQL --> Manual
-    Manual --> Reports[Excel / PDF<br/>monthly reports]
-```
-
-### Pain points the customer named
+### Common pain points
 | # | Pain | Operational cost |
 |---|---|---|
 | 1 | Multiple tools, each with its own UI and dataset | High context-switching; team specialism per tool |
@@ -58,34 +41,23 @@ flowchart LR
 ## 3. Target State — AUM-Centric
 
 **WSUS vs. Azure Arc + Azure Update Manager — comparative architectures**
-<img width="1536" height="1024" alt="480ec403b1" src="https://github.com/user-attachments/assets/e98921e2-5264-48fb-82d9-06b593a39947" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/e98921e2-5264-48fb-82d9-06b593a39947"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
 
 > **Figure 1 — Comparative architectures.** *Left:* WSUS requires an on-prem server to sync from Microsoft Update and push approved updates to Windows clients. *Right:* Azure Update Manager uses the Azure Arc agent on each server to orchestrate patching from a cloud control plane, while each machine downloads update content directly from Microsoft Update (or a Connected Cache at branch sites).
 
-<img width="1621" height="831" alt="target-state" src="https://github.com/user-attachments/assets/086d1332-cd0c-4006-b785-dc691f65e899" />
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/086d1332-cd0c-4006-b785-dc691f65e899"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-```mermaid
-flowchart LR
-    subgraph OnPrem["On-prem / multi-cloud estate"]
-        VM1[Windows VMs<br/>+ Arc agent]
-        VM2[Linux VMs<br/>+ Arc agent]
-        SQL[SQL instances<br/>+ Arc SQL extension]
-    end
-
-    VM1 -->|extension| AUM
-    VM2 -->|extension| AUM
-    SQL -->|extension| AUM
-
-    VM1 -.->|one-time import| LA[(Log Analytics<br/>LegacyPatchHistory_CL)]
-    VM2 -.->|one-time import| LA
-    SQL -.->|one-time import| LA
-
-    AUM[Azure Update Manager] --> ARG[(Resource Graph<br/>patchassessmentresources<br/>patchinstallationresources)]
-    LA --> WB[AUM Workbook<br/>+ Power BI]
-    ARG --> WB
-    WB --> Stakeholders[CISO / Ops / Audit]
-```
 
 ### What changes
 | Capability | Before | After |
@@ -101,13 +73,13 @@ flowchart LR
 
 ---
 
-## 4. Customer Asks — Mapped to Solution
+## 4. Common Questions — Mapped to Solution
 
 ### 4.1 "Can I get a report of security patches installed **BEFORE** I onboarded the server?"
 
 **Native AUM answer:** No — AUM begins recording from the moment its extension reports.
 
-**Our solution — one-time Day-0 backfill into Log Analytics:**
+**The solution — one-time Day-0 backfill into Log Analytics:**
 
 1. At onboarding (Arc agent install), automatically invoke a small script via `az connectedmachine run-command invoke` that extracts the OS's full update history.
 2. The script writes structured JSON to a Data Collection Rule → custom Log Analytics table `LegacyPatchHistory_CL`.
@@ -118,15 +90,15 @@ flowchart LR
 - Linux: `dpkg -l` / `rpm -qa` + `/var/log/dpkg.log` + `dnf history list`
 - SQL Server: `sys.dm_server_registry` + CU registry keys (per instance)
 
-**What the customer sees:** Workbook with a "Patch History" tab per machine, showing two stacked colors — *Pre-Arc (imported once)* + *Post-Arc (AUM live)*. No gap in the timeline.
+**What you see:** Workbook with a "Patch History" tab per machine, showing two stacked colors — *Pre-Arc (imported once)* + *Post-Arc (AUM live)*. No gap in the timeline.
 
-> **Caveat — be honest:** the pre-Arc data is only as complete as what the OS retained. If WSUS purged client install logs older than X days, that's what we get. Most Windows hosts have `Get-HotFix` data going back to OS install, so coverage is usually excellent.
+> **Caveat — be honest:** the pre-Arc data is only as complete as what the OS retained. If WSUS purged client install logs older than X days, that's what you get. Most Windows hosts have `Get-HotFix` data going back to OS install, so coverage is usually excellent.
 
 ---
 
 ### 4.2 "Can I get a comprehensive dashboard for ALL servers, before + after?"
 
-**Yes — three layers, customer chooses depth:**
+**Yes — three layers, pick the depth you need:**
 
 #### Layer 1 — Built-in (zero customization, available Day 1 of onboarding)
 - **Update Manager portal** → Overview, Machines, History, Schedules
@@ -160,10 +132,10 @@ flowchart LR
 
 ### 4.3 "Can AUM replace WSUS — one place to check, act, report?"
 
-**Yes for the vast majority of customers.** This customer's scenario specifically supports a clean replacement.
+**Yes for the vast majority of enterprise estates.** A WSUS + multi-scanner setup with mostly-connected servers is exactly where AUM shines — a clean replacement is the norm.
 
 #### Replacement scorecard
-| Capability the customer needs today | WSUS does it | AUM does it | Notes |
+| Capability you need today | WSUS does it | AUM does it | Notes |
 |---|:-:|:-:|---|
 | Schedule patches by ring (dev → test → prod) | ✅ (computer groups + GPO) | ✅ (maintenance configs + tag-based dynamic scope) | AUM is more flexible — tag-driven |
 | Approve / defer specific KBs | ✅ | ✅ (KB exclude/include lists) | Different UX; functional parity |
@@ -177,7 +149,7 @@ flowchart LR
 | True air-gapped operation | ✅ | ❌ Needs Azure connectivity (direct/proxy/Private Link) | WSUS wins for air-gap only |
 | **Third-party application patching** (Adobe, Chrome, Java, Zoom, …) | ⚠️ via custom packages / ConfigMgr | ❌ OS + Microsoft updates only | WSUS/ConfigMgr wins — see §4.3.1 |
 
-> **About third-party app patching:** AUM patches what the OS update agent patches — Windows OS, Microsoft products surfaced via Microsoft Update, and Linux distro packages. It does **not** ship third-party app updates (Adobe Reader, Chrome, 7-Zip, etc.). For those, the standard companions are **Intune** (with the Enterprise App Catalog / Win32 apps), **Configuration Manager**, or a dedicated 3rd-party patch product (Patch My PC, Ivanti, etc.). This is out of scope for the current proposal but should be acknowledged when sizing WSUS retirement.
+> **About third-party app patching:** AUM patches what the OS update agent patches — Windows OS, Microsoft products surfaced via Microsoft Update, and Linux distro packages. It does **not** ship third-party app updates (Adobe Reader, Chrome, 7-Zip, etc.). For those, the standard companions are **Intune** (with the Enterprise App Catalog / Win32 apps), **Configuration Manager**, or a dedicated 3rd-party patch product (Patch My PC, Ivanti, etc.). This is out of scope for this guide but should be acknowledged when sizing WSUS retirement.
 
 #### 4.3.1 When you might still want WSUS (or a hybrid mode)
 
@@ -191,7 +163,7 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 
 > ⚠️ **In hybrid mode, AUM respects WSUS approvals.** If your Windows clients are configured (via GPO/registry) to use a WSUS server as their update source, AUM's deployment will only install updates that have been **approved on that WSUS**. Unapproved updates are skipped, even if AUM has selected them. Plan WSUS approval workflows accordingly, or — preferred — point clients at Microsoft Update directly and use Connected Cache for bandwidth, which avoids the dual-approval trap entirely.
 
-#### Recommendation for this customer
+#### Recommendation by estate segment
 
 | Estate segment | Recommended tool |
 |---|---|
@@ -200,11 +172,11 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 | Branch offices with existing healthy WSUS, near-term cutover not feasible | **Hybrid: WSUS for content + AUM for scheduling/reporting** (mind the approval caveat above) |
 | True air-gapped (if any) | **Keep WSUS** for that pocket only |
 | Third-party app patching (Adobe, Chrome, Java, …) | **Intune / ConfigMgr / 3rd-party tool** (separate workstream) |
-| Workstations / laptops (out of scope of this proposal) | **Intune** (separate workstream) |
+| Workstations / laptops (out of scope of this guide) | **Intune** (separate workstream) |
 
 #### What "one place" looks like operationally
 
-| Action | Where the customer goes |
+| Action | Where to go |
 |---|---|
 | Check what's pending on `srvprod-sql-01` | Portal → Update Manager → Machines → `srvprod-sql-01` |
 | Schedule the monthly Patch Tuesday rollout | Portal → Update Manager → Maintenance configurations → create/edit |
@@ -217,126 +189,26 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 
 ---
 
-## 5. Phased Delivery Plan
+## 5. Reference Architecture
 
-```mermaid
-gantt
-    title AUM-Centric Migration — Phased Plan
-    dateFormat YYYY-MM-DD
-    section Phase 0 — Foundation
-    Tagging standard + RBAC model      :p0a, 2026-06-01, 5d
-    Log Analytics workspace + DCRs     :p0b, after p0a, 3d
-    Pilot scope selection (10 servers) :p0c, after p0b, 2d
-    section Phase 1 — Pilot
-    Arc onboarding (pilot 10)           :p1a, after p0c, 5d
-    Day-0 history backfill              :p1b, after p1a, 3d
-    AUM enable + first assessment       :p1c, after p1b, 2d
-    Workbook v1                         :p1d, after p1c, 5d
-    section Phase 2 — Production rollout
-    Arc onboarding (wave 1: 100 svrs)   :p2a, after p1d, 10d
-    Wave 2 (next 100)                   :p2b, after p2a, 10d
-    Wave 3 (remaining)                  :p2c, after p2b, 15d
-    section Phase 3 — WSUS decommission
-    Audit gaps & coverage report        :p3a, after p2c, 5d
-    Cut over patch schedules to AUM     :p3b, after p3a, 10d
-    Decommission WSUS (keep air-gap)    :p3c, after p3b, 10d
-```
+<img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
+     alt="Flow diagram" 
+     src="https://github.com/user-attachments/assets/41e7e7bb-7a17-44b9-b25a-e4c925f8bb44"
+     onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
+<br>
+<em>Click to view full size</em>
 
-### Phase 0 — Foundation (1–2 weeks)
-- Agree **tagging taxonomy** (e.g., `env={dev,test,prod}`, `bu={finance,retail,...}`, `patchring={ring0,ring1,ring2,ring3}`, `criticality={tier1,tier2,tier3}`)
-- Decide **RBAC**: who can edit maintenance configs vs. read-only audit
-- Create **Log Analytics workspace** (or reuse existing) + DCRs for AMA + the `LegacyPatchHistory_CL` custom table
-- Pick a **pilot set of 10 servers** — mixed Windows, Linux, one SQL host
-
-### Phase 1 — Pilot (2–3 weeks)
-- Bulk-onboard the pilot to Arc using **at-scale onboarding script + GPO** (Appendix D)
-- Run **Day-0 history backfill** (Appendix A) — one Run Command per machine, output to Log Analytics
-- Enable **AUM** on the pilot; let the first scheduled assessment run
-- Build **Workbook v1** with the union pattern (Appendix C)
-- **Validation gate:** Workbook compliance % for pilot should reconcile to ±2% of WSUS's last report — proving AUM is the trustworthy source
-
-### Phase 2 — Production rollout (4–8 weeks)
-- Bulk-onboard in **waves of ~100** to keep risk contained
-- Each wave: onboard → Day-0 backfill → enable AUM → confirm in Workbook
-- Apply tags via Azure Policy (`Append` effect) so all new machines auto-inherit ring/BU/criticality
-
-### Phase 3 — WSUS decommission (3–6 weeks)
-- Run AUM and WSUS **side-by-side** for one full patch cycle on each wave
-- Compare assessment results — investigate any deltas
-- Cut over schedules from WSUS to AUM **wave by wave**
-- Decommission WSUS scope by scope (keep only air-gapped pockets, if any)
-
----
-
-## 6. Reference Architecture
-
-<img width="1632" height="951" alt="reference-architecture" src="https://github.com/user-attachments/assets/41e7e7bb-7a17-44b9-b25a-e4c925f8bb44" />
-
-
-```mermaid
-flowchart TB
-    subgraph CustomerNet["Customer network"]
-        direction TB
-        subgraph DC["On-prem datacenter"]
-            W1[Windows server]
-            L1[Linux server]
-            S1[SQL host]
-        end
-        subgraph Branch["Branch office (low BW)"]
-            B1[Windows server]
-            B2[Windows server]
-            CC[Connected Cache]
-            B1 -.cache.-> CC
-            B2 -.cache.-> CC
-        end
-        subgraph Airgap["Air-gapped (optional)"]
-            AG1[Windows server]
-            WSUS_AG[WSUS — retained]
-        end
-    end
-
-    W1 -->|Arc agent| ArcSvc
-    L1 -->|Arc agent| ArcSvc
-    S1 -->|Arc + SQL ext| ArcSvc
-    B1 -->|Arc agent| ArcSvc
-    B2 -->|Arc agent| ArcSvc
-    AG1 -.no Azure.-> WSUS_AG
-
-    subgraph Azure["Azure tenant"]
-        ArcSvc[Arc resource bridge<br/>Microsoft.HybridCompute]
-        AUM[Azure Update Manager]
-        LA[(Log Analytics<br/>workspace)]
-        ARG[(Azure Resource Graph)]
-        WB[Workbook + Dashboard]
-        PBI[Power BI optional]
-        Pol[Azure Policy<br/>compliance enforcement]
-        Sent[Microsoft Sentinel<br/>optional]
-
-        ArcSvc --> AUM
-        ArcSvc --> Pol
-        AUM --> ARG
-        AUM --> LA
-        LA --> WB
-        ARG --> WB
-        ARG --> PBI
-        LA --> Sent
-    end
-
-    CC <-->|MU content| MU[Microsoft Update CDN]
-    W1 -.->|MU traffic| MU
-    L1 -.->|distro repo| Repos[Linux distro repos]
-```
 
 ### Networking notes
 - **Outbound only** from each Arc machine to a known set of Microsoft endpoints (full list: `learn.microsoft.com/azure/azure-arc/servers/network-requirements`)
-- **Azure Private Link** supported for Arc data plane if customer requires no public egress
+- **Azure Private Link** supported for Arc data plane if you require no public egress
 - **Connected Cache** at branch sites caches Windows Update content — solves WSUS's distribution role without WSUS infrastructure
 
 ---
 
-## 7. Cost Model
+## 6. Cost Model
 
-### Per-server monthly meters (list price, USD, May 2026 — for proposal sizing only)
+### Per-server monthly meters (list price, USD, May 2026 — for planning purposes only)
 
 | Meter | Rate | Required for AUM solution? |
 |---|---|---|
@@ -344,8 +216,8 @@ flowchart TB
 | Azure Update Manager (Arc machine) | ~**$5 / server / mo** | ✅ Yes |
 | Log Analytics ingestion | ~**$2.76 / GB** | ✅ Yes — minimal volume for AUM telemetry (~50–200 MB/server/mo typical) |
 | Azure Monitor Agent (AMA) | **$0** (agent) | ✅ Yes (free agent; pays via Log Analytics) |
-| Defender for Servers Plan 2 | ~$15 / server / mo | ❌ Optional — only if customer wants vuln assessment + threat detection |
-| Defender for SQL | ~$15 / vCore / mo | ❌ Optional (customer already evaluated separately) |
+| Defender for Servers Plan 2 | ~$15 / server / mo | ❌ Optional — only if you want vuln assessment + threat detection |
+| Defender for SQL | ~$15 / vCore / mo | ❌ Optional — evaluate alongside Defender for Servers |
 | Microsoft Sentinel | ~$2–4 / GB | ❌ Optional |
 
 ### Worked example — 500-server estate (typical mid-sized enterprise)
@@ -359,7 +231,7 @@ flowchart TB
 | Defender for Servers P2 (if added) | 500 × $15 | $7,500 |
 | **Total with security add-on** | | **~$10,140 / mo** |
 
-### Cost offsets (what the customer **stops** paying)
+### Cost offsets (what you **stop** paying)
 
 | Saving | Typical annual value (500 servers) |
 |---|---|
@@ -373,7 +245,7 @@ flowchart TB
 
 ---
 
-## 8. Risks & Mitigations
+## 7. Risks & Mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|:-:|:-:|---|
@@ -391,11 +263,11 @@ flowchart TB
 
 ---
 
-## 9. Decision Points for the Customer
+## 8. Decision Points to Settle Before You Start
 
-Before we kick off Phase 0, the customer needs to commit on:
+Before kicking off Phase 0, settle these:
 
-1. **Tagging taxonomy** — we propose `env / bu / patchring / criticality`. Confirm or amend.
+1. **Tagging taxonomy** — recommended: `env / bu / patchring / criticality`. Confirm or amend.
 2. **Patch ring strategy** — typical: Ring 0 (canary, 5%) → Ring 1 (early, 15%) → Ring 2 (broad, 50%) → Ring 3 (final, 30%). Cadence: Ring 0 within 24h of Patch Tuesday, Ring 3 within 14 days.
 3. **Air-gap scope** — list any segments that must stay on WSUS.
 4. **Branch sites** — list any sites needing Connected Cache, and whether any will stay on a **hybrid WSUS-content-source + AUM** model during transition (see §4.3.1).
@@ -407,7 +279,7 @@ Before we kick off Phase 0, the customer needs to commit on:
 
 ---
 
-## 10. What Microsoft Will Deliver
+## 9. Implementation Deliverables Checklist
 
 | Deliverable | Phase | Format |
 |---|---|---|
@@ -661,7 +533,7 @@ The Workbook JSON template is delivered as `infra/aum/workbook-patch-estate.json
 ## Appendix D — Bulk Arc Onboarding Pattern
 
 ### D.1 Active Directory GPO (Windows estate)
-1. Create SPN `sp-customer-arc-onboard` with role `Azure Connected Machine Onboarding` scoped to the target subscription/RG.
+1. Create SPN `sp-arc-onboard` with role `Azure Connected Machine Onboarding` scoped to the target subscription/RG.
 2. Generate **7-day** client secret. Store in secure ops vault (not in GPO).
 3. Generate onboarding script from the Azure Arc portal: **Servers → Add → Add at scale → Group Policy**.
 4. Place `OnboardingScript.ps1` + the encrypted credentials JSON on a SYSVOL UNC path.
@@ -789,4 +661,3 @@ Per WSUS server / scope:
 
 ---
 
-> **Next step:** Schedule a 60-min working session with the customer's patch operations + platform team to walk this document, get the **Decision Points** in §9 answered, and kick off Phase 0.
