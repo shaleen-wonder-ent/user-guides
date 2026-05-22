@@ -21,6 +21,8 @@ To preserve **historical continuity**, we ingest each server's pre-Arc patch his
 
 ## 2. Current State (as described by the customer)
 
+<img width="1321" height="741" alt="current-state" src="https://github.com/user-attachments/assets/0b058a8f-c8c5-445b-b443-6b0039a5684d" />
+
 ```mermaid
 flowchart LR
     subgraph OnPrem["On-prem estate"]
@@ -54,6 +56,14 @@ flowchart LR
 ---
 
 ## 3. Target State — AUM-Centric
+
+**WSUS vs. Azure Arc + Azure Update Manager — comparative architectures**
+<img width="1536" height="1024" alt="480ec403b1" src="https://github.com/user-attachments/assets/e98921e2-5264-48fb-82d9-06b593a39947" />
+
+
+> **Figure 1 — Comparative architectures.** *Left:* WSUS requires an on-prem server to sync from Microsoft Update and push approved updates to Windows clients. *Right:* Azure Update Manager uses the Azure Arc agent on each server to orchestrate patching from a cloud control plane, while each machine downloads update content directly from Microsoft Update (or a Connected Cache at branch sites).
+
+<img width="1621" height="831" alt="target-state" src="https://github.com/user-attachments/assets/086d1332-cd0c-4006-b785-dc691f65e899" />
 
 ```mermaid
 flowchart LR
@@ -165,14 +175,31 @@ flowchart LR
 | Future-proof / actively invested | ❌ (deprecated 2024) | ✅ Strategic | AUM wins |
 | Local-cache for low-bandwidth branch | ✅ | ⚠️ Pair with **Microsoft Connected Cache** | WSUS wins as standalone |
 | True air-gapped operation | ✅ | ❌ Needs Azure connectivity (direct/proxy/Private Link) | WSUS wins for air-gap only |
+| **Third-party application patching** (Adobe, Chrome, Java, Zoom, …) | ⚠️ via custom packages / ConfigMgr | ❌ OS + Microsoft updates only | WSUS/ConfigMgr wins — see §4.3.1 |
+
+> **About third-party app patching:** AUM patches what the OS update agent patches — Windows OS, Microsoft products surfaced via Microsoft Update, and Linux distro packages. It does **not** ship third-party app updates (Adobe Reader, Chrome, 7-Zip, etc.). For those, the standard companions are **Intune** (with the Enterprise App Catalog / Win32 apps), **Configuration Manager**, or a dedicated 3rd-party patch product (Patch My PC, Ivanti, etc.). This is out of scope for the current proposal but should be acknowledged when sizing WSUS retirement.
+
+#### 4.3.1 When you might still want WSUS (or a hybrid mode)
+
+Even in mostly-connected estates, three scenarios justify keeping WSUS — fully or partially:
+
+1. **Strictly air-gapped / isolated networks** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
+2. **Severe Internet-bandwidth constraints at branch sites** — AUM-managed servers download patches individually from Microsoft Update. **Microsoft Connected Cache** is the recommended modern fix, but if you have an existing, healthy WSUS already acting as a local content source, you can keep it for that role.
+3. **Extensive third-party application patching today via WSUS/ConfigMgr** — until that workstream is replaced (Intune / ConfigMgr / 3rd-party tool), WSUS or ConfigMgr stays in play for those packages. AUM handles the OS side in parallel.
+
+**Hybrid mode — WSUS as content source, AUM as control plane.** Some organizations keep WSUS purely for local update *content distribution* (bandwidth optimization) while using AUM for *scheduling, reporting, and audit*. This is supported — but with one important caveat:
+
+> ⚠️ **In hybrid mode, AUM respects WSUS approvals.** If your Windows clients are configured (via GPO/registry) to use a WSUS server as their update source, AUM's deployment will only install updates that have been **approved on that WSUS**. Unapproved updates are skipped, even if AUM has selected them. Plan WSUS approval workflows accordingly, or — preferred — point clients at Microsoft Update directly and use Connected Cache for bandwidth, which avoids the dual-approval trap entirely.
 
 #### Recommendation for this customer
 
 | Estate segment | Recommended tool |
 |---|---|
 | Corporate Windows + Linux + SQL hosts with normal Azure connectivity | **AUM (replaces WSUS)** |
-| Branch offices with bandwidth concerns | **AUM + Microsoft Connected Cache** (local content cache, central control) |
+| Branch offices with bandwidth concerns | **AUM + Microsoft Connected Cache** (local content cache, central control) — preferred over WSUS-as-content-source |
+| Branch offices with existing healthy WSUS, near-term cutover not feasible | **Hybrid: WSUS for content + AUM for scheduling/reporting** (mind the approval caveat above) |
 | True air-gapped (if any) | **Keep WSUS** for that pocket only |
+| Third-party app patching (Adobe, Chrome, Java, …) | **Intune / ConfigMgr / 3rd-party tool** (separate workstream) |
 | Workstations / laptops (out of scope of this proposal) | **Intune** (separate workstream) |
 
 #### What "one place" looks like operationally
@@ -356,6 +383,8 @@ flowchart TB
 | Pre-Arc patch history is incomplete | Low–Med | Low | Honest reporting — show `Source` column in Workbook (Pre-Arc vs AUM); document gap |
 | SPN secrets used for onboarding leak | Low | High | **7-day max lifetime** secrets, never write to disk on operator laptop, rotate after rollout |
 | AUM extension upgrade fails (file lock — known issue) | Low | Low | Documented remediation: delete + re-trigger assessment, or AV exclusion for `C:\Packages\Plugins\` |
+| Hybrid WSUS-content-source mode silently drops updates AUM picked | Med (if hybrid retained) | High | Decide early: prefer **Connected Cache** over hybrid. If hybrid is unavoidable, automate **WSUS auto-approval** for the classifications AUM is allowed to install, and reconcile in the Workbook |
+| Third-party app patches assumed "covered by AUM" | Med | Med | Make scope explicit in §4.3 / §10; route 3rd-party apps to **Intune / ConfigMgr** as a separate workstream |
 
 ---
 
@@ -366,11 +395,12 @@ Before we kick off Phase 0, the customer needs to commit on:
 1. **Tagging taxonomy** — we propose `env / bu / patchring / criticality`. Confirm or amend.
 2. **Patch ring strategy** — typical: Ring 0 (canary, 5%) → Ring 1 (early, 15%) → Ring 2 (broad, 50%) → Ring 3 (final, 30%). Cadence: Ring 0 within 24h of Patch Tuesday, Ring 3 within 14 days.
 3. **Air-gap scope** — list any segments that must stay on WSUS.
-4. **Branch sites** — list any sites needing Connected Cache.
-5. **RBAC model** — who owns maintenance configs (platform team), who reads dashboards (security, audit, app owners)?
-6. **Subscription strategy** — single sub for all Arc resources vs. per-BU sub. (Per-BU often simplifies cost showback.)
-7. **Defender for Servers** — in scope for this project or separate workstream? Recommend separate.
-8. **Power BI executive layer** — in or out of Phase 1?
+4. **Branch sites** — list any sites needing Connected Cache, and whether any will stay on a **hybrid WSUS-content-source + AUM** model during transition (see §4.3.1).
+5. **Third-party app patching** — explicit confirmation that Adobe/Chrome/Java/etc. are handled by **Intune / ConfigMgr / a 3rd-party tool** and NOT expected from AUM. List the tool that will own this.
+6. **RBAC model** — who owns maintenance configs (platform team), who reads dashboards (security, audit, app owners)?
+7. **Subscription strategy** — single sub for all Arc resources vs. per-BU sub. (Per-BU often simplifies cost showback.)
+8. **Defender for Servers** — in scope for this project or separate workstream? Recommend separate.
+9. **Power BI executive layer** — in or out of Phase 1?
 
 ---
 
