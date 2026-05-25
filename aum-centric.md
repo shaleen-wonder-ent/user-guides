@@ -97,6 +97,8 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 **What you see:** Workbook with a "Patch History" tab per machine, showing two stacked colors — *Pre-Arc (imported once)* + *Post-Arc (AUM live)*. No gap in the timeline.
 
+> **Pilot latency expectation:** plan for **~30 minutes** between Arc onboarding and the first AUM data appearing in the portal / ARG (extension install + first periodic assessment cycle). This is documented and normal — don't panic-debug if a freshly onboarded machine looks empty in the first 20 minutes.
+
 > **Caveat — be honest:** the pre-Arc data is only as complete as what the OS retained. If WSUS purged client install logs older than X days, that's what you get. Most Windows hosts have `Get-HotFix` data going back to OS install, so coverage is usually excellent.
 
 ---
@@ -117,7 +119,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 - Unions `LegacyPatchHistory_CL` with `patchassessmentresources` + `patchinstallationresources`
 - Pinned to a shared Azure Dashboard
 - Exportable to PDF
-- **Cost:** Log Analytics ingestion (~$2.76/GB) + Workbook runtime free
+- **Cost:** Log Analytics ingestion (~$2.76 / GB) + Workbook runtime free. *Note: at very large estates, Workbook queries consume Log Analytics query units and (for ARG-backed tiles) ARG capacity — usually trivial, but worth measuring if you have 10K+ machines.*
 
 #### Layer 3 — Power BI executive view (optional, ~3 days to build)
 - Connect Power BI to ARG via Azure Resource Graph connector
@@ -126,7 +128,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 - Page 3: Compliance by business unit / cost center (driven by Azure tags)
 - Page 4: Audit — every deployment run, every KB, every machine, exportable
 - Scheduled refresh hourly or daily
-- **Cost:** Power BI Pro licenses for report authors (~$10/user/mo)
+- **Cost:** Power BI Pro licenses for report authors (~$14 / user / mo at list price; varies with Microsoft 365 plan bundling)
 
 **Sample queries** in Appendix B.
 **Workbook skeleton** in Appendix C.
@@ -162,14 +164,14 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 Even in mostly-connected estates, three scenarios justify keeping WSUS — fully or partially:
 
-1. **Strictly air-gapped / isolated s** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
+1. **Strictly air-gapped / isolated networks** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
 2. **Severe Internet-bandwidth constraints at branch sites** — AUM-managed servers download patches individually from Microsoft Update. **Microsoft Connected Cache** is the recommended modern fix, but if you have an existing, healthy WSUS already acting as a local content source, you can keep it for that role.
    > **MCC pilot caveat:** Microsoft Connected Cache for Enterprise & Education supports caching Windows Server updates, but its primary deployment pattern (Delivery Optimization + `DOCacheHost` policy via Intune / MDM / registry) is more mature for Windows clients. Validate server-fleet caching in a pilot before standardizing on it for the WS estate.
 3. **Extensive third-party application patching today via WSUS/ConfigMgr** — until that workstream is replaced (Intune / ConfigMgr / 3rd-party tool), WSUS or ConfigMgr stays in play for those packages. AUM handles the OS side in parallel.
 
 **Hybrid mode — WSUS as content source, AUM as control plane.** Some organizations keep WSUS purely for local update *content distribution* (bandwidth optimization) while using AUM for *scheduling, reporting, and audit*. This is supported — but with one important caveat:
 
-> ⚠️ **In hybrid mode, AUM respects WSUS approvals.** If your Windows clients are configured (via GPO/registry) to use a WSUS server as their update source, AUM's deployment will only install updates that have been **approved on that WSUS**. Unapproved updates are skipped, even if AUM has selected them. Plan WSUS approval workflows accordingly, or — preferred — point clients at Microsoft Update directly and use Connected Cache for bandwidth, which avoids the dual-approval trap entirely.
+> ⚠️ **In hybrid mode, AUM respects WSUS approvals.** If your Windows clients are configured (via GPO/registry) to use a WSUS server as their update source, AUM's deployment will only install updates that have been **approved on that WSUS**. Unapproved updates are skipped, even if AUM has selected them. Microsoft Learn states this plainly: *"Ensure that updates are approved in WSUS, to prevent the failure of Update Manager deployments."* Plan WSUS approval workflows accordingly, or — preferred — point clients at Microsoft Update directly and use Connected Cache for bandwidth, which avoids the dual-approval trap entirely.
 
 #### Recommendation by estate segment
 
@@ -225,7 +227,7 @@ AUM is *not* perfectly symmetric across hosting models. The differences below ar
 
 ### Networking — what the firewall team actually needs
 
-All traffic is **outbound TCP 443** from each Arc machine.
+All traffic is **outbound TCP 443** from each Arc machine. 
 
 | Allow-list category | Items |
 |---|---|
@@ -236,7 +238,8 @@ All traffic is **outbound TCP 443** from each Arc machine.
 
 #### Options for restrictive networks
 
-- **Azure Arc Private Link Scope (PLS)** — per-region private endpoint covering `*.his.arc.azure.com` + `*.guestconfiguration.azure.com`. Note: even with PLS, some endpoints **stay public** — `login.microsoftonline.com`, `download.microsoft.com`, `guestnotificationservice.azure.com`, `*.servicebus.windows.net` do not flow through Private Link.
+- **Azure Arc Private Link Scope (PLS)** — per-region private endpoint covering `*.his.arc.azure.com` + `*.guestconfiguration.azure.com`.
+  - ⚠️ **Some endpoints stay public even with PLS** — `login.microsoftonline.com`, `download.microsoft.com`, `guestnotificationservice.azure.com`, `*.servicebus.windows.net` do **not** flow through Private Link. Hand this fact to the firewall team explicitly; it is the single most common PLS planning miss.
 - **Azure Arc Gateway** (modern alternative, broader rollout through 2025–2026) — reduces the outbound surface to ~7 FQDNs; 1 gateway supports up to ~2,000 Arc servers per region, with a per-subscription cap on gateways. Preferred over PLS for large or strict-egress estates.
 
 #### Two separate paths from each server — don't conflate them
@@ -253,12 +256,20 @@ All traffic is **outbound TCP 443** from each Arc machine.
 | Meter | Rate | Required for AUM solution? |
 |---|---|---|
 | Arc connection | **$0** | ✅ Yes (free) |
-| Azure Update Manager (Arc machine) | ~**$5 / server / mo** | ✅ Yes |
+| Azure Update Manager (Arc machine) | ~**$5 / server / mo** *(see free-scenarios inset below)* | ✅ Yes |
 | Log Analytics ingestion | ~**$2.76 / GB** | ✅ Yes — minimal volume for AUM telemetry (~50–200 MB/server/mo typical) |
 | Azure Monitor Agent (AMA) | **$0** (agent) | ✅ Yes (free agent; pays via Log Analytics) |
-| Defender for Servers Plan 2 | ~$15 / server / mo | ❌ Optional — only if you want vuln assessment + threat detection |
+| Defender for Servers Plan 2 | ~$15 / server / mo *(list; varies by region/currency; covers vuln assessment, MDE integration, FIM, etc.)* | ❌ Optional — only if you want vuln assessment + threat detection |
 | Defender for SQL | ~$15 / vCore / mo | ❌ Optional — evaluate alongside Defender for Servers |
 | Microsoft Sentinel | ~$2–4 / GB | ❌ Optional |
+
+> **AUM is free for Arc-enabled servers in four scenarios** (per the official AUM pricing page — verify before publishing as Microsoft may extend the list):
+> 1. **Azure Local** clusters (Azure benefits enabled).
+> 2. Servers with **Extended Security Updates (ESU) enabled by Azure Arc**.
+> 3. Subscriptions with **Microsoft Defender for Servers Plan 2** enabled.
+> 4. Servers under **Windows Server Management enabled by Azure Arc** (active WS Software Assurance or WS PAYG).
+>
+> If any of the above applies, the $5/server/month line collapses to **$0** for those servers. In particular, **if Defender for Servers Plan 2 is already deployed for security reasons, AUM becomes a no-cost bonus** — net spend is the security spend, and the $5 + $15 = $20 line from the worked example becomes $15.
 
 ### Worked example — 500-server estate (typical mid-sized enterprise)
 
@@ -363,10 +374,10 @@ dpkg-query -W -f='${binary:Package}|${Version}|${Status}\n' |
 
 # Historical install/upgrade events
 zgrep -h "" /var/log/dpkg.log* 2>/dev/null |
-  awk -v m="$machine" '
+  awk -v m="$machine" -v t="$now" '
     /\sinstall\s|\supgrade\s/ {
-      printf "{\"MachineName\":\"%s\",\"Time\":\"%sT%sZ\",\"Action\":\"%s\",\"Package\":\"%s\",\"Version\":\"%s\",\"Source\":\"Pre-Arc-dpkg-log\"}\n",
-        m, $1, $2, $3, $4, $5
+      printf "{\"MachineName\":\"%s\",\"Time\":\"%sT%sZ\",\"Action\":\"%s\",\"Package\":\"%s\",\"Version\":\"%s\",\"Source\":\"Pre-Arc-dpkg-log\",\"ExtractedAt\":\"%s\"}\n",
+        m, $1, $2, $3, $4, $5, t
     }'
 ```
 
@@ -442,23 +453,28 @@ Arc machines use `Microsoft.HybridCompute/machines/runCommands` (PUT-based, **pr
 
 **Pattern A — Recommended (GA): Custom Script Extension on the Arc machine.** Idempotent, runnable as part of an onboarding pipeline.
 
+> The CLI flag is `--type` (not `--extension-type`). `--extension-type` is an Azure-VM-only flag and will fail with *"unrecognized arguments"* on `az connectedmachine extension create`.
+
 ```powershell
 # Windows
 az connectedmachine extension create `
   --resource-group $rg `
   --machine-name $name `
+  --location $location `
   --name "DayZeroBackfillWindows" `
   --publisher Microsoft.Compute `
-  --extension-type CustomScriptExtension `
+  --type CustomScriptExtension `
+  --type-handler-version 1.10 `
   --settings '{ "fileUris": ["https://<blob>/backfill-windows.ps1"], "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File backfill-windows.ps1" }'
 
 # Linux
 az connectedmachine extension create `
   --resource-group $rg `
   --machine-name $name `
+  --location $location `
   --name "DayZeroBackfillLinux" `
   --publisher Microsoft.Azure.Extensions `
-  --extension-type CustomScript `
+  --type CustomScript `
   --settings '{ "fileUris": ["https://<blob>/backfill-deb.sh"], "commandToExecute": "bash backfill-deb.sh" }'
 ```
 
@@ -600,7 +616,7 @@ Author the Workbook in **Portal → Monitor → Workbooks → New**, then export
 
 ### D.1 Active Directory GPO (Windows estate)
 1. Create SPN `sp-arc-onboard` with role `Azure Connected Machine Onboarding` scoped to the target subscription/RG.
-2. Generate **7-day** client secret. Store in secure ops vault (not in GPO).
+2. Issue a short-lived credential — Microsoft recommends **certificate-based authentication** or short-lived client secrets for Arc onboarding SPNs; the 7-day client-secret lifetime used in this guide is a policy choice, not a Microsoft hard rule. Store the credential in a secure ops vault (not in GPO).
 3. Generate onboarding script from the Azure Arc portal: **Servers → Add → Add at scale → Group Policy**.
 4. Place `OnboardingScript.ps1` + the encrypted credentials JSON on a SYSVOL UNC path.
 5. Link GPO to OUs containing target servers — scheduled task runs once, then disables.
@@ -660,7 +676,7 @@ resource ring0 'Microsoft.Maintenance/maintenanceConfigurations@2023-04-01' = {
       InGuestPatchMode: 'User'
     }
     maintenanceWindow: {
-      startDateTime: '2026-06-15 02:00'
+      startDateTime: '2026-06-09 02:00'   // Tue 9 Jun 2026 = 2nd Tuesday — keep startDateTime aligned with recurEvery
       duration: '03:55'
       timeZone: 'India Standard Time'
       recurEvery: '1Month Second Tuesday'
@@ -721,31 +737,23 @@ If the tag scope is contained inside a single RG, deploying alongside the mainte
 
 ### Azure-VM-only: set `patchMode = AutomaticByPlatform` (Customer-Managed Schedules)
 
-```bicep
-resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' existing = {
-  name: vmName
-}
+For an *existing* Azure VM, the canonical day-to-day pattern is an in-place CLI update — it's idempotent and avoids the partial-`Microsoft.Compute/virtualMachines` re-declaration that Bicep would otherwise require (a full VM template demands `hardwareProfile`, `storageProfile`, full `osProfile`, etc.).
 
-resource patchSettings 'Microsoft.Compute/virtualMachines@2024-07-01' = {
-  name: vm.name
-  location: location
-  properties: {
-    osProfile: {
-      // Windows example
-      windowsConfiguration: {
-        patchSettings: {
-          patchMode: 'AutomaticByPlatform'
-          automaticByPlatformSettings: {
-            bypassPlatformSafetyChecksOnUserSchedule: true
-          }
-        }
-      }
-    }
-  }
-}
+```bash
+# Windows VM
+az vm update -g $rg -n $vmName \
+  --set osProfile.windowsConfiguration.patchSettings.patchMode=AutomaticByPlatform \
+        osProfile.windowsConfiguration.patchSettings.automaticByPlatformSettings.bypassPlatformSafetyChecksOnUserSchedule=true
+
+# Linux VM
+az vm update -g $rg -n $vmName \
+  --set osProfile.linuxConfiguration.patchSettings.patchMode=AutomaticByPlatform \
+        osProfile.linuxConfiguration.patchSettings.automaticByPlatformSettings.bypassPlatformSafetyChecksOnUserSchedule=true
 ```
 
-**Linux equivalent** uses `linuxConfiguration.patchSettings.patchMode = 'AutomaticByPlatform'` with the same `bypassPlatformSafetyChecksOnUserSchedule` setting. Arc-enabled servers do **not** need this block — omit it for Arc.
+For **new** VMs being created in Bicep / ARM, set `patchMode` and `automaticByPlatformSettings.bypassPlatformSafetyChecksOnUserSchedule` inside the VM's `osProfile.windowsConfiguration.patchSettings` (or `linuxConfiguration.patchSettings`) at creation time — the same shape, but inside a full VM resource declaration.
+
+**Arc-enabled servers require no `patchMode` setting — omit this step entirely for Arc.**
 
 ---
 
@@ -764,9 +772,6 @@ Per WSUS server / scope:
 - [ ] WSUS server documented (config, approval rules, computer groups) — for rollback
 - [ ] WSUS server placed in **read-only / quiesced** state for 30 days as safety buffer
 - [ ] After 30 days uneventful — decommission WSUS server, reclaim SQL + storage
-
----
-
 
 ---
 
