@@ -453,7 +453,6 @@ Arc machines use `Microsoft.HybridCompute/machines/runCommands` (PUT-based, **pr
 
 **Pattern A — Recommended (GA): Custom Script Extension on the Arc machine.** Idempotent, runnable as part of an onboarding pipeline.
 
-> The CLI flag is `--type` (not `--extension-type`). `--extension-type` is an Azure-VM-only flag and will fail with *"unrecognized arguments"* on `az connectedmachine extension create`.
 
 ```powershell
 # Windows
