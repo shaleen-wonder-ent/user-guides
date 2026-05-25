@@ -162,7 +162,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 Even in mostly-connected estates, three scenarios justify keeping WSUS — fully or partially:
 
-1. **Strictly air-gapped / isolated networks** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
+1. **Strictly air-gapped / isolated s** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
 2. **Severe Internet-bandwidth constraints at branch sites** — AUM-managed servers download patches individually from Microsoft Update. **Microsoft Connected Cache** is the recommended modern fix, but if you have an existing, healthy WSUS already acting as a local content source, you can keep it for that role.
    > **MCC pilot caveat:** Microsoft Connected Cache for Enterprise & Education supports caching Windows Server updates, but its primary deployment pattern (Delivery Optimization + `DOCacheHost` policy via Intune / MDM / registry) is more mature for Windows clients. Validate server-fleet caching in a pilot before standardizing on it for the WS estate.
 3. **Extensive third-party application patching today via WSUS/ConfigMgr** — until that workstream is replaced (Intune / ConfigMgr / 3rd-party tool), WSUS or ConfigMgr stays in play for those packages. AUM handles the OS side in parallel.
@@ -225,7 +225,7 @@ AUM is *not* perfectly symmetric across hosting models. The differences below ar
 
 ### Networking — what the firewall team actually needs
 
-All traffic is **outbound TCP 443** from each Arc machine. Hand the firewall team the table below; don't make them go read the docs.
+All traffic is **outbound TCP 443** from each Arc machine.
 
 | Allow-list category | Items |
 |---|---|
