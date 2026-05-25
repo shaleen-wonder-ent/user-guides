@@ -68,10 +68,13 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 | **Assessment** | WSUS + 3rd-party scanner | AUM (built on the OS's own WU / package manager — single source of truth) |
 | **Scheduling** | GPO + WSUS computer groups | AUM maintenance configurations, tag-scoped |
 | **Reporting** | Manual CSV stitching | One Workbook unioning Day-0 history + AUM ARG data, refreshed live |
-| **False positives** | Cross-tool reconciliation | Eliminated — the assessment source IS the install source |
+| **False positives** | Cross-tool reconciliation | Eliminated — the assessment source IS the install source (see assessment-cadence note below) |
 | **Linux** | Separate workflow | Same console, same scheduler, same reports |
-| **SQL CUs** | Manual | SQL Arc extension reports installed CU; AUM tracks OS patches surrounding it |
+| **SQL CUs (Azure VM)** | Manual | Installed by AUM via the SQL VM integration (GA Apr 2024) |
+| **SQL CUs (Arc-enabled SQL on-prem)** | Manual | AUM applies only SQL/Windows updates marked **Important** or **Critical**; CUs/SPs not so marked still require manual install |
 | **Audit** | Multiple exports | Single ARG query → CSV / Workbook / Power BI |
+
+> **Cadence caveat — read this once, remember forever.** The compliance % you see in AUM is the result of the most recent **Periodic Assessment** (runs every 24h by default), not a real-time scan. “The assessment source IS the install source” eliminates *tool-disagreement* false positives — it does not make assessment instantaneous. Trigger an on-demand assessment after any deployment if you need an immediate refresh.
 
 ---
 
@@ -83,7 +86,7 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 
 **The solution — one-time Day-0 backfill into Log Analytics:**
 
-1. At onboarding (Arc agent install), automatically invoke a small script via `az connectedmachine run-command invoke` that extracts the OS's full update history.
+1. At onboarding (Arc agent install), automatically deliver a small script to each machine that extracts the OS's full update history. **Recommended delivery: Custom Script Extension via `az connectedmachine extension create`** (GA); Arc Run Command is an alternative but is still preview as of May 2026. See Appendix A.6 for both patterns.
 2. The script writes structured JSON to a Data Collection Rule → custom Log Analytics table `LegacyPatchHistory_CL`.
 3. From that point on, **the Workbook unions** `LegacyPatchHistory_CL` with `patchinstallationresources` (AUM ARG) to give an unbroken timeline per machine.
 
@@ -143,11 +146,12 @@ To preserve **historical continuity**, ingest each server's pre-Arc patch histor
 | Schedule patches by ring (dev → test → prod) | ✅ (computer groups + GPO) | ✅ (maintenance configs + tag-based dynamic scope) | AUM is more flexible — tag-driven |
 | Approve / defer specific KBs | ✅ | ✅ (KB exclude/include lists) | Different UX; functional parity |
 | Reboot orchestration | ⚠️ (via GPO) | ✅ Native (`IfRequired`, `Never`, `Always`) | AUM wins |
-| Pre/post scripts | ❌ | ✅ Native (Azure Automation runbooks) | AUM wins |
+| Pre/post scripts | ❌ | ✅ Native (Event Grid → webhook → Azure Functions / Logic Apps / Automation runbooks) | AUM wins |
 | Linux patching | ❌ | ✅ Native | AUM wins |
 | Compliance reporting across estate | ⚠️ (manual) | ✅ ARG + Workbooks | AUM wins |
 | Cross-cloud (AWS/GCP) patching | ❌ | ✅ (Arc-onboard them) | AUM wins |
-| Future-proof / actively invested | ❌ (deprecated 2024) | ✅ Strategic | AUM wins |
+| Hotpatching (Windows Server 2025) | ❌ | ✅ Hotpatch enabled by Azure Arc — **free for Arc-enabled WS2025 as of May 2026**; fewer reboots, faster compliance | AUM wins |
+| Future-proof / actively invested | ❌ (deprecated 2024) | ✅ SQL CU support (Apr 2024), Hotpatch for Arc-WS2025 (Jul 2025; free May 2026), Arc Gateway maturing through 2025–2026 | AUM wins |
 | Local-cache for low-bandwidth branch | ✅ | ⚠️ Pair with **Microsoft Connected Cache** | WSUS wins as standalone |
 | True air-gapped operation | ✅ | ❌ Needs Azure connectivity (direct/proxy/Private Link) | WSUS wins for air-gap only |
 | **Third-party application patching** (Adobe, Chrome, Java, Zoom, …) | ⚠️ via custom packages / ConfigMgr | ❌ OS + Microsoft updates only | WSUS/ConfigMgr wins — see §4.3.1 |
@@ -160,6 +164,7 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 
 1. **Strictly air-gapped / isolated networks** — no path to Azure endpoints, even via proxy or Private Link. AUM cannot operate here. Keep WSUS for that segment only.
 2. **Severe Internet-bandwidth constraints at branch sites** — AUM-managed servers download patches individually from Microsoft Update. **Microsoft Connected Cache** is the recommended modern fix, but if you have an existing, healthy WSUS already acting as a local content source, you can keep it for that role.
+   > **MCC pilot caveat:** Microsoft Connected Cache for Enterprise & Education supports caching Windows Server updates, but its primary deployment pattern (Delivery Optimization + `DOCacheHost` policy via Intune / MDM / registry) is more mature for Windows clients. Validate server-fleet caching in a pilot before standardizing on it for the WS estate.
 3. **Extensive third-party application patching today via WSUS/ConfigMgr** — until that workstream is replaced (Intune / ConfigMgr / 3rd-party tool), WSUS or ConfigMgr stays in play for those packages. AUM handles the OS side in parallel.
 
 **Hybrid mode — WSUS as content source, AUM as control plane.** Some organizations keep WSUS purely for local update *content distribution* (bandwidth optimization) while using AUM for *scheduling, reporting, and audit*. This is supported — but with one important caveat:
@@ -177,6 +182,21 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 | Third-party app patching (Adobe, Chrome, Java, …) | **Intune / ConfigMgr / 3rd-party tool** (separate workstream) |
 | Workstations / laptops (out of scope of this guide) | **Intune** (separate workstream) |
 
+#### Azure VM ↔ Arc-enabled server — capability parity (read before writing Bicep)
+
+AUM is *not* perfectly symmetric across hosting models. The differences below are the ones that bite during scheduled-patching rollouts:
+
+| Capability | Azure VM | Arc-enabled server |
+|---|---|---|
+| Periodic Assessment | ✅ | ✅ |
+| One-time patch run | ✅ | ✅ |
+| Scheduled patching | ✅ — **requires `patchMode = AutomaticByPlatform` with Customer-Managed Schedules** (see Appendix E); schedules silently no-op without it | ✅ — no `patchMode` prerequisite |
+| Automatic VM Guest Patching | ✅ | ❌ (not applicable) |
+| Hotpatching | ✅ (WS Datacenter Azure Edition; also Standard/Datacenter via Arc) | ✅ for WS2025 — **free as of May 2026** |
+| SQL Server CU install | ✅ via SQL VM integration (GA Apr 2024) | ⚠️ Only updates marked **Important** or **Critical**; other CUs/SPs manual |
+| Pricing | Free | $5 / server / mo (or free under Defender P2 / ESU enabled by Arc / WS SA or PAYG) |
+| RBAC role for write/manage | VM Contributor / Owner | Azure Connected Machine Resource Administrator (+ Onboarding role for first connect) |
+
 #### What "one place" looks like operationally
 
 | Action | Where to go |
@@ -185,7 +205,7 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 | Schedule the monthly Patch Tuesday rollout | Portal → Update Manager → Maintenance configurations → create/edit |
 | See compliance % for "BU=Finance" | Dashboard tile (Workbook) — auto-filtered by tag |
 | Export audit evidence for ISO 27001 | Resource Graph Explorer → run shared query → CSV export |
-| Verify a specific KB is installed across the estate | ARG query: `patchinstallationresources | where patches contains "KB5..."` |
+| Verify a specific KB is installed across the estate | ARG query against `patchinstallationresources/softwarepatches` (see Appendix B.5) |
 | Investigate a deployment failure | Update Manager → History → drill into run → see exit code + agent log |
 
 > **One console. One data source. One report. One audit trail.**
@@ -194,18 +214,35 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 
 ## 5. Reference Architecture
 
+
 <img style="max-width: 800px; cursor: pointer; border: 1px solid #ddd; padding: 4px;" 
      alt="Flow diagram" 
-     src="https://github.com/user-attachments/assets/41e7e7bb-7a17-44b9-b25a-e4c925f8bb44"
+     src="https://github.com/user-attachments/assets/02ed086b-85e2-440f-94ea-0c586c47ba6c"
      onclick="window.open(this.src, 'Image', 'width='+this.naturalWidth+',height='+this.naturalHeight); return false;" />
 <br>
 <em>Click to view full size</em>
 
 
-### Networking notes
-- **Outbound only** from each Arc machine to a known set of Microsoft endpoints (full list: `learn.microsoft.com/azure/azure-arc/servers/network-requirements`)
-- **Azure Private Link** supported for Arc data plane if you require no public egress
-- **Connected Cache** at branch sites caches Windows Update content — solves WSUS's distribution role without WSUS infrastructure
+### Networking — what the firewall team actually needs
+
+All traffic is **outbound TCP 443** from each Arc machine. Hand the firewall team the table below; don't make them go read the docs.
+
+| Allow-list category | Items |
+|---|---|
+| **Required service tags** | `AzureActiveDirectory`, `AzureTrafficManager`, `AzureResourceManager`, `AzureArcInfrastructure`, `Storage`, `AzureFrontDoor.Frontend` *(required from April 2026)*, `WindowsAdminCenter` *(if WAC used)* |
+| **Always-required URLs** | `*.his.arc.azure.com`, `*.guestconfiguration.azure.com`, `guestnotificationservice.azure.com`, `*.servicebus.windows.net`, `login.microsoftonline.com`, `pas.windows.net` |
+| **Install / agent-update URLs** | `download.microsoft.com` (Windows), `packages.microsoft.com` (Linux) |
+| **Patch-content URLs (separate from AUM control plane)** | Microsoft Update FQDNs (`*.windowsupdate.com`, `*.update.microsoft.com`, `*.delivery.mp.microsoft.com`) for Windows; distro mirrors for Linux — may instead point to **WSUS / Microsoft Connected Cache / local repo** on the customer network |
+
+#### Options for restrictive networks
+
+- **Azure Arc Private Link Scope (PLS)** — per-region private endpoint covering `*.his.arc.azure.com` + `*.guestconfiguration.azure.com`. Note: even with PLS, some endpoints **stay public** — `login.microsoftonline.com`, `download.microsoft.com`, `guestnotificationservice.azure.com`, `*.servicebus.windows.net` do not flow through Private Link.
+- **Azure Arc Gateway** (modern alternative, broader rollout through 2025–2026) — reduces the outbound surface to ~7 FQDNs; 1 gateway supports up to ~2,000 Arc servers per region, with a per-subscription cap on gateways. Preferred over PLS for large or strict-egress estates.
+
+#### Two separate paths from each server — don't conflate them
+
+- **AUM control plane** — outbound 443 to the endpoints above. Small, infrequent.
+- **Patch content** — separate path: Microsoft Update (default), Connected Cache (branch), WSUS (hybrid), or distro repo / RHUI / SUSE / `packages.microsoft.com` (Linux). AUM never carries the binary update payload.
 
 ---
 
@@ -269,11 +306,11 @@ Even in mostly-connected estates, three scenarios justify keeping WSUS — fully
 ## Appendix A — Day-0 History Backfill Scripts
 
 ### A.1 Windows — `Get-HotFix` + WU log
+
+> See **A.6** for how to deliver this script to an Arc machine. The recommended GA path is **Custom Script Extension** — the Arc `run-command` CLI is still preview as of May 2026 and uses a different shape than Azure-VM run-command.
+
 ```powershell
-# Run via: az connectedmachine run-command invoke
-#   --resource-group <rg> --machine-name <name>
-#   --command-id RunPowerShellScript
-#   --scripts @backfill-windows.ps1
+# backfill-windows.ps1 — emits JSON for ingestion via DCR → LegacyPatchHistory_CL
 
 $ErrorActionPreference = 'Stop'
 $machineName = $env:COMPUTERNAME
@@ -314,7 +351,7 @@ $wuHistory = $history | Where-Object { $_.ResultCode -eq 2 } |
 ### A.2 Linux (Debian/Ubuntu) — `dpkg` + apt history
 ```bash
 #!/usr/bin/env bash
-# az connectedmachine run-command invoke ... --command-id RunShellScript --scripts @backfill-deb.sh
+# Delivered via Custom Script Extension or Arc run-command — see A.6
 set -euo pipefail
 machine=$(hostname)
 now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -377,7 +414,11 @@ FOR JSON AUTO;
 ```
 
 ### A.5 DCR + custom table for ingestion
-Create custom table `LegacyPatchHistory_CL` in the Log Analytics workspace with this schema (Bicep snippet provided separately in `infra/aum/dcr-legacy.bicep`):
+
+Create a custom table named `LegacyPatchHistory_CL` in your Log Analytics workspace and a Data Collection Rule (DCR) that routes the JSON emitted by the backfill scripts in §A.3 / §A.4 into it. Ship the DCR + table as Bicep alongside the rest of your AUM infrastructure (e.g. `infra/aum/dcr-legacy.bicep`).
+
+Table schema:
+
 ```jsonc
 {
   "TimeGenerated": "datetime",
@@ -393,6 +434,52 @@ Create custom table `LegacyPatchHistory_CL` in the Log Analytics workspace with 
   "InstalledBy":   "string",
   "RawPayload":    "dynamic"
 }
+```
+
+### A.6 Execution patterns — how to invoke these scripts on Arc machines
+
+Arc machines use `Microsoft.HybridCompute/machines/runCommands` (PUT-based, **preview** as of May 2026), **not** the Azure-VM `Microsoft.Compute/virtualMachines.invoke(commandId='RunPowerShellScript')` pattern. The two CLIs look similar but the parameters and GA state differ — don't copy Azure-VM examples verbatim.
+
+**Pattern A — Recommended (GA): Custom Script Extension on the Arc machine.** Idempotent, runnable as part of an onboarding pipeline.
+
+```powershell
+# Windows
+az connectedmachine extension create `
+  --resource-group $rg `
+  --machine-name $name `
+  --name "DayZeroBackfillWindows" `
+  --publisher Microsoft.Compute `
+  --extension-type CustomScriptExtension `
+  --settings '{ "fileUris": ["https://<blob>/backfill-windows.ps1"], "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File backfill-windows.ps1" }'
+
+# Linux
+az connectedmachine extension create `
+  --resource-group $rg `
+  --machine-name $name `
+  --name "DayZeroBackfillLinux" `
+  --publisher Microsoft.Azure.Extensions `
+  --extension-type CustomScript `
+  --settings '{ "fileUris": ["https://<blob>/backfill-deb.sh"], "commandToExecute": "bash backfill-deb.sh" }'
+```
+
+**Pattern B — Arc Run Command (preview).** Use only if your operator workflow specifically requires it, and mark it preview to the customer.
+
+```powershell
+# PowerShell (preview)
+New-AzConnectedMachineRunCommand `
+  -ResourceGroupName $rg `
+  -MachineName $name `
+  -Location $location `
+  -RunCommandName "DayZeroBackfillWindows" `
+  -SourceScriptUri "<SAS URI to backfill-windows.ps1>"
+
+# az CLI equivalent (preview) — note: `create` not `invoke`; `--script` not `--scripts`; no `--command-id`
+az connectedmachine run-command create `
+  --resource-group $rg `
+  --machine-name $name `
+  --name "DayZeroBackfillWindows" `
+  --location $location `
+  --script "@backfill-windows.ps1"
 ```
 
 ---
@@ -428,18 +515,21 @@ patchassessmentresources
 
 ### B.3 Pre + Post unified history for a single machine (Log Analytics + ARG join)
 ```kql
-// Run in the Log Analytics workspace
-let post = arg("").patchinstallationresources
-  | extend machineName = tostring(split(id,"/")[8])
-  | mv-expand p = properties.patches
-  | project
-      TimeGenerated = todatetime(properties.lastModifiedDateTime),
-      MachineName   = machineName,
-      KB            = tostring(p.kbId),
-      Source        = "AUM";
-let pre = LegacyPatchHistory_CL
-  | where Source startswith "Pre-Arc"
-  | project TimeGenerated, MachineName, KB, Source;
+// Run in the Log Analytics workspace (uses arg() cross-service query)
+let post =
+    arg("").patchinstallationresources
+    | where type =~ "microsoft.compute/virtualmachines/patchinstallationresults/softwarepatches"
+        or type =~ "microsoft.hybridcompute/machines/patchinstallationresults/softwarepatches"
+    | extend machineName = tostring(split(id, "/")[8])
+    | project
+        TimeGenerated = todatetime(properties.lastModifiedDateTime),
+        MachineName   = machineName,
+        KB            = tostring(properties.kbId),
+        Source        = "AUM";
+let pre =
+    LegacyPatchHistory_CL
+    | where Source startswith "Pre-Arc"
+    | project TimeGenerated, MachineName, KB, Source;
 union pre, post
 | where MachineName == "srvprod-sql-01"
 | order by TimeGenerated desc
@@ -448,24 +538,30 @@ union pre, post
 ### B.4 Deployment-run success rate over the last 30 days
 ```kql
 patchinstallationresources
+| where type =~ "microsoft.compute/virtualmachines/patchinstallationresults"
+    or type =~ "microsoft.hybridcompute/machines/patchinstallationresults"
 | where todatetime(properties.lastModifiedDateTime) > ago(30d)
 | extend status = tostring(properties.status)
 | summarize Runs = count() by status
-| extend SuccessPct = iff(status == "Succeeded", 100.0 * Runs / toscalar(
+| extend TotalRuns = toscalar(
     patchinstallationresources
+    | where type =~ "microsoft.compute/virtualmachines/patchinstallationresults"
+        or type =~ "microsoft.hybridcompute/machines/patchinstallationresults"
     | where todatetime(properties.lastModifiedDateTime) > ago(30d)
-    | count
-  ), 0.0)
+    | count)
+| extend Pct = round(100.0 * Runs / TotalRuns, 1)
 ```
 
 ### B.5 Has a specific KB landed across the estate?
 ```kql
 patchinstallationresources
-| mv-expand p = properties.patches
-| where tostring(p.kbId) == "KB5005565"
-| extend machineName = tostring(split(id,"/")[8])
-| extend status = tostring(p.installationState)
-| summarize Machines = make_set(machineName) by status
+| where type =~ "microsoft.compute/virtualmachines/patchinstallationresults/softwarepatches"
+    or type =~ "microsoft.hybridcompute/machines/patchinstallationresults/softwarepatches"
+| extend machineName       = tostring(split(id, "/")[8])
+| extend kbId              = tostring(properties.kbId)
+| extend installationState = tostring(properties.installationState)
+| where kbId == "KB5005565"
+| summarize Machines = make_set(machineName) by installationState
 ```
 
 ---
@@ -494,7 +590,9 @@ Workbook: "Patch Estate — AUM-Centric"
     └── Grid (CSV-exportable): full deployment + install history
 ```
 
-The Workbook JSON template is delivered as `infra/aum/workbook-patch-estate.json` — importable via Portal → Workbooks → Advanced editor.
+Author the Workbook in **Portal → Monitor → Workbooks → New**, then export it via **Advanced editor → JSON** and check the result into source control (e.g. `infra/aum/workbook-patch-estate.json`) so the same template can be re-imported across environments.
+
+> **ARG retention — plan for the export.** Azure Resource Graph keeps `patchassessmentresources` for **7 days** and `patchinstallationresources` (incl. `/softwarepatches`) for **30 days**. Tabs **3, 4, and 5** above will start dropping rows beyond those windows. For longer history, the Workbook reads from `LegacyPatchHistory_CL` (Day-0 backfill) **plus** a continuous export of `patchinstallationresources` to a `PatchInstall_CL` custom table — a scheduled Azure Function or Logic App writing through a DCR is the lightest pattern. Build this *before* the first patch cycle if your audit team needs >30-day history.
 
 ---
 
@@ -543,6 +641,10 @@ Use built-in policy initiative **"Configure periodic checking for missing system
 ---
 
 ## Appendix E — Maintenance Configurations
+
+> **Prerequisite for Azure VMs (not Arc):** for the Azure VM to honour a maintenance configuration of scope `InGuestPatch`, the VM must be set to `patchMode = AutomaticByPlatform` with platform-safety-checks bypassed on user schedule. Without this, the schedule silently no-ops. Arc-enabled machines have **no equivalent prerequisite**. Set this once per VM — example at the end of this appendix.
+
+> **Dynamic-scope limits (Public Cloud, May 2026):** per dynamic scope — **1,000** resources, **50** tag filters, **50** RG filters. Per region/subscription — **250** schedules, **200** dynamic scopes per schedule. Size your rings accordingly.
 
 Example Bicep for the four-ring rollout pattern (one per ring). Apply scope dynamically via `tagFilter`.
 
@@ -598,6 +700,53 @@ resource ring0Assign 'Microsoft.Maintenance/configurationAssignments@2023-04-01'
 
 Replicate for Ring 1 (next day), Ring 2 (T+7), Ring 3 (T+14). One file, four resources.
 
+### Cross-RG dynamic scope — deploy the `configurationAssignments` at subscription scope
+
+If the tag scope spans more than one resource group (the common case for ring-based rollout), the `configurationAssignments` resource must be deployed at **subscription scope**, not at the RG that holds the maintenance configuration:
+
+```bicep
+// main.bicep — module call
+targetScope = 'subscription'
+
+module ring0Assign './ring0-assignment.bicep' = {
+  name: 'assign-ring0-canary'
+  scope: subscription()      // required for cross-RG dynamic scope
+  params: {
+    configId: ring0.outputs.configId
+  }
+}
+```
+
+If the tag scope is contained inside a single RG, deploying alongside the maintenance configuration at RG scope also works — but the subscription-scope pattern is the safer default.
+
+### Azure-VM-only: set `patchMode = AutomaticByPlatform` (Customer-Managed Schedules)
+
+```bicep
+resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' existing = {
+  name: vmName
+}
+
+resource patchSettings 'Microsoft.Compute/virtualMachines@2024-07-01' = {
+  name: vm.name
+  location: location
+  properties: {
+    osProfile: {
+      // Windows example
+      windowsConfiguration: {
+        patchSettings: {
+          patchMode: 'AutomaticByPlatform'
+          automaticByPlatformSettings: {
+            bypassPlatformSafetyChecksOnUserSchedule: true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Linux equivalent** uses `linuxConfiguration.patchSettings.patchMode = 'AutomaticByPlatform'` with the same `bypassPlatformSafetyChecksOnUserSchedule` setting. Arc-enabled servers do **not** need this block — omit it for Arc.
+
 ---
 
 ## Appendix F — WSUS Decommission Checklist
@@ -618,14 +767,6 @@ Per WSUS server / scope:
 
 ---
 
-## Appendix G — References
-
-- Azure Update Manager docs — `learn.microsoft.com/azure/update-manager/`
-- AUM pricing — `azure.microsoft.com/pricing/details/azure-update-manager/`
-- Azure Arc-enabled servers — `learn.microsoft.com/azure/azure-arc/servers/`
-- WSUS deprecation notice — `learn.microsoft.com/windows-server/get-started/deprecated-features`
-- Microsoft Connected Cache — `learn.microsoft.com/windows/deployment/do/`
-- Azure Resource Graph `patchassessmentresources` / `patchinstallationresources` reference — `learn.microsoft.com/azure/governance/resource-graph/`
 
 ---
 
