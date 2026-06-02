@@ -258,6 +258,7 @@ Please select a guide from the list below:
 * [Multi-Tenant SaaS Landing Zone Architecture](./App_mod_Fabric_non_Fabric_AI_Landing_Zone_Centric_Cloud_Agnostic._V1.md)
 
 ---
+<!--
 
 * [Azure Managed HSM for CMK Encryption](./HSM.md)
 
@@ -267,15 +268,18 @@ Please select a guide from the list below:
 
 ---
 
+
 * [Azure Managed HSM for CMK Diagrams](./HSM_Implementation.md_Flows.md)
 
 ---
 
-* [Azure Key Vault Managed HSM — Explanation](./HSM_Implementation_Explained.md)
+* [Azure Key Vault Managed HSM — Existing Workloads — Explanation](./HSM_Implementation_Existing_workload.md)
+
 
 ---
+-->
 
-* [Azure Key Vault Managed HSM — Existing Workloads — Explanation](./HSM_Implementation_Existing_workload.md)
+* [Azure Key Vault Managed HSM — Explanation](./HSM_Implementation_Explained.md)
 
 ---
 
