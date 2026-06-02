@@ -153,6 +153,7 @@ Confirm each item before starting. Track owners and dates.
 - [ ] **Platform/networking team sign-off** that the existing hub-and-spoke in each region can host one additional spoke VNet peered to the hub, and that the central connectivity subscription can host one additional Private DNS zone (`privatelink.managedhsm.azure.net`) per region.
 
 ### 2.2 Roles required to perform the deployment
+
 | Activity | Role required |
 |---|---|
 | Create resource groups, networks, HSM resource | **Contributor** on subscription (or **Owner** for role assignments) |
