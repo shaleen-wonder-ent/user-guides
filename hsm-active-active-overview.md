@@ -5,7 +5,7 @@
 >
 > **Audience.** Infrastructure, security, and platform engineers who need to picture the end-state before touching the CLI.
 >
-> **How to use it.** Read this once to form the mental model. Then follow [steps.md](steps.md) phase-by-phase for the deep-technical commands, design rationale, risk register, and runbooks.
+> **How to use it.** Read this once to form the mental model. Then follow ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) phase-by-phase for the deep-technical commands, design rationale, risk register, and runbooks.
 >
 
 
@@ -93,11 +93,11 @@ Read these four lines and you have the whole picture:
 
 ## What this doc deliberately does **not** cover
 
-- Exact CLI commands, variable values, and IP plan — see `steps.md` §3.
-- Design decisions and the **full** risk register (the two highlights above are summarised; the complete write-up with mitigations enforced in each phase lives in `steps.md` §1.6).
-- The full Security Domain ceremony script — see `steps.md` Appendix B.
-- Troubleshooting matrix — see `steps.md` Appendix C.
+- Exact CLI commands, variable values, and IP plan — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) §3.
+- Design decisions and the **full** risk register (the two highlights above are summarised; the complete write-up with mitigations enforced in each phase lives in ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) §1.6).
+- The full Security Domain ceremony script — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) Appendix B.
+- Troubleshooting matrix — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) Appendix C.
 
 ---
 
-**Next step.** Open [steps.md](steps.md), set the CLI variables in §3.3, and start at Phase 0.
+**Next step.** Open ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)), set the CLI variables in §3.3, and start at Phase 0.
