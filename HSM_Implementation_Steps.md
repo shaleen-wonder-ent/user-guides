@@ -1,19 +1,17 @@
-
-
-<img width="1522" height="846" alt="image" src="https://github.com/user-attachments/assets/2b4a2b79-e4a3-4cdc-98d1-8d4db3cd0393" />
-<img width="2580" height="1065" alt="image" src="https://github.com/user-attachments/assets/9b930e1f-61aa-4090-ae64-6fdb44e5872f" />
-
-
 # Customer-Managed Keys on Azure Managed HSM
 ## Dual-Region Hub-and-Spoke Deployment Guide
 
+> **→ First time here?** Read the short companion overview [Managed HSM - Mental Image](https://shaleen-wonder-ent.github.io/user-guides/hsm-active-active-overview.html) first — it gives a one-page mental map of *what gets built and in what order* (pre-requisites, 13 numbered steps, traffic-flow model, and the two critical operational pitfalls). This guide then implements that same design phase-by-phase with the deep-technical commands, design rationale, risk register, and runbooks.
+
 > **Audience:** infrastructure, security, and platform engineers deploying Azure Managed HSM for the **first time** to back customer-managed keys (CMK) for VM disks, SQL Managed Instance TDE, and application-tier envelope encryption.
 >
-> **Architecture reference:** `managed-hsm-dual-region-hub-spoke-azure-simplified` and `managed-hsm-dual-region-hub-spoke-azure-tech`
+> **Architecture reference (two complementary diagrams):**
+> - **HSM-focused view** (HSM pools, Security Domain, multi-region replication, workload integration; network detail intentionally minimal) — `<hsm-focused-diagram>` *(placeholder — replace with actual link/filename)*
+> - **Network + DNS + Traffic Manager topology** (hub-spoke peering, region-specific Private DNS zones in the central connectivity subscription, Traffic Manager profile, R1/R2 risk callouts from §1.6) — `<network-and-tm-diagram>` *(placeholder — replace with actual link/filename)*
 >
 > **Example primary region:** South India · **Example DR region:** Central India *(swap for any two Azure paired regions)*
 > **HSM pool name (both regions):** `org-hsm-prod` *(placeholder — replace `org` everywhere with your organisation's short code, e.g. `acme`, `contoso`)*
-> **Posture:** Always Private (public access disabled), Always Available (multi-region replication, **Active-Active** with region-aware DNS and Azure Traffic Manager-based automatic failover).
+> **Posture:** Always Private (public access disabled), Always Available (multi-region replication, **Active-Active** with region-aware private DNS handling in-Azure failover automatically and Azure Traffic Manager + a documented manual endpoint-disable step covering global/public-FQDN callers — see [Risk Register §1.6](#16-risk-register--operational-risks) and §3.2).
 
 ---
 
@@ -26,8 +24,11 @@ The end state looks like this:
 - **Two physically separate HSM clusters** in two Azure regions. Both share the same keys via built-in **multi-region replication**, so you can lose an entire region and your encryption keys are still available.
 - **No public internet access** to the key store. Applications reach it only through **Azure Private Endpoints** inside your own virtual networks, or from on-premises over **ExpressRoute**.
 - **A hub-and-spoke network in each region** so administration traffic, application traffic, and HSM traffic are cleanly separated.
-- **Active-Active operation** — applications in each region talk to their *local* HSM by default (low latency, no cross-region hop), and Azure Traffic Manager **automatically** fails over if a region goes down. No human DNS edit needed during an outage.
+- **Active-Active operation** — applications in each region talk to their *local* HSM by default (low latency, no cross-region hop). Inside Azure, region-aware split-horizon Private DNS means surviving-region workloads continue resolving the HSM to their **local** PE with **no human DNS edit** needed during a regional outage. The Traffic Manager profile that fronts the **global/public** FQDN cannot probe the private HSM data plane, so it requires a **one-line operator action** (disable the Primary TM endpoint) to swing public-DNS / hybrid callers — covered by the DR runbook (§11.3) and drilled quarterly (§11.2). See [Risk Register §1.6](#16-risk-register--operational-risks).
 - **An M-of-N quorum** (e.g. any 3 of 5 officers) controls the HSM's root key material — no single person can compromise or destroy the keys.
+
+<img width="1536" height="1024" alt="d78e206437" src="https://github.com/user-attachments/assets/7cc081b2-eed4-45fa-9fbe-f2c10dcf01be" />
+
 
 ## The journey, phase by phase (plain English)
 
@@ -38,7 +39,7 @@ Read this first so you understand *why* each phase exists before you run any com
 | **0. Subscription & identity prep** | Register Azure resource providers; create Microsoft Entra ID groups for admins, key managers, key users, auditors; create a "break-glass" emergency admin account. | These groups become the basis of every permission grant later. Doing this once up-front avoids ad-hoc permission drift. |
 | **1. Primary network — extend the existing hub** | **The org already runs a production hub-and-spoke in this region** (hub VNet, ExpressRoute Gateway, Firewall, Bastion, on-prem-facing DNS forwarder VMs). You only need to: (a) **capture** the IDs/IPs of those existing resources; (b) **create one new spoke VNet** for the HSM's Private Endpoint; (c) **peer** that new spoke into the existing hub. | The HSM cannot be exposed to the public internet — but the org's private network is already there. This phase plugs the HSM into it without duplicating gateways, Bastions or DNS infrastructure. |
 | **2. DR network — extend the existing DR hub** | Same as Phase 1, in the DR region. **Important:** each region gets its **own** Private DNS zone (split-horizon), so a region's workloads always resolve the HSM name to that region's local Private Endpoint. The zones themselves are created in the **central connectivity subscription** (per the org's existing private-DNS pattern), not inside each spoke. | Region-aware DNS is what makes Active-Active work — no manual DNS edits at failover. Keeping zones central matches the org's existing operating model. |
-| **3. Global wiring & Traffic Manager** | Hub-to-hub peering and the DR ExpressRoute already exist — **don't re-create them**. You only need to: (a) add one conditional-forward rule on the org's existing DNS forwarder VMs so on-prem clients resolve `privatelink.managedhsm.azure.net` via Azure DNS; (b) create the **Traffic Manager** profile for the global HSM FQDN. | Traffic Manager is what automatically fails the global endpoint over when a region goes down. The conditional forward is what lets on-prem callers resolve the HSM's regional Private Endpoint without changing their DNS topology. |
+| **3. Global wiring & Traffic Manager** | Hub-to-hub peering and the DR ExpressRoute already exist — **don't re-create them**. You only need to: (a) add one conditional-forward rule on the org's existing DNS forwarder VMs so on-prem clients resolve `privatelink.managedhsm.azure.net` via Azure DNS; (b) create the **Traffic Manager** profile for the global HSM FQDN. | Traffic Manager fronts the global endpoint for public-DNS / hybrid callers. **Important nuance:** because HSM public access is disabled, TM's probes cannot validate the HSM data plane, so the *Primary-to-DR* swing requires a documented manual step (disable the Primary TM endpoint) — automated in the DR runbook (§11.3) and drilled quarterly (§11.2). The conditional forward is what lets on-prem callers resolve the HSM's regional Private Endpoint without changing their DNS topology. |
 | **4. Provision Primary HSM** | Run one CLI command and wait ~20–30 minutes for the 3-node HSM cluster to provision. It comes up in *Pending* state — usable for activation, not yet for keys. | This is the HSM itself. It is **not yet activated** — keys cannot be created until Phase 5. |
 | **5. Security Domain ceremony** | Bring N officers (e.g. 5) into a room, each holding their offline-generated public key. Run one command that **generates** the HSM's root key material, **encrypts** it under those N public keys with an M-of-N quorum, and **activates** the HSM. The output is one encrypted Security Domain file. | This is the most critical step of the whole project. Lose the Security Domain file *and* enough officer private keys, and **every key in the HSM is permanently unrecoverable** — Microsoft cannot help. |
 | **6. DR HSM & replication** | Add the DR region to the existing HSM with one CLI command (`az keyvault region add`). Azure provisions the DR cluster, copies the Security Domain, and links the two pools as one logical HSM. Then run a canary test to prove a key created on Primary is usable on DR. | This is what gives you region-redundant keys — the same key URI works in both regions. |
@@ -67,7 +68,7 @@ Read this first so you understand *why* each phase exists before you run any com
 | **Hub-and-spoke** | An Azure networking pattern. The "hub" VNet centralises shared services (gateway, firewall, Bastion, DNS). "Spoke" VNets host workloads and connect only to the hub. Spokes don't talk to each other directly — keeps blast-radius small. |
 | **Private Endpoint (PE)** | A NIC inside your VNet that gives a Private Link service (here, the HSM) a private IP from your address space. Traffic to that IP stays on the Microsoft backbone, never traverses the public internet. |
 | **Private DNS zone** | An Azure-private DNS namespace. Here we create one per region for `privatelink.managedhsm.azure.net` so that the HSM's FQDN resolves to the **local** Private Endpoint IP in each region. |
-| **Traffic Manager** | A DNS-based global traffic director. Health-probes endpoints and answers DNS based on which one is up. We use it to make the **global** HSM FQDN automatically fail over to the DR region. |
+| **Traffic Manager** | A DNS-based global traffic director. Health-probes endpoints and answers DNS based on which one is up. We use it to swing the **global/public** HSM FQDN (`org-hsm-prod.managedhsm.azure.net`) from Primary to DR for public-DNS / hybrid callers. Because the HSMs are private-only, TM probes cannot validate the HSM data plane, so the swing is **operator-initiated** (disable the Primary TM endpoint) rather than fully automatic — see §3.2 and §11.3. |
 | **Multi-region replication** | A Managed HSM feature where two regional HSM clusters share the same Security Domain and continuously replicate keys and role assignments. Eventually consistent within ~6 minutes — plan for this in your apps. |
 | **Disk Encryption Set (DES)** | An Azure object that binds a managed disk's encryption to a specific key in a Key Vault or Managed HSM. Each VM disk pointed at the DES is then encrypted using that key. |
 | **TDE (Transparent Data Encryption)** | SQL's at-rest encryption. With CMK + Managed HSM, the TDE "protector" key lives in the HSM; SQL wraps/unwraps the database encryption keys against it. |
@@ -84,9 +85,9 @@ Read this first so you understand *why* each phase exists before you run any com
 4. [Phase 0 — Subscription, Identity, and RBAC Preparation](#phase-0--subscription-identity-and-rbac-preparation)
 5. [Phase 1 — Network Foundation (Primary Region)](#phase-1--network-foundation-primary-region)
 6. [Phase 2 — Network Foundation (DR Region)](#phase-2--network-foundation-dr-region)
-7. [Phase 3 — Global Connectivity (Peering, ExpressRoute, DNS Link)](#phase-3--global-connectivity-peering-expressroute-dns-link)
+7. [Phase 3 — Global wiring (DNS forwarding & Traffic Manager)](#phase-3--global-wiring-dns-forwarding--traffic-manager)
 8. [Phase 4 — Provision Managed HSM (Primary)](#phase-4--provision-managed-hsm-primary)
-9. [Phase 5 — Activate HSM & Generate Security Domain (M-of-N Ceremony)](#phase-5--activate-hsm--generate-security-domain-m-of-n-ceremony)
+8. [Phase 5 — Activate HSM & Generate Security Domain (M-of-N Ceremony)](#phase-5--activate-hsm--generate-security-domain-m-of-n-ceremony)
 10. [Phase 6 — Provision DR HSM & Verify Multi-Region Replication](#phase-6--provision-dr-hsm--enable-multi-region-replication)
 11. [Phase 7 — Lock Down Network (Private Endpoints, NSG, Public Access OFF)](#phase-7--lock-down-network-private-endpoints-nsg-public-access-off)
 12. [Phase 8 — HSM Data-Plane RBAC and Key Creation](#phase-8--hsm-data-plane-rbac-and-key-creation)
@@ -97,9 +98,13 @@ Read this first so you understand *why* each phase exists before you run any com
 17. [Appendix A — RBAC Role Reference](#appendix-a--rbac-role-reference)
 18. [Appendix B — Security Domain Ceremony (Detailed)](#appendix-b--security-domain-ceremony-detailed)
 19. [Appendix C — Troubleshooting](#appendix-c--troubleshooting)
-20. [Appendix D — HSM-only Quick Reference (network aside)](#appendix-d--hsm-only-quick-reference-network-aside)
+
+> **Looking for a high-level, network-aware step list?** See the companion overview document [Managed HSM - Mental Image](https://shaleen-wonder-ent.github.io/user-guides/hsm-active-active-overview.html) — it gives a one-page mental map of the same deployment for readers who want to picture the end-state before diving into the phases below.
 
 ---
+
+<img width="1536" height="1024" alt="736d95d54b" src="https://github.com/user-attachments/assets/46a34960-e2e5-4118-8597-f0cdcafaedf3" />
+
 
 ## 1. Overview & Design Decisions
 
@@ -113,14 +118,25 @@ Read this first so you understand *why* each phase exists before you run any com
 | Network | **Private only** (Public access DISABLED on HSM) | Zero exposure to public internet; data-plane reached only via Private Endpoint |
 | Multi-region mode | **Active-Active** via Managed HSM multi-region replication; both pools serve local data-plane traffic | Each region's workloads hit their **local** HSM PE in steady state — no cross-region latency, capacity is not stranded, and failover is exercised continuously |
 | Cross-region | **Global VNet Peering (Hub-to-Hub)** + **HSM multi-region replication** | Same key URI in both regions; replication is near real-time but **eventually consistent (up to ~6 minutes for key/role propagation)** — operations and applications must plan for this window |
-| DNS | **Region-specific Private DNS zones** (one `privatelink.managedhsm.azure.net` per region) + **Azure Traffic Manager** for the global `*.managedhsm.azure.net` FQDN | Split-horizon resolution: each region's VNets resolve the HSM FQDN to the local PE IP; Traffic Manager handles automatic failover at the global endpoint without manual DNS edits |
-| RTO/RPO | **Key store RPO ≈ 0** (replication on the Azure backbone), **automatic** swing via Traffic Manager. Overall solution RTO depends on app + DB failover (target < 1 hour) | No human DNS edit required inside a failed region |
+| DNS | **Region-specific Private DNS zones** (one `privatelink.managedhsm.azure.net` per region, **never shared**) + **Azure Traffic Manager** for the global `*.managedhsm.azure.net` FQDN | Split-horizon resolution: each region's VNets resolve the HSM FQDN to the local PE IP. **Each regional zone must be linked only to its own region's VNets** — a cross-region link causes hard misrouting in a failover. Audited periodically per §10.5. Traffic Manager covers public-DNS / hybrid callers; its Primary→DR swing is operator-initiated (§3.2, §11.3). |
+| RTO/RPO | **Key store RPO ≈ 0** (replication on the Azure backbone). **In-Azure failover is automatic** — surviving-region workloads keep using their local PE via region-local Private DNS, no operator action needed. **Public-FQDN / hybrid-caller failover requires a documented manual step** (disable the Primary TM endpoint, §11.3 step 2). Overall solution RTO depends on app + DB failover (target < 1 hour). | The only DNS edit during a real outage is the TM endpoint toggle for public-FQDN callers — not the Private DNS zones. |
 | Identity | **Microsoft Entra ID** for control-plane; **Managed Identities + Local RBAC** for data-plane | No secrets in code; per-key scoped least privilege |
 | Admin access | **Remote-access VPN → Azure Bastion → Jump/Client VMs** with MFA | No public RDP/SSH; every admin session is auditable |
 | Security Domain | **Offline-generated, M-of-N (e.g. 3-of-5)** | Same Security Domain imported into both HSM pools so DR is a true mirror |
 | Replication setup | **`az keyvault region add` (native multi-region replication)** preferred; manual SD-upload retained as fallback | Native path links the pools as one logical HSM, configures Traffic Manager automatically, and shows both regions under one resource in the portal |
 | Workloads in scope | VM OS/Data Disks (via DES), SQL Managed Instance (TDE with CMK), application-tier wrap/unwrap | All services requiring customer-managed encryption |
 | **Cost** | **Multi-region replication ≈ doubles Managed HSM spend** (a full secondary HSM cluster is provisioned in the DR region and billed separately, in addition to the Primary cluster). Plus the small extras: Traffic Manager profile + per-region Private DNS zone + global VNet peering egress. | Budget for **2 × HSM cluster cost** from day one; this is the price of Active-Active with RPO ≈ 0. See Microsoft's [Managed HSM multi-region replication](https://learn.microsoft.com/en-us/azure/key-vault/managed-hsm/multi-region-replication) and [Managed HSM pricing](https://azure.microsoft.com/pricing/details/key-vault/) for the per-region rate. |
+
+### 1.6 Risk register & operational risks
+
+The architecture is resilient by design. The two risks below are the only ones that have caused real-world incidents in similar deployments — both are operational (not architectural) and both are mitigated by following the runbook discipline already baked into Phases 3, 10, 11, and 12.
+
+| # | Risk | What goes wrong | Mitigation (where enforced in this guide) |
+|---|---|---|---|
+| **R1** | **Traffic Manager global FQDN failover is not fully hands-free.** | Because HSM public access is disabled, TM probes cannot validate the HSM data plane and show both endpoints `Degraded` in steady state. If operators **assume failover is fully automatic** and do **not** manually disable the Primary TM endpoint during a major region outage, global / hybrid clients that resolve the HSM via **public DNS** (anything not sitting inside a VNet linked to the regional `privatelink.managedhsm.azure.net` zone, or not routing DNS through the §3.1 regional forwarders) will keep being sent to the downed Primary PE and see hard connection failures. In-Azure workloads on the private path are **not** affected — they continue using their local PE automatically. | **Runbook discipline first:** the manual *disable Primary TM endpoint* step is the explicit second action of the real-failover runbook (§11.3 step 2) and is rehearsed every quarter (§11.2 step 6). The Go-Live checklist (§12.1) does **not** pass until that drill is signed off. **Active monitoring:** alert on the TM endpoint *status-change* signal and on HSM availability metrics (§10.3) so the on-call operator is notified within ~1 min of the Primary going down. **Optional engineering control:** deploy the private-probe Azure Function shim described in §3.2 (Consumption plan, VNet-integrated into the HSM PE spoke, calls the local HSM through the PE) so TM probes accurately reflect HSM health and the Primary→DR swing happens without operator action. |
+| **R2** | **Private DNS misconfiguration via wrong VNet linking.** | The two regional `privatelink.managedhsm.azure.net` zones look identical and live in the same central connectivity subscription. Linking a VNet to the **wrong** zone (e.g. a DR app spoke accidentally linked to the Primary-region zone) causes that VNet to resolve the HSM to a PE IP that **does not exist** in its own region — a silent failure that only surfaces during failover, when the workload tries to reach an unreachable IP in the failed region. | **Architecture:** §1.5 / §2.3 mandate that each regional zone is linked **only** to its own region's hub, app spokes, and HSM PE spoke — never cross-region. The naming convention and the `--tags region=primary` / `region=dr` marker on each zone make accidental cross-linking visually obvious. **Periodic audit:** §10.5 introduces a quarterly automated audit (`az network private-dns link vnet list`) that fails the build/compliance scan if either zone has a link whose `location` doesn't match the zone's region tag. **Failover-time check:** the DR drill (§11.2 step 3) explicitly validates that the DR-region private FQDN resolves to **`10.22.1.4`** (DR PE), catching any drift before a real incident. **Last-resort recovery:** §11.5 documents how to force-correct a damaged DR-region zone, but is gated on incident-commander approval and is not used in normal failover. |
+
+> **Risk-register reading note:** both risks are about *operational discipline*, not gaps in the Azure platform. The Always-Private, Active-Active HSM deployment depicted in the architecture diagrams is fully Azure-supported and follows Microsoft's published best practices for secure, highly available key management across regions. R1 and R2 exist because the platform deliberately keeps the data plane private (which is what we want) and pushes the small remaining automation gap (public-FQDN swing, zone-link hygiene) onto the operator — which is exactly what the runbooks, drills, and audits in §11 and §10.5 are for.
 
 ---
 
@@ -530,7 +546,7 @@ az account set --subscription "$SUB_ID"
 
 ---
 
-## Phase 3 — Global wiring (DNS forwarding + Traffic Manager)
+## Phase 3 — Global wiring (DNS forwarding & Traffic Manager)
 
 > **What is already done by the platform team** \u2014 and therefore **NOT** in this phase:
 > - **Hub-to-hub peering** between the existing Primary and DR hubs (cross-region VNet peering).
@@ -750,6 +766,7 @@ az keyvault region list --hsm-name "$HSM_NAME" -o table
 This single command:
 - Provisions the DR HSM cluster in Central India.
 - Imports the Security Domain from the Primary automatically (no second M-of-N ceremony required).
+- **Replicates both keys *and* HSM-local role assignments** to the DR pool automatically — anything you create or grant on Primary appears on DR within the ~6-minute eventual-consistency window (§6.4). You do **not** re-run RBAC commands per region.
 - Registers the DR pool into the same Traffic Manager profile that fronts the global `*.managedhsm.azure.net` FQDN.
 - Surfaces both regions under one resource in the portal (`Multi-region replication` blade).
 
@@ -1090,7 +1107,10 @@ for RG in "$RG_HSM_PRI" "$RG_HSM_DR"; do
 done
 ```
 
-### 10.3 Alerts (minimum set)
+### 10.3 Alerts (recommended baseline)
+
+The table below is a **production-grade baseline**, not a rigid floor — every alert here protects against a real incident class seen in HSM deployments, but thresholds and severities should be tuned to your environment and on-call appetite. Treat the first three rows as non-negotiable for any HSM holding customer-managed keys; the last two are strongly recommended once multi-region replication is live.
+
 Create Azure Monitor alerts for:
 | Signal | Alert |
 |---|---|
@@ -1102,6 +1122,43 @@ Create Azure Monitor alerts for:
 
 ### 10.4 Activity log alerts
 Alert on any `Microsoft.KeyVault/managedHSMs/write` or `delete` from non-pipeline principals.
+
+### 10.5 Periodic configuration audits (quarterly)
+
+These audits exist to catch the two operational risks called out in [§1.6 Risk Register](#16-risk-register--operational-risks) **before** they bite during a real failover. Run them on a quarterly schedule (align with the DR drill in §11.2) and fail the compliance scan / change ticket if any check returns unexpected output.
+
+```bash
+# Switch to the connectivity subscription that owns the Private DNS zones
+az account set --subscription "$CONNECTIVITY_SUB_ID"
+
+# A. Private DNS link hygiene (R2) — each regional zone must be linked ONLY to
+#    VNets in its own region. Any row whose VNet 'location' differs from the
+#    zone's region tag is a misconfiguration and must be removed immediately.
+for RG in "$CONN_DNS_RG" "$CONN_DNS_RG_DR"; do
+  echo "== Zone links in $RG =="
+  az network private-dns link vnet list \
+    -g "$RG" -z privatelink.managedhsm.azure.net \
+    --query "[].{link:name, vnet:virtualNetwork.id, registration:registrationEnabled}" -o table
+done
+
+# B. Traffic Manager endpoint state (R1) — both endpoints should be Enabled in
+#    steady state. Probe status will read 'Degraded' (expected, see §3.2) but
+#    'endpointStatus' must be 'Enabled' on both.
+az account set --subscription "$SUB_ID"
+az network traffic-manager endpoint list \
+  -g "$RG_GLOBAL" --profile-name tm-org-hsm-prod \
+  --query "[].{name:name, target:target, priority:priority, status:endpointStatus, monitor:endpointMonitorStatus}" -o table
+
+# C. Workload FQDN drift (R1) — scan app configuration / Key references for
+#    any use of the TM profile hostname or a regional FQDN instead of the
+#    canonical 'org-hsm-prod.managedhsm.azure.net'. Adapt to your config store:
+#    App Configuration, Key Vault references, Function/App Service settings, etc.
+#    Example (App Configuration):
+# az appconfig kv list --name <your-appconfig> \
+#   --query "[?contains(value, 'trafficmanager.net') || contains(value, '.southindia.managedhsm') || contains(value, '.centralindia.managedhsm')]" -o table
+```
+
+Record the run as an entry in the change-management system. Any finding from check A is a **P1** (potential failover misroute); findings from B/C are **P2** unless TM endpoint status itself is wrong.
 
 ---
 
@@ -1279,184 +1336,6 @@ openssl x509 -in officerX.cer -noout -fingerprint -sha256
 
 ---
 
-## Appendix D — HSM-only Quick Reference (network aside)
-
-> **What this appendix is.** A consolidated, **HSM-only** view of the deployment — the cryptographic-asset lifecycle (provision → activate → replicate → RBAC → keys → backup → rotate) with **all networking steps deliberately excluded**. Use it when you want to reason about "just the HSM" in isolation: planning the M-of-N ceremony, sizing officer rosters, scripting key creation, or onboarding a new application owner who does not care about VNets and Private Endpoints.
->
-> **What this appendix is NOT.** A standalone runbook. The Managed HSM cannot be created, activated, or reached without the network plumbing in Phases 1–3 and §7 already in place. This appendix lists every prerequisite up front (§D.0) and cross-references the full step in the main body — it does not duplicate command output, rationale call-outs, or design discussion.
-
-### D.0 Network prerequisites (assumed, not described here)
-
-Before any step in §D.1–D.10 will succeed, the following must be in place. Each item links to the full step in the main guide:
-
-- Two regional Private DNS zones `privatelink.managedhsm.azure.net` in the central connectivity subscription — §1.5 (Primary), §2.3 (DR).
-- Per-region HSM PE spoke VNet + `snet-pe-hsm` subnet + NSG, peered to the existing regional hub — §1.2–1.4 (Primary), §2.2 (DR).
-- On-prem DNS forwarding to the regional forwarder VMs — §3.1.
-- Traffic Manager profile `tm-org-hsm-prod` for the public FQDN — §3.2.
-- Connectivity smoke test passing from a jump VM in each region — §3.3.
-
-If any of those is missing, stop and complete it first. The remainder of this appendix assumes all of §D.0 is green.
-
-### D.1 Subscription + identity prep
-
-Nothing region-specific or network-specific — do these once per tenant before touching the HSM.
-
-1. Register providers: `Microsoft.KeyVault` (and the others enumerated in §2.1). Full command in **§0.1**.
-2. Create Entra groups `grp-org-hsm-admins` / `grp-org-hsm-operators` / `grp-org-hsm-auditors` and capture their object IDs as `OFFICER_OIDS` / `OPERATOR_OIDS` / `AUDITOR_OIDS`. Full command in **§0.2**.
-3. Create the break-glass identity, store its credentials in the org's emergency-access vault, and exclude it from Conditional Access "all users" policies. Full guidance in **§0.3**.
-4. Agree the M-of-N quorum (recommended `M=3, N=5`) and confirm each of the N custodians has generated an RSA 3072/4096 key pair offline and handed the public `.cer` to the Ceremony Master. Detail in **§2.3** + **Appendix B.2**.
-
-### D.2 Provision the Primary HSM (no key material yet)
-
-The `az keyvault create` call below creates the HSM in **provisioning state** — it is *not yet activated* and holds no keys. Public access is temporarily allowed only so the admin workstation can perform the Security Domain download in §D.3; it is revoked in §D.6.
-
-```bash
-az keyvault create \
-  --hsm-name org-hsm-prod -g "$RG_HSM_PRI" -l "$LOC_PRI" \
-  --administrators $OFFICER_OIDS \
-  --retention-days 90 \
-  --enable-purge-protection true \
-  --public-network-access Enabled        # temporarily, for Phase 5 activation only
-```
-
-Full context (rationale for `retention-days 90`, `purge-protection true`, and the temporary public-access allowance) in **§4.2** and **§4.3**.
-
-### D.3 Activate the HSM — Security Domain ceremony (M-of-N)
-
-This is the only step in the entire guide that **must** be done in person, by a quorum of human custodians, on a hardened workstation. It produces the Security Domain (`org-hsm-prod-SD.json`) which uniquely identifies this HSM instance and is required to ever (re)hydrate it elsewhere.
-
-1. Pre-ceremony: confirm all N custodians present, all N public certs collected into `./sd-certs/`, fingerprints printed and read aloud. Detail in **§5.1** + **Appendix B.3 steps 1–2**.
-2. Run the download:
-
-   ```bash
-   az keyvault security-domain download \
-     --hsm-name org-hsm-prod \
-     --sd-quorum 3 \
-     --sd-wrapping-keys ./sd-certs/officer1.cer ./sd-certs/officer2.cer ./sd-certs/officer3.cer \
-                        ./sd-certs/officer4.cer ./sd-certs/officer5.cer \
-     --security-domain-file ./org-hsm-prod-SD.json
-   ```
-
-   Full command + verification steps in **§5.2** and **§5.3**.
-3. Custody: store the SD file in **3 geographically separate, offline** locations (encrypted, witnessed). Each custodian's private key stays with that custodian only. Detail in **§5.4** and **Appendix B.3 steps 4–6**.
-4. Sign the ceremony log; lodge with Compliance. **§5.5** + **Appendix B.3 step 7**.
-
-After §D.3, `az keyvault show --hsm-name org-hsm-prod` reports `"provisioningState": "Succeeded"` and the HSM is operational.
-
-### D.4 Add the DR region — native multi-region replication
-
-This is the **preferred** path. It links the DR HSM to the Primary as one logical HSM (same FQDN, same key URIs, same Security Domain replicated automatically over the Azure backbone). **No second ceremony is required.**
-
-```bash
-az keyvault region add \
-  --hsm-name org-hsm-prod -g "$RG_HSM_PRI" \
-  --region "$LOC_DR"
-
-az keyvault show --hsm-name org-hsm-prod -g "$RG_HSM_PRI" \
-  --query "properties.regions" -o table
-```
-
-Full command + the manual SD-import fallback (used only if native replication is unavailable in your region pair) in **§6.1** and **§6.2**. The eventual-consistency window for new keys / role assignments to appear in the DR pool is **≈10 s typical, up to ~6 min worst case** — detail and operational implications in **§6.4**.
-
-### D.5 Verify replication (functional test, ~5 minutes)
-
-```bash
-# 1. Create a canary key on the Primary HSM
-az keyvault key create --hsm-name org-hsm-prod --name canary-replication --kty RSA-HSM --size 2048
-KID=$(az keyvault key show --hsm-name org-hsm-prod --name canary-replication --query key.kid -o tsv)
-
-# 2. From a workstation in the DR app spoke (DNS resolves to the DR PE), read the same kid
-az keyvault key show --hsm-name org-hsm-prod --name canary-replication --query key.kid -o tsv
-# Expect: same kid value (allow up to ~6 min for the DR pool to converge)
-
-# 3. Sign on Primary, verify on DR (proves private key material is replicated, not just metadata)
-#    Full sign/verify pair in §6.3 step 3.
-
-# 4. Clean up the canary key
-az keyvault key delete --hsm-name org-hsm-prod --name canary-replication
-```
-
-Full script and expected output in **§6.3**.
-
-### D.6 Disable public access on both HSMs
-
-After activation and replication verification are complete, revoke the temporary public-access allowance from §D.2. From this point on, the HSM data plane is reachable **only** via the Private Endpoints registered in §7.1–7.3.
-
-```bash
-az keyvault update-hsm --hsm-name org-hsm-prod -g "$RG_HSM_PRI" \
-  --public-network-access Disabled
-# The DR pool inherits this setting automatically because both regions are one logical HSM.
-```
-
-The corresponding PE creation + DNS A-record registration are network steps (out of scope for this appendix) and live in **§7.1–7.3**. The full lock-down command + smoke test in **§7.4** and **§7.5**.
-
-> **Important:** after §D.6 the Traffic Manager probes will mark both endpoints `Degraded` permanently. This is **expected and correct** for an Always-Private design — see the hidden-failure-mode call-out in §3.2 and the documented operator response in §11.3 step 2.
-
-### D.7 Data-plane RBAC and key creation
-
-All RBAC here is **HSM-local** (data plane). It does **not** appear in Azure RBAC blades — use `az keyvault role assignment list --hsm-name ...` to view it. Reference table in **Appendix A**.
-
-1. Assign `Managed HSM Administrator` at scope `/` to `grp-org-hsm-admins`. **§8.1**.
-2. Assign `Managed HSM Crypto Officer` at scope `/keys` to the key-lifecycle team. **§8.2**.
-3. Create the per-workload CMK keys (one each for VM Disk Encryption Set, SQL MI TDE, and the application envelope key):
-
-   ```bash
-   az keyvault key create --hsm-name org-hsm-prod --name cmk-vmdisk-prod --kty RSA-HSM --size 3072
-   az keyvault key create --hsm-name org-hsm-prod --name cmk-sqlmi-prod  --kty RSA-HSM --size 3072 \
-     --ops wrapKey unwrapKey encrypt decrypt
-   az keyvault key create --hsm-name org-hsm-prod --name cmk-app-prod    --kty RSA-HSM --size 3072
-   ```
-
-   Full command set + the rationale for including `encrypt`/`decrypt` on the SQL MI key in **§8.3**.
-4. Grant **least-privilege** roles to each workload's managed identity, scoped to the specific key (`/keys/<name>`) — never to `/`. Full command set per workload in **§8.4**.
-
-### D.8 Backup, monitoring, alerts
-
-The HSM-only essentials (network call-outs omitted):
-
-1. **Full HSM backup** — schedule daily + event-triggered (before any role change, key rotation, or RBAC change). Backup principal needs `Managed HSM Backup` at `/`. Full backup-storage and event-trigger setup in **§10.1**.
-2. **Diagnostic settings** — send `AuditEvent` to Log Analytics for 90 days (alerts) **and** to immutable Storage for the org's full retention period. Full command + KQL workspace pattern in **§10.2**.
-3. **Minimum alert set** — SD operation, role assignment change, key delete/purge, failed auth burst, replication lag. Full alert list with thresholds in **§10.3** and **§10.4**.
-
-### D.9 Key rotation
-
-Rotation is a control-plane change — honour the **6-minute eventual-consistency window** (§6.4) before assuming a new key version is usable in the DR region.
-
-```bash
-# Rotate (creates a new version under the same key name)
-az keyvault key rotate --hsm-name org-hsm-prod --name cmk-app-prod
-
-# Get the new versionless and versioned KIDs
-az keyvault key show --hsm-name org-hsm-prod --name cmk-app-prod --query key.kid -o tsv
-```
-
-Application-side guidance (use the **versionless** URI so the SDK picks up the new version automatically, plus retry behaviour during the 6-min window) in **§9.3** and **§9.5**.
-
-### D.10 Security Domain restore drill (annual)
-
-The one operation that proves the M-of-N ceremony actually works — done once a year in a **test subscription**, never against production.
-
-1. Deploy a throwaway Managed HSM in the test subscription (`az keyvault create --public-network-access Enabled` is fine here; the test HSM holds no production material).
-2. Bring **M** custodians together with their private keys.
-3. Upload `org-hsm-prod-SD.json` to the test HSM — same command shape as the manual fallback in **§6.2** step 3.
-4. Confirm activation succeeds (`provisioningState = Succeeded`).
-5. Delete the test HSM.
-
-Combine with a **6-monthly custodian access check** — each custodian briefly demonstrates they can still unlock their private key (no SD operation performed) so loss-of-access is detected long before it would matter in a real incident. Full ritual in **§11.4**.
-
-### D.11 HSM-only operational quick reference
-
-| Operation | Command | Full step |
-|---|---|---|
-| List HSM regions | `az keyvault show --hsm-name org-hsm-prod --query properties.regions -o table` | §6.1 |
-| List role assignments | `az keyvault role assignment list --hsm-name org-hsm-prod -o table` | §8.1–8.4 |
-| List keys | `az keyvault key list --hsm-name org-hsm-prod -o table` | §8.3 |
-| Backup | `az keyvault backup start --hsm-name org-hsm-prod --storage-account-name ... --blob-container-name ...` | §10.1 |
-| Rotate a key | `az keyvault key rotate --hsm-name org-hsm-prod --name <key>` | §D.9 |
-| Disable Primary TM endpoint (DR runbook) | `az network traffic-manager endpoint update -g "$RG_GLOBAL" --profile-name tm-org-hsm-prod -n hsm-pri --type externalEndpoints --endpoint-status Disabled` | §11.3 step 2 |
-
----
-
 **End of guide.** Treat this document as a living artefact — update it with every change in IPs, quorum, custodians, or workload onboarding.
 
-
+> **High-level companion.** For the one-page, network-aware pre-requisites + numbered step overview of this same deployment, see [hsm-active-active-overview.md](hsm-active-active-overview.md).
