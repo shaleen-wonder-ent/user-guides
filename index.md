@@ -279,6 +279,10 @@ Please select a guide from the list below:
 
 ---
 
+* [Managed HSM — Dual-Region Active-Active (Mental image](./hsm-active-active-overview.md)
+
+---
+
 * [Microsoft Entra ID – Federation & IAM Considerations for Microsoft Fabric](./Entra_Tiers_Capabilities.md)
 
 ---
