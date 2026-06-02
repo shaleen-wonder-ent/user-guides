@@ -279,7 +279,11 @@ Please select a guide from the list below:
 
 ---
 
-* [Managed HSM — Dual-Region Active-Active (Mental image](./hsm-active-active-overview.md)
+* [Managed HSM — Dual-Region Active-Active (Mental image)](./hsm-active-active-overview.md)
+
+---
+
+* [Customer-Managed Keys on Azure Managed HSM (Deep technical reasoning)](./HSM_Implementation_Steps.md)
 
 ---
 
