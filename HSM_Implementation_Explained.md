@@ -601,9 +601,7 @@ If you compare two-region to two-region (old way would need 4 devices = ~$13,968
 
 These are the things we **cannot finalize** until Contoso answers. The biggest ones:
 
-1. **Is South India primary and Central India DR?** — Drives the replication model
-2. **Are AD servers self-hosted VMs or Azure AD DS?** — If Azure AD DS, CMK isn't possible for that workload
-3. **Does Contoso use ASR?** — Affects DES requirements and key rotation planning
+1. **Does Contoso use ASR?** — Affects DES requirements and key rotation planning
 4. **Does Contoso have jump boxes in both regions?** — Needed for admin operations with private endpoints
 
 ---
