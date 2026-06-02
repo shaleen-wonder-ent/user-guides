@@ -11,7 +11,7 @@
 >
 > **Example primary region:** South India · **Example DR region:** Central India *(swap for any two Azure paired regions)*
 > **HSM pool name (both regions):** `org-hsm-prod` *(placeholder — replace `org` everywhere with your organisation's short code, e.g. `acme`, `contoso`)*
-> **Posture:** Always Private (public access disabled), Always Available (multi-region replication, **Active-Active** with region-aware private DNS handling in-Azure failover automatically and Azure Traffic Manager + a documented manual endpoint-disable step covering global/public-FQDN callers — see [Risk Register §1.6](#16-risk-register--operational-risks) and §3.2).
+ **Posture:** Always Private (public access disabled), Always Available (multi-region replication, **Active-Active** with region-aware private DNS handling in-Azure failover automatically and Azure Traffic Manager + a documented manual endpoint-disable step covering global/public-FQDN callers — see [Risk Register §1.6](#16-risk-register--operational-risks) and §3.2).
 
 ---
 
@@ -318,7 +318,7 @@ Decide minimum tags applied to every resource: `env=prod`, `owner=<team>`, `cost
 
 **Goal:** **Reuse the org's existing hub** (ExpressRoute Gateway, Firewall, Bastion, DNS forwarder VMs are already there). Add one new spoke VNet for the HSM Private Endpoint, peer it into the existing hub, and link the central Private DNS zone to it.
 
-> **First-time reader - what changed vs a green-field build?** Almost everything that a typical Azure landing-zone guide tells you to create here (hub VNet, ExpressRoute Gateway, Firewall, Bastion, self-hosted DNS forwarder VMs, app spokes) is **already in place** in the org's environment. This phase therefore has two halves: §1.0 is a **discovery pass** where you record what already exists, and §1.2\u2013§1.5 create only the HSM-specific bits.
+> **First-time reader - what changed vs a green-field build?** Almost everything that a typical Azure landing-zone guide tells you to create here (hub VNet, ExpressRoute Gateway, Firewall, Bastion, self-hosted DNS forwarder VMs, app spokes) is **already in place** in the org's environment. This phase therefore has two halves: §1.0 is a **discovery pass** where you record what already exists, and §1.2–§1.5 create only the HSM-specific bits.
 
 ### 1.0 Discover & capture existing hub assets (read-only)
 
@@ -353,12 +353,12 @@ az network vnet peering list -g "$HUB_VNET_PRI_RG" --vnet-name "$HUB_VNET_PRI" \
 ```
 
 Capture for later use:
-- **Hub VNet ID** \u2192 `HUB_VNET_PRI_ID`
-- **Existing app/workload spoke VNet ID(s)** that will need to call the HSM \u2192 `APP_SPOKE_VNET_PRI_ID`
-- **DNS forwarder VM private IPs** \u2192 `DNS_FWD_IPS_PRI`
-- **Firewall private IP** (only if your hub forces east-west through Firewall) \u2192 `FW_PRIVATE_IP_PRI`
+- **Hub VNet ID** → `HUB_VNET_PRI_ID`
+- **Existing app/workload spoke VNet ID(s)** that will need to call the HSM → `APP_SPOKE_VNET_PRI_ID`
+- **DNS forwarder VM private IPs** → `DNS_FWD_IPS_PRI`
+- **Firewall private IP** (only if your hub forces east-west through Firewall) → `FW_PRIVATE_IP_PRI`
 
-> **Heads-up on Firewall and UDRs:** if the existing hub uses Azure Firewall (or an NVA) as the **east-west** chokepoint and the existing app spokes have a UDR `0.0.0.0/0 \u2192 <FW_PRIVATE_IP>`, you must add a **more-specific UDR** in those spokes for the new HSM PE subnet (`10.12.1.0/28`) with **next-hop `VirtualNetwork`** - otherwise PE traffic will be sent to the firewall, which usually breaks Private Link. If the existing hub does **not** force east-west through Firewall, no UDR change is needed. **Confirm this with the platform team before §1.4.**
+> **Heads-up on Firewall and UDRs:** if the existing hub uses Azure Firewall (or an NVA) as the **east-west** chokepoint and the existing app spokes have a UDR `0.0.0.0/0 → <FW_PRIVATE_IP>`, you must add a **more-specific UDR** in those spokes for the new HSM PE subnet (`10.12.1.0/28`) with **next-hop `VirtualNetwork`** - otherwise PE traffic will be sent to the firewall, which usually breaks Private Link. If the existing hub does **not** force east-west through Firewall, no UDR change is needed. **Confirm this with the platform team before §1.4.**
 
 ### 1.1 Resource group for the new HSM + PE spoke
 ```bash
@@ -417,7 +417,7 @@ az network vnet peering create \
   --allow-vnet-access --allow-forwarded-traffic --use-remote-gateways
 ```
 
-> **Spoke-to-spoke is intentionally NOT peered.** Traffic from the existing app spoke \u2192 HSM PE spoke flows via Private Link on the Azure backbone (host-routed by the PE's NIC); it never needs an explicit VNet peering.
+> **Spoke-to-spoke is intentionally NOT peered.** Traffic from the existing app spoke → HSM PE spoke flows via Private Link on the Azure backbone (host-routed by the PE's NIC); it never needs an explicit VNet peering.
 
 > **Permissions:** you need **Network Contributor** (or the right peering-specific role) on **both** the hub VNet (held by the platform team) and the new HSM PE spoke. The first half of the peering pair is usually run by the platform team after change-ticket review.
 
@@ -573,8 +573,8 @@ Two things must be true after this step:
    If the platform team has already deployed a Microsoft DNS Private Resolver in each hub, capture its inbound endpoint IP and add the conditional forward to point at that IP instead of `168.63.129.16`.
 
    Then on the **on-prem DNS server(s)**, add the same conditional-forward rule pointing at the regional forwarder VM IPs:
-   - On-prem sites homed to Primary \u2192 forward to **`DNS_FWD_IPS_PRI`** first, **`DNS_FWD_IPS_DR`** as fallback.
-   - On-prem sites homed to DR \u2192 forward to **`DNS_FWD_IPS_DR`** first, **`DNS_FWD_IPS_PRI`** as fallback.
+   - On-prem sites homed to Primary → forward to **`DNS_FWD_IPS_PRI`** first, **`DNS_FWD_IPS_DR`** as fallback.
+   - On-prem sites homed to DR → forward to **`DNS_FWD_IPS_DR`** first, **`DNS_FWD_IPS_PRI`** as fallback.
 
 This gives steady-state local resolution and an automatic on-prem fall-through if one region's forwarder VMs become unreachable. Because each region's Private DNS zone is separate and holds only its **own** PE A record (§1.5 and §2.3), an on-prem query that lands on the Primary forwarder returns the Primary PE IP, and a query that lands on the DR forwarder returns the DR PE IP - no record collisions, no round-robin.
 
