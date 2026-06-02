@@ -50,9 +50,9 @@ Confirm each item before starting. Anything missing means the steps below will n
 
 ## The steps — what happens, in order
 
-Each step is intentionally one or two lines. The deep-technical commands and rationale live in the matching `steps.md` phase shown in the right-hand column.
+Each step is intentionally one or two lines. The deep-technical commands and rationale live in the matching phase of the [Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html) shown in the right-hand column.
 
-| # | Step | Why it exists | Detail in `steps.md` |
+| # | Step | Why it exists | Detail in Deep Technical document |
 |---|---|---|---|
 | **1** | **Capture** the existing hub, gateway, firewall, Bastion, app-spoke VNets, and **DNS forwarder VM IPs** in both regions. | You are extending the platform, not duplicating it — you need its IDs. | Phase 1 §1.0 / Phase 2 §2.0 |
 | **2** | **Create one new HSM PE spoke VNet per region** (`vnet-org-hsm-pri` / `vnet-org-hsm-dr`) with a `/28` `snet-pe-hsm` subnet (private-endpoint network policies = Disabled), and **peer each spoke into its existing regional hub**. | This is the only new VNet plumbing in the whole deployment. Small blast radius. | Phase 1 §1.2–1.4 / Phase 2 §2.2 |
@@ -72,11 +72,11 @@ Each step is intentionally one or two lines. The deep-technical commands and rat
 
 ## Critical pitfalls to avoid (read once, remember always)
 
-The architecture is sound by design. The two failure modes below are **operational, not architectural** — both have caused real-world incidents in similar deployments. They are covered in depth in `steps.md` §1.6 (Risk Register R1, R2); the summary here exists so a first-time reader cannot miss them.
+The architecture is sound by design. The two failure modes below are **operational, not architectural** — both have caused real-world incidents in similar deployments. They are covered in depth in [§1.6 of the Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#16-risk-register--operational-risks) (Risk Register R1, R2); the summary here exists so a first-time reader cannot miss them.
 
-- **R1 — Traffic Manager failover is *not* fully hands-free.** Because HSM public access is OFF (Step 9), Traffic Manager probes cannot validate the HSM data plane and will show **both** endpoints `Degraded` in steady state — this is **expected and correct**. The cost: during a real Primary-region outage, public-DNS / hybrid callers will keep being sent to the dead Primary unless an operator **manually disables the Primary TM endpoint**. In-Azure workloads on the private path are unaffected (split-horizon DNS does the right thing automatically). *Mitigation:* the manual TM step is the second action of the failover runbook (`steps.md` §11.3) and is drilled quarterly (§11.2); Go-Live (§12.1) does not pass until that drill is signed off.
+- **R1 — Traffic Manager failover is *not* fully hands-free.** Because HSM public access is OFF (Step 9), Traffic Manager probes cannot validate the HSM data plane and will show **both** endpoints `Degraded` in steady state — this is **expected and correct**. The cost: during a real Primary-region outage, public-DNS / hybrid callers will keep being sent to the dead Primary unless an operator **manually disables the Primary TM endpoint**. In-Azure workloads on the private path are unaffected (split-horizon DNS does the right thing automatically). *Mitigation:* the manual TM step is the second action of the failover runbook ([§11.3](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#113-real-failover-runbook-region-loss)) and is drilled quarterly ([§11.2](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#112-quarterly-drill-no-production-impact)); Go-Live ([§12.1](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#121-pre-go-live)) does not pass until that drill is signed off.
 
-- **R2 — Private DNS zone mis-linking.** The two regional `privatelink.managedhsm.azure.net` zones look identical and live in the **same** central connectivity subscription. Linking a VNet to the **wrong** zone (e.g. a DR app spoke accidentally linked to the Primary-region zone) silently mis-routes HSM traffic across regions, breaks the low-latency Active-Active design, and surfaces only during failover — when the workload tries to reach a PE IP that does not exist in its own region. *Mitigation:* enforce **strictly one zone per region**, each linked **only** to its own region's hub + app spokes + HSM PE spoke (Step 3); tag zones `region=primary` / `region=dr` so cross-links are visually obvious; run the quarterly automated audit in `steps.md` §10.5 (`az network private-dns link vnet list`) that fails the compliance scan if any link's location doesn't match its zone's region tag; and during testing **always validate DNS responses** from a workload in each region (`nslookup org-hsm-prod.privatelink.managedhsm.azure.net` must return `10.12.1.4` in Primary and `10.22.1.4` in DR).
+- **R2 — Private DNS zone mis-linking.** The two regional `privatelink.managedhsm.azure.net` zones look identical and live in the **same** central connectivity subscription. Linking a VNet to the **wrong** zone (e.g. a DR app spoke accidentally linked to the Primary-region zone) silently mis-routes HSM traffic across regions, breaks the low-latency Active-Active design, and surfaces only during failover — when the workload tries to reach a PE IP that does not exist in its own region. *Mitigation:* enforce **strictly one zone per region**, each linked **only** to its own region's hub + app spokes + HSM PE spoke (Step 3); tag zones `region=primary` / `region=dr` so cross-links are visually obvious; run the quarterly automated audit in [§10.5](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#105-periodic-configuration-audits-quarterly) (`az network private-dns link vnet list`) that fails the compliance scan if any link's location doesn't match its zone's region tag; and during testing **always validate DNS responses** from a workload in each region (`nslookup org-hsm-prod.privatelink.managedhsm.azure.net` must return `10.12.1.4` in Primary and `10.22.1.4` in DR).
 
 ---
 
@@ -93,11 +93,11 @@ Read these four lines and you have the whole picture:
 
 ## What this doc deliberately does **not** cover
 
-- Exact CLI commands, variable values, and IP plan — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) §3.
-- Design decisions and the **full** risk register (the two highlights above are summarised; the complete write-up with mitigations enforced in each phase lives in ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) §1.6).
-- The full Security Domain ceremony script — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) Appendix B.
-- Troubleshooting matrix — see ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)) Appendix C.
+- Exact CLI commands, variable values, and IP plan — see ([Deep Technical document §3](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#3-naming-ip-plan-and-variables)).
+- Design decisions and the **full** risk register (the two highlights above are summarised; the complete write-up with mitigations enforced in each phase lives in ([Deep Technical document §1.6](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#16-risk-register--operational-risks))).
+- The full Security Domain ceremony script — see ([Deep Technical document Appendix B](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#appendix-b--security-domain-ceremony-detailed)).
+- Troubleshooting matrix — see ([Deep Technical document Appendix C](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#appendix-c--troubleshooting)).
 
 ---
 
-**Next step.** Open ([Deep Technical document](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html)), set the CLI variables in §3.3, and start at Phase 0.
+**Next step.** Open ([Deep Technical document §3.3](https://shaleen-wonder-ent.github.io/user-guides/HSM_Implementation_Steps.html#33-cli-variables-paste-into-your-shell)), set the CLI variables, and start at Phase 0.
