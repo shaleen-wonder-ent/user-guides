@@ -6,8 +6,8 @@
 > **Audience:** infrastructure, security, and platform engineers deploying Azure Managed HSM for the **first time** to back customer-managed keys (CMK) for VM disks, SQL Managed Instance TDE, and application-tier envelope encryption.
 >
 > **Architecture reference (two complementary diagrams):**
-> - **HSM-focused view** (HSM pools, Security Domain, multi-region replication, workload integration; network detail intentionally minimal) — [managed-hsm-dual-region-hub-spoke-azure.drawio](managed-hsm-dual-region-hub-spoke-azure.drawio)
-> - **Network + DNS topology** (hub-spoke peering, region-specific Private DNS zones in the central connectivity subscription, platform-managed routing for the global FQDN, R1/R2 risk callouts from [§1.6](#16-risk-register--operational-risks)) — [managed-hsm-dual-region-connectivity-and-tm.drawio](managed-hsm-dual-region-connectivity-and-tm.drawio)
+> - **HSM-focused view** (HSM pools, Security Domain, multi-region replication, workload integration; network detail intentionally minimal)
+> - **Network + DNS topology** (hub-spoke peering, region-specific Private DNS zones in the central connectivity subscription, platform-managed routing for the global FQDN, R1/R2 risk callouts from [§1.6](#16-risk-register--operational-risks)) 
 >
 > **Example primary region:** South India · **Example DR region:** Central India *(swap for any two Azure paired regions)*
 > **HSM pool name (both regions):** `org-hsm-prod` *(placeholder — replace `org` everywhere with your organisation's short code, e.g. `acme`, `contoso`)*
@@ -103,7 +103,7 @@ Read this first so you understand *why* each phase exists before you run any com
 
 ---
 
-<img width="1536" height="1024" alt="736d95d54b" src="https://github.com/user-attachments/assets/46a34960-e2e5-4118-8597-f0cdcafaedf3" />
+<img width="1536" height="1024" alt="736d95d54b" src="https://github.com/user-attachments/assets/02a1382a-f443-4a29-90d4-1a76d446aecd" />
 
 
 ## 1. Overview & Design Decisions
@@ -122,7 +122,7 @@ Read this first so you understand *why* each phase exists before you run any com
 | RTO/RPO | **Key store RPO ≈ 0** (replication on the Azure backbone, eventual-consistency ≤ ~6 min, [§6.4](#64-replication-lag--eventual-consistency-window)). **HSM failover is fully automatic** — in-region workloads keep using their local PE via region-local Private DNS (no operator action); public-FQDN / hybrid callers are swung Primary→DR by Microsoft's internal traffic routing layer (DNS TTL 5 s) when a region becomes unhealthy. Overall solution RTO depends on app + DB failover (target < 1 hour). | The only DNS edit during a real outage is **none** at the HSM layer. Operators do not touch Private DNS zones and do not touch any Traffic Manager profile. |
 | Identity | **Microsoft Entra ID** for control-plane; **Managed Identities + Local RBAC** for data-plane | No secrets in code; per-key scoped least privilege |
 | Admin access | **Remote-access VPN → Azure Bastion → Jump/Client VMs** with MFA | No public RDP/SSH; every admin session is auditable |
-| Security Domain | **Offline-generated, M-of-N (e.g. 3-of-5)** | Same Security Domain imported into both HSM pools so DR is a true mirror |
+| Security Domain | **Offline-generated, M-of-N (e.g. 3-of-5)** | Generated **once** on the Primary HSM and **auto-replicated** to the DR pool by `az keyvault region add` ([§6.1](#61-preferred--native-multi-region-replication-az-keyvault-region-add)) — **no second ceremony** in DR. Same logical HSM, same keys, same SD in both regions. |
 | Replication setup | **`az keyvault region add` (native multi-region replication)** — the only supported path for any new deployment. The manual SD-import path ([§6.2](#62-fallback--manual-replica-with-security-domain-import)) is retained only for environments where the native command is not yet available. | Native path links the pools as one logical HSM, provisions Microsoft's internal traffic routing for the global `<hsm>.managedhsm.azure.net` FQDN automatically, and shows both regions under one resource in the portal. |
 | Workloads in scope | VM OS/Data Disks (via DES), SQL Managed Instance (TDE with CMK), application-tier wrap/unwrap | All services requiring customer-managed encryption |
 | **Cost** | **Multi-region replication ≈ doubles Managed HSM spend** (a full secondary HSM cluster is provisioned in the DR region and billed separately, in addition to the Primary cluster). Plus the small extras: two per-region Private DNS zones and global VNet peering egress. No customer Traffic Manager profile is deployed, so there is no per-profile / per-million-DNS-queries TM charge. | Budget for **2 × HSM cluster cost** from day one; this is the price of Active-Active with RPO ≈ 0. See Microsoft's [Managed HSM multi-region replication](https://learn.microsoft.com/en-us/azure/key-vault/managed-hsm/multi-region-replication) and [Managed HSM pricing](https://azure.microsoft.com/pricing/details/key-vault/) for the per-region rate. |
