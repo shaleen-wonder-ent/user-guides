@@ -13,7 +13,7 @@
 1. **Control** — If Contoso holds the keys, they can revoke access to their own data at any time. Microsoft can't read it without Contoso's permission.
 2. **Compliance** — PCI-DSS (payment card industry standard) requires demonstrable control over encryption keys.
 
-**The solution:** Azure Key Vault Managed HSM — a dedicated, tamper-proof hardware vault in the cloud that stores and protects Contoso's encryption keys.
+**The solution:** Azure Key Vault Managed HSM — a dedicated, tamper-proof, **FIPS 140-3 Level 3 validated** hardware vault in the cloud that stores and protects Contoso's encryption keys.
 
 ---
 
@@ -21,7 +21,7 @@
 
 ```
 1. Create HSM
-2. Generate 3 Security Domain files → store offline → DR only
+2. Generate 5 Security Domain key pairs → store offline → DR only
 3. Create CMK keys → live inside HSM → never leave
 4. Apply CMK to services:
 
@@ -35,7 +35,7 @@
    VM Disks:
    ┌──────────┐      ┌─────┐      ┌─────┐      ┌─────┐
    │ Disk     │─DEK──│ DES │──────│ CMK │──in──│ HSM │
-   │ data     │      │*brdg|      │     │      │     │
+   │ data     │      │brdg │      │     │      │     │
    └──────────┘      └─────┘      └─────┘      └─────┘
    (DES connects the disk to the HSM)
 
@@ -58,7 +58,7 @@
 
 | Thing | Who Creates It | When | Where It Lives | Used For |
 |---|---|---|---|---|
-| **3 RSA keys + Security Domain** | Security Officers (one-time) | HSM activation | Offline (safe deposit box) | Only for HSM disaster recovery |
+| **5 RSA keys + Security Domain** | Security Officers (one-time) | HSM activation | Offline (safe deposit box) | Only for HSM disaster recovery |
 | **CMK keys** (Contoso-SQLMI-CMK, etc.) | Key Management Team (Crypto User role) | After HSM is active, before Phase 1 | Inside the HSM hardware (never leaves) | Encrypting/decrypting data every day |
 | **Service connection** (TDE protector, DES, etc.) | Key Management Team or Infra Team | Phase 1 (when integrating services) | Azure resource configuration | Telling Azure services "use this HSM key" |
 
@@ -101,7 +101,7 @@ WHAT'S AN AZURE RESOURCE (like a VM):
 
 
 WHAT'S OFFLINE:
-└── Security Domain file + 3 RSA keys
+└── Security Domain file + 5 RSA keys
     • Only for HSM disaster recovery
 ```
 
@@ -171,7 +171,7 @@ Even if an attacker gets access to:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                                                             │
-│  Security Domain (3 RSA keys)                               │
+│  Security Domain (5 RSA keys)                               │
 │  = Master key to the VAULT ITSELF                           │
 │  = Only used if you need to REBUILD the vault               │
 │  = Sits offline, never touched in normal operations         │
@@ -226,8 +226,6 @@ Even if an attacker gets access to:
 
 ## Section by Section — Plain English
 
----
-
 ### Terminology & Assumptions
 
 **Two Azure regions in India:**
@@ -266,10 +264,12 @@ Imagine Contoso has a **safe** (the HSM) where they keep their encryption keys. 
 
 **When Contoso creates the HSM, here's what happens invisibly:**
 
-1. Microsoft takes a physical piece of hardware called a **Marvell LiquidSecurity HSM** — a tamper-proof chip that's specifically designed to store cryptographic keys securely
+1. Microsoft takes a physical piece of hardware called a **Marvell LiquidSecurity HSM** — a tamper-proof chip that is **FIPS 140-3 Level 3 validated** and specifically designed to store cryptographic keys securely
 2. Microsoft gives Contoso **3 of these chips** (called partitions), placed on **different server racks** so that if one rack loses power or a chip fails, the other two keep working
 3. The whole thing runs inside a **Confidential Compute envelope** — think of it as a room within a room. Even Microsoft's own datacenter operators can't peek inside
 4. Microsoft exposes a web address (like `contoso-prod-hsm.managedhsm.azure.net`) that Contoso's services call to use the keys
+
+**What FIPS 140-3 Level 3 means in plain English:** It's the U.S. government's certification that the hardware is tamper-evident, tamper-resistant, and that the keys physically cannot be extracted from the chip. This is the level required for most regulated industries (banking, healthcare, government). PCI-DSS auditors look for this.
 
 **What Contoso never has to do:**
 
@@ -295,8 +295,8 @@ This is the **setup phase** before any service starts using CMK. Think of it as 
 
 You run a command or click through Azure Portal. Microsoft automatically provisions the hardware. Two critical flags:
 
-- **Soft-delete** (on by default) — if someone accidentally deletes the HSM or a key, it goes to a "recycle bin" for a retention period (7-90 days) before being permanently destroyed
-- **Purge protection** (MUST be explicitly enabled) — prevents anyone from emptying the "recycle bin" early. **This is irreversible** — once on, you can't turn it off.
+- **Soft-delete** (on by default, **cannot be disabled** for Managed HSM) — if someone accidentally deletes the HSM or a key, it goes to a "recycle bin" for a retention period (7-90 days) before being permanently destroyed
+- **Purge protection** (opt-in at creation time, **irreversible once enabled — cannot be disabled or overridden by anyone, including Microsoft**) — prevents anyone from emptying the "recycle bin" early
 
 **Why is purge protection so important?**
 
@@ -310,35 +310,35 @@ You run a command or click through Azure Portal. Microsoft automatically provisi
 
 This is the **most important step** and the moment Contoso takes true ownership.
 
-**Analogy:** Imagine the safe has a master combination. Except instead of one combination, it's split into 3 pieces, and you need any 2 of the 3 pieces to open it. Each piece is given to a different security officer at Contoso.
+**Analogy:** Imagine the safe has a master combination. Except instead of one combination, it's split into 5 pieces, and you need any 3 of the 5 pieces to open it. Each piece is given to a different security officer at Contoso.
 
 **How it works:**
 
-1. Three Contoso security officers each generate a key pair (like a digital lock and key)
+1. Five Contoso security officers each generate a key pair (like a digital lock and key)
 2. They download the "Security Domain" file from the HSM — this is the encrypted master secret
-3. The file is encrypted so that you need any 2 of the 3 officers' keys to decrypt it
+3. The file is encrypted so that you need any 3 of the 5 officers' keys to decrypt it
 
 **This is Contoso's root of trust.** After this step:
 
 - Microsoft can **never** access Contoso's keys — they physically can't
-- If Contoso loses the Security Domain file AND 2+ of the 3 officer keys → **all keys are permanently, irrecoverably lost.** There's no "call Microsoft support" recovery. Gone forever.
+- If Contoso loses the Security Domain file AND 3+ of the 5 officer keys → **all keys are permanently, irrecoverably lost.** There's no "call Microsoft support" recovery. Gone forever.
 
 > 💡 That's why the document emphasizes storing these offline in separate secure locations (think: safe deposit boxes at different banks).
 
-**The quorum (2 of 3) explained:**
+**The quorum (3 of 5) explained:**
 
 | Combination | Can Decrypt Security Domain? |
 |---|---|
-| Officer 1 key + Officer 2 key | ✅ Yes |
-| Officer 1 key + Officer 3 key | ✅ Yes |
-| Officer 2 key + Officer 3 key | ✅ Yes |
-| Officer 1 key alone | ❌ No |
-| Officer 2 key alone | ❌ No |
-| Officer 3 key alone | ❌ No |
+| Any 3 officer keys out of 5 | ✅ Yes |
+| Any 4 officer keys out of 5 | ✅ Yes |
+| All 5 officer keys | ✅ Yes |
+| Only 2 officer keys | ❌ No |
+| Only 1 officer key | ❌ No |
 
-**Why 2 of 3?**
-- If one officer leaves the company → the other 2 can still recover ✅
-- If a rogue officer tries to steal keys alone → they can't, one key is useless ✅
+**Why 3 of 5?**
+- If up to 2 officers leave the company or lose their keys → the remaining 3 can still recover ✅
+- If 1 or 2 rogue officers try to steal keys → they can't, they don't meet quorum ✅
+- Stronger separation of duties than 2-of-3, and matches the recommended posture in the technical guide
 
 ---
 
@@ -351,7 +351,7 @@ az keyvault key create \
   --hsm-name Contoso-PROD-HSM \
   --name Contoso-SQLMI-CMK \
   --kty RSA-HSM \
-  --size 2048
+  --size 3072
 ```
 
 **What happens:** The HSM's tamper-proof chip generates the key **internally**. The key never existed anywhere else. It never leaves the HSM. You just gave it a name and told the HSM "create it."
@@ -364,6 +364,8 @@ Three keys are created (just once, in the primary region — they auto-replicate
 
 No `-SI` or `-CI` suffixes needed — there's only one key per purpose, replicated to both regions.
 
+> 💡 **Key size note:** RSA 3072 is the modern PCI-DSS / NIST recommended minimum and matches the technical deployment guide. RSA 2048 is still supported but is being phased out for new deployments.
+
 ---
 
 #### Step 4: Set up RBAC (permissions)
@@ -372,8 +374,8 @@ This is about **who can do what** with the HSM. Here's where it gets counterintu
 
 | Role Name | What You'd Think It Does | What It Actually Does |
 |---|---|---|
-| **Managed HSM Administrator** | "Controls everything" | Only manages WHO has access. Can't touch keys at all. |
-| **Crypto Officer** | "Manages keys" | **WRONG.** This is a governance/compliance role. Can purge deleted keys and export keys. **Cannot** create, rotate, or delete keys. |
+| **Managed HSM Administrator** | "Controls everything" | Only manages Security Domain, backup/restore, and role assignments. Can't touch keys at all. |
+| **Crypto Officer** | "Manages keys" | **WRONG.** This is a governance/compliance role. Can purge/recover deleted keys, export keys, and manage roles. **Cannot** create, rotate, or delete live keys. |
 | **Crypto User** | "Just uses keys" | **WRONG.** This is actually the **key management** role. Can create, rotate, delete, import keys AND use them for crypto. |
 | **Crypto Service Encryption User** | "For Azure services" | Correct. This is the minimal role that Azure services (SQL MI, DES, Storage) need — just wrap and unwrap keys. |
 
@@ -433,7 +435,7 @@ DEK lives with the database in encrypted form
 **What happens when data is accessed:**
 
 ```
-USER/APP                    SQL MI                     HSM
+USER/APP                    SQL MI                       HSM
     │                         │                         │
     │  "Give me customer      │                         │
     │   records"              │                         │
@@ -513,7 +515,7 @@ The key takeaway is the **role name confusion** — Crypto Officer ≠ key manag
 
 ### Section 8: Security Domain (Already Covered Above)
 
-The "split combination" model — 3 officers, need any 2 to recover. Store offline. Lose it = lose everything.
+The "split combination" model — 5 officers, need any 3 to recover. Store offline. Lose it = lose everything.
 
 **Remember:** The Security Domain is for the **vault itself** (HSM recovery). The CMK keys inside the vault are what encrypt/decrypt your actual data every day. These are two completely separate things.
 
@@ -531,10 +533,12 @@ The "split combination" model — 3 officers, need any 2 to recover. Store offli
 1. Pune already has all the keys (auto-replicated) ✅
 2. SQL MI in Pune gets promoted to primary
 3. AD VMs in Pune boot using the replicated keys (DES was pre-created) ✅
-4. DNS switches traffic to Pune
-5. Everything keeps running
+4. **The global FQDN `contoso-prod-hsm.managedhsm.azure.net` is automatically swung to Pune** by Microsoft's internal routing layer (DNS TTL ~5 seconds). **Contoso does NOT deploy or operate any Traffic Manager profile** — the routing is platform-managed and happens behind the single FQDN that all services already use.
+5. Everything keeps running — services don't need to be reconfigured to point at a different HSM endpoint
 
 **No emergency key provisioning needed** — that's the whole point of multi-region replication.
+
+**Why this matters:** The same connection string keeps working in both regions. SQL MI, DES, and Storage Accounts don't need to be re-bound to a "Pune HSM" because there is no separate "Pune HSM" from their point of view — there is only `Contoso-PROD-HSM`, and Microsoft routes the request to whichever regional pool is healthy.
 
 **One gotcha:** If someone **removes** the Pune extended region from the HSM (not the same as a regional outage — this is an administrative action), the Pune HSM presence is **purged immediately** — not soft-deleted. Keys in Chennai are fine, but Pune workloads lose access instantly.
 
@@ -602,7 +606,7 @@ If you compare two-region to two-region (old way would need 4 devices = ~$13,968
 These are the things we **cannot finalize** until Contoso answers. The biggest ones:
 
 1. **Does Contoso use ASR?** — Affects DES requirements and key rotation planning
-4. **Does Contoso have jump boxes in both regions?** — Needed for admin operations with private endpoints
+2. **Does Contoso have jump boxes in both regions?** — Needed for admin operations with private endpoints
 
 ---
 
@@ -734,6 +738,7 @@ Step 4: Done — automatic from here
 ### One Important Note for DR
 
 Even though Storage doesn't need DES, if Contoso has storage accounts in **both regions**, each storage account needs its own:
+
 - Managed Identity
 - RBAC assignment to the HSM key
 
@@ -757,6 +762,4 @@ Think of it like a bank:
 
 ---
 
-
-
-> *"We're setting up a dedicated, tamper-proof hardware vault in Azure that Contoso owns and controls. Microsoft provides and maintains the hardware, but can never see the keys inside — not even their own operators. Contoso's databases, VM disks, and storage will be encrypted with keys from this vault. The vault is replicated across Chennai and Pune so if one region goes down, everything keeps running. It costs about $4,600/month — 34% less than the old approach — and meets PCI-DSS 4.0 requirements out of the box."*
+> *"We're setting up a dedicated, FIPS 140-3 Level 3 validated, tamper-proof hardware vault in Azure that Contoso owns and controls. Microsoft provides and maintains the hardware, but can never see the keys inside — not even their own operators. Contoso's databases, VM disks, and storage will be encrypted with keys from this vault. The vault is replicated across Chennai and Pune so if one region goes down, everything keeps running — automatically, behind a single FQDN, with no customer-managed traffic routing. It costs about $4,600/month — 34% less than the old approach — and meets PCI-DSS 4.0 requirements out of the box."*
