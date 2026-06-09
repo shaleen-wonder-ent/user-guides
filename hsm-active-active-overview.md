@@ -11,7 +11,6 @@
 
 <img width="1536" height="1024" alt="cd1152056c" src="https://github.com/user-attachments/assets/75278981-1516-4e87-b8e8-22c0ae281d22" />
 
-
 ---
 
 ## What you are building (in one paragraph)
