@@ -546,14 +546,45 @@ The "split combination" model — 5 officers, need any 3 to recover. Store offli
 
 ### Section 10: Key Rotation
 
-Keys should be rotated periodically (annually, quarterly — whatever Contoso's policy is). The process is:
+Keys should be rotated periodically (annually, quarterly — whatever Contoso's policy is). The basic process is:
 
 1. **Crypto User** creates a new version of the key (same name, new version number)
 2. Update services to use the new version
 3. Old data re-encrypts automatically with the new version (for most services)
 4. Old key version is kept around so existing encrypted data can still be decrypted
 
-**ASR warning:** If VMs are replicated via Azure Site Recovery, rotating the CMK requires **disabling and re-enabling replication** on those VMs. ASR doesn't auto-detect new key versions. This needs a maintenance window.
+#### Manual rotation vs auto-rotation
+
+Managed HSM supports **two ways** to do step 1:
+
+- **Manual** — someone with the Crypto User role runs `az keyvault key rotate` (or creates a new version explicitly) on a schedule the team manages.
+- **Auto-rotation policy** — you attach a policy to each key telling the HSM "rotate yourself every N days" or "rotate yourself N days before expiry." The HSM then creates new versions on its own. **Yes, this is fully supported in Managed HSM** (same model as Key Vault Premium).
+
+A typical policy in plain English:
+
+> *"Create a new version of this key 90 days after the current version was created. Each version expires 1 year after creation. Send me an Event Grid notification 30 days before expiry."*
+
+#### The catch — HSM auto-rotation ≠ service auto-pickup
+
+The HSM creating a new key version is only half the story. **Whether the downstream service starts using the new version automatically depends on how that service was bound to the key:**
+
+| Service | Auto-picks up new key version? | What's needed |
+|---|---|---|
+| **Azure Storage** (`Contoso-STORAGE-CMK`) | ✅ Yes — IF bound with a **versionless** key URI (`.../keys/Contoso-STORAGE-CMK` with no version suffix) | Nothing. Fully hands-off. |
+| **SQL MI** (`Contoso-SQLMI-CMK`, TDE protector) | ❌ No — SQL TDE always binds to a **specific key version**, not a versionless URI | Operator must run `az sql server tde-key set --kid <new-version-URI>` after rotation |
+| **VM Disks via DES** (`Contoso-DISK-CMK`) | ⚠️ Yes — IF the DES has `autoKeyRotationEnabled = true` and uses a versionless URI. **BUT** if VMs are replicated via ASR, the auto-rotation **breaks ASR replication** — ASR has to be disabled and re-enabled | Auto for plain DES; controlled maintenance window if ASR is in play |
+
+#### Recommended rotation strategy for Contoso
+
+| Key | Suggested policy | Why |
+|---|---|---|
+| `Contoso-STORAGE-CMK` | **Auto-rotate every 12 months** + versionless URI on every Storage Account | Zero-touch. Storage handles it natively. |
+| `Contoso-SQLMI-CMK` | **Notify-only at 11 months** (Event Grid alert, no auto-rotate) | Forces a planned maintenance window where the ops team updates the TDE protector explicitly. Prevents drift between the HSM and SQL MI. |
+| `Contoso-DISK-CMK` | **Notify-only at 11 months** (no auto-rotate) | If ASR is in use, auto-rotation will silently break replication. Notify-only keeps the operator in the loop and avoids surprises. |
+
+**General principle:** *Auto-rotate where the service can follow along automatically (Storage). Notify-only where the operator must do something (SQL MI, DES with ASR).*
+
+**ASR warning (still applies):** Rotating `Contoso-DISK-CMK` on ASR-replicated VMs always requires **disabling and re-enabling replication**. ASR does not auto-detect new key versions. Plan a maintenance window for every disk-key rotation.
 
 ---
 
@@ -794,5 +825,17 @@ This table compares the four Azure key management options, with the **Managed HS
 | **Backup & Restore of Keys** | N/A — not applicable or accessible to customer | Built-in service backup — Key Vault provides backup/restore of keys to encrypted file | Built-in service backup — Key Vault provides backup/restore of HSM-protected keys to encrypted file | **Service-managed backup to Azure Storage** via User-Assigned Managed Identity. Restore requires the **matching Security Domain**. The Security Domain itself must be backed up offline separately (it is **not** included in the service backup). |
 | **Price Range** | Free | Low ($) | Medium ($$) | High ($$$) — dedicated hardware |
 
+### What changed vs the original table
 
+| Cell | Original | Corrected | Why |
+|---|---|---|---|
+| Key Ownership | "Customer (Dedicated HSM)" | "Customer — single-tenant Managed HSM cluster. *Not the legacy Azure Dedicated HSM service.*" | "Azure Dedicated HSM" is a separate, older bare-metal SafeNet Luna service. Conflating the two is a common source of confusion. |
+| Geo-Replication | "Manual — cross-region DR requires customer action" | "Opt-in, then automatic active-active behind a single FQDN with platform-managed routing" | One opt-in command, then fully automatic. The "manual" label belongs to KV Standard/Premium GRS failover, not Managed HSM. |
+| Availability Across Azure Services | "Core services" | Expanded list (Storage, SQL MI, Cosmos, Disks, App Service, Service Bus, Event Hubs, M365 Customer Key, AIP, Databricks…) | "Core services" understates current coverage and parity with KV Premium. |
+| Data-Plane RBAC | *(missing row)* | Added — local RBAC isolated from Azure RBAC; Owners/Global Admins have zero data-plane access by default | The #1 operational surprise vs Standard/Premium and the most-frequently-misconfigured area. |
+| Soft-Delete | *(missing row)* | Added — always on, cannot be disabled for Managed HSM | Hard architectural difference from KV Standard/Premium and a billing gotcha. |
+| Purge Protection | *(missing row)* | Added — once enabled, cannot be disabled by anyone including Microsoft; required by SQL MI | Mandatory for SQL MI integration and the irreversibility is unique to Managed HSM. |
+| Security Domain | *(missing row)* | Added — customer-controlled M-of-N RSA key quorum, no Microsoft recovery path | The Security Domain is the defining feature of Managed HSM and has no equivalent in Standard/Premium. |
+| Confidential Compute | *(missing row)* | Added — control plane runs inside Confidential Compute envelope | Differentiator from Standard/Premium; explains why Microsoft operators have zero key access. |
+| Object Types | *(missing row)* | Added — keys only (no secrets, no certificates) | Often surprises teams migrating from Premium; they need a separate Key Vault for secrets/certs. |
 
