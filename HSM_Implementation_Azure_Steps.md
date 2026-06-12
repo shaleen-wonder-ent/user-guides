@@ -813,8 +813,53 @@ Repeat per key for SQL MI managed identity and VM/App managed identities, pickin
 3. **Identity**: System-assigned managed identity → **On**.
 4. Review + create → Create.
 5. **Grant the DES MI access on the key:** repeat [§8.4](#84-assign-least-privilege-roles-to-workload-identities-portal) using role **Managed HSM Crypto Service Encryption User**, scope `/keys/cmk-vmdisk-prod`, member = `des-vmdisk-prod`.
-6. **Create or update a managed disk to use the DES:** **Disks → + Create** → in the **Encryption** tab → **Customer-managed key** → DES `des-vmdisk-prod`. Attach to your application VMs in the existing app subnet.
-7. Existing VMs can be re-encrypted by **VM → Disks → \<disk\> → Encryption → Customer-managed key** (involves a VM stop/start).
+
+6. **Create a NEW managed disk that uses the DES from day one:** **Disks → + Create** → in the **Encryption** tab → **Customer-managed key** → DES `des-vmdisk-prod`. Attach to your application VMs in the existing app subnet.
+
+#### 9.1.1 Converting **existing** managed disks to CMK (portal)
+
+Switching a disk from platform-managed key (PMK) to CMK only rewraps the disk's **DEK** with your HSM-held CMK — the encrypted blocks on the disk are **not** rewritten and no data is copied. It is a metadata operation. The only constraint is operational: the disk must be in a state where ARM can update its encryption settings.
+
+**Pre-flight (run once before bulk-updating any disks):**
+- The DES managed identity must already hold **Managed HSM Crypto Service Encryption User** on `/keys/cmk-vmdisk-prod` (assigned in [§8.4](#84-assign-least-privilege-roles-to-workload-identities-portal)). Without this, the encryption change fails with **403** against the HSM.
+- The DES must be in the **same region** as the disk being updated. A Primary-region DES cannot encrypt a DR-region disk — that is why [§9.4](#94-repeat-in-dr) recreates a separate DES in DR.
+- Confirm the disk SKU supports CMK (Premium_LRS / Standard_LRS / StandardSSD_LRS / Premium_ZRS / StandardSSD_ZRS are supported; Ultra and Premium v2 have extra restrictions — verify before bulk runs).
+
+**Case A — disk is currently unattached.** Update in place; no VM impact.
+
+1. Portal → **Disks → \<diskName\>** → **Encryption** blade.
+2. **Key management** → **Customer-managed key**.
+3. **Disk encryption set** → pick `des-vmdisk-prod`.
+4. **Save**. The Azure activity log shows a single `Microsoft.Compute/disks/write` operation; no data is rewritten.
+
+**Case B — disk is attached to a VM (OS or data disk).** There is **no online conversion** — the portal will not let you change encryption while the VM is running. Convert all disks in one maintenance window:
+
+1. **VM → Overview → Stop** (this deallocates the VM — the OS disk and data disks all become eligible for an encryption change).
+2. For the **OS disk** and **each data disk** in **VM → Disks**:
+   - Click the disk name → **Encryption** blade.
+   - **Key management** → **Customer-managed key** → DES `des-vmdisk-prod` → **Save**.
+3. **VM → Overview → Start**.
+
+> The portal shortcut **VM → Disks → \<disk\> → Encryption → Customer-managed key** prompts you to stop the VM if it is running — accept the prompt and complete the conversion in the same window. Don't leave the VM stopped with mixed-state disks (some CMK, some PMK) across multiple maintenance windows.
+
+**Case C — bulk migration of an existing estate.** Don't drive this from the portal disk-by-disk. Use [Azure Resource Graph Explorer](https://portal.azure.com/#blade/HubsExtension/ArgQueryBlade) to enumerate every PMK disk in scope, export to CSV, group by attached VM, then schedule maintenance windows VM-by-VM through Case B. Sample query:
+
+```kusto
+Resources
+| where type =~ 'microsoft.compute/disks'
+  and resourceGroup =~ 'WORKLOAD_RG_PRI'
+  and properties.encryption.type == 'EncryptionAtRestWithPlatformKey'
+| project name, vmId = tostring(managedBy), sku = tostring(sku.name), sizeGB = properties.diskSizeGB
+```
+
+For estates beyond a handful of VMs, prefer the CLI path in the companion guide (`HSM_Implementation_Steps.md` §9.1.1) over portal clicks — the portal does not offer a multi-disk bulk-edit blade.
+
+**Things to know up front:**
+1. **PMK → CMK is supported; CMK → PMK on the same disk is not a normal operation.** Treat the move as one-way and plan accordingly.
+2. **Versionless key URI on the DES** (recommended in step 2 above) means future CMK rotations auto-apply to every disk pointing at this DES — disks do not need to be re-converted on rotation.
+3. **Snapshots and images** taken **before** the conversion are still PMK-encrypted. If you restore from them later, the restored disk lands as PMK and must be re-converted via Case A.
+4. **Existing Azure Backup recovery points** for the VM remain valid across the conversion, but the next backup after conversion will be a full (not incremental) — size the backup window accordingly.
+5. Allow ~1 min per disk for the metadata update; the VM stop/start dominates the actual outage window, not the encryption change.
 
 ### 9.2 SQL Managed Instance — TDE with CMK (portal)
 1. SQL MI must already exist in a delegated subnet inside your existing app spoke.
