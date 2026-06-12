@@ -995,15 +995,81 @@ az disk-encryption-set create -g "$WORKLOAD_RG_PRI" -n des-vmdisk-prod -l "$LOC_
   --enable-auto-key-rotation true \
   --mi-system-assigned
 
-# Grant the DES MI access on the key (see §8.4)
 
-# Create or update a managed disk to use the DES
+# Create a NEW managed disk that uses the DES from day one
 az disk create -g "$WORKLOAD_RG_PRI" -n disk-app01-os -l "$LOC_PRI" \
   --size-gb 128 --sku Premium_LRS \
   --encryption-type EncryptionAtRestWithCustomerKey \
   --disk-encryption-set des-vmdisk-prod
 ```
-Attach to your application VMs in your existing app subnet. Existing VMs can be re-encrypted by changing the DES on the disk (involves a stop/start).
+
+Attach to your application VMs in your existing app subnet.
+
+#### 9.1.1 Converting **existing** managed disks to CMK
+
+Switching a disk from platform-managed key (PMK) to CMK only rewraps the disk's **DEK** with your HSM-held CMK — the encrypted blocks on the disk are **not** rewritten and no data is copied. It is a metadata operation. The only constraint is operational: the disk must be in a state where ARM can update its encryption settings.
+
+**Pre-flight (run once before bulk-updating any disks):**
+- The DES managed identity must already hold `Managed HSM Crypto Service Encryption User` on `/keys/cmk-vmdisk-prod` (assigned in §8.4). Without this, `az disk update` fails with 403 against the HSM.
+- The DES must be in the **same region** as the disk being updated. A Primary-region DES cannot encrypt a DR-region disk — that is why §9.4 recreates a separate DES in DR.
+- Confirm the disk SKU supports CMK (Premium_LRS / Standard_LRS / StandardSSD_LRS / Premium_ZRS / StandardSSD_ZRS are supported; Ultra and Premium v2 have extra restrictions — verify before bulk runs).
+
+```bash
+DES_ID=$(az disk-encryption-set show -g "$WORKLOAD_RG_PRI" -n des-vmdisk-prod --query id -o tsv)
+```
+
+**Case A — disk is currently unattached.** Update in place; no VM impact.
+
+```bash
+az disk update -g "$WORKLOAD_RG_PRI" -n <diskName> \
+  --encryption-type EncryptionAtRestWithCustomerKey \
+  --disk-encryption-set "$DES_ID"
+```
+
+**Case B — disk is attached to a VM (OS or data disk).** There is **no online conversion** — the VM must be deallocated first. Update all of its disks in one window, then start.
+
+```bash
+VM=<vmName>
+
+az vm deallocate -g "$WORKLOAD_RG_PRI" -n "$VM"
+
+# OS disk
+OS_DISK=$(az vm show -g "$WORKLOAD_RG_PRI" -n "$VM" --query storageProfile.osDisk.name -o tsv)
+az disk update -g "$WORKLOAD_RG_PRI" -n "$OS_DISK" \
+  --encryption-type EncryptionAtRestWithCustomerKey \
+  --disk-encryption-set "$DES_ID"
+
+# All attached data disks
+for D in $(az vm show -g "$WORKLOAD_RG_PRI" -n "$VM" --query "storageProfile.dataDisks[].name" -o tsv); do
+  az disk update -g "$WORKLOAD_RG_PRI" -n "$D" \
+    --encryption-type EncryptionAtRestWithCustomerKey \
+    --disk-encryption-set "$DES_ID"
+done
+
+az vm start -g "$WORKLOAD_RG_PRI" -n "$VM"
+```
+
+**Case C — bulk migration of an existing estate.** Drive the conversion from Resource Graph rather than disk-by-disk. Enumerate every disk in scope, group by attached VM, and process VMs in waves that fit your maintenance window. Pseudocode:
+
+```bash
+# All PMK disks in the workload RG
+az graph query -q "
+  Resources
+  | where type =~ 'microsoft.compute/disks'
+    and resourceGroup =~ '$WORKLOAD_RG_PRI'
+    and properties.encryption.type == 'EncryptionAtRestWithPlatformKey'
+  | project name, vmId = tostring(managedBy)
+" -o table
+```
+
+Then iterate VM-by-VM through Case B in batches. Record each VM's start/stop timestamps for the change ticket.
+
+**Things to know up front:**
+1. **PMK → CMK is supported; CMK → PMK on the same disk is not a normal operation.** Treat the move as one-way and plan accordingly.
+2. **Versionless key URI on the DES** means future CMK rotations auto-apply to every disk pointing at this DES — disks do not need to be re-updated on rotation.
+3. **Snapshots and images** taken **before** the conversion are still PMK-encrypted. If you restore from them later, the restored disk lands as PMK and must be re-converted with Case A above.
+4. **Existing Azure Backup recovery points** for the VM remain valid across the conversion, but the next backup after conversion will be a full (not incremental) — size the backup window accordingly.
+5. Allow ~1 min per disk for the metadata update; the VM stop/start dominates the actual outage window, not the encryption change.
 
 ### 9.2 SQL Managed Instance — TDE with CMK
 ```bash
