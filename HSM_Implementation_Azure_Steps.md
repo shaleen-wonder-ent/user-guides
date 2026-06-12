@@ -877,6 +877,12 @@ For estates beyond a handful of VMs, prefer the CLI path in the companion guide 
 
 > **Terminology note:** the portal label reads "Customer-managed key in Azure Key Vault" even when the underlying key lives in a **Managed HSM** at `*.managedhsm.azure.net`. SQL MI treats both as the same key-store family — confirm via the `kid` value, not the label.
 
+> **Notes — applies equally to a new SQL MI and to a long-running one with production databases** (the §9.2 clicks are identical for both; TDE is always on, so the operation is an online protector swap with no downtime):
+>
+> - **Auto-failover groups (FOG): apply the TDE protector to the geo-secondary SQL MI first, then the primary**, both pointing at the same `kid`. Doing the primary first creates a window in which the secondary cannot rewrap DEKs and falls behind.
+> - **Do not delete or disable the previous TDE-protector key for at least 30 days after the swap.** SQL MI keeps the prior key referenced for point-in-time-restore log chains; deleting it early can break PITR across the swap point.
+
+
 ### 9.3 Application tier (envelope encryption)
 For any organisation app that wraps its own DEKs:
 1. Enable **system-assigned managed identity** on the VM / App Service / AKS workload. Portal: **\<resource\> → Identity → System assigned → On**.
