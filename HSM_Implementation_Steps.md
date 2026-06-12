@@ -1093,6 +1093,13 @@ Verify: `az sql mi tde-key show -g "$WORKLOAD_RG_PRI" --mi sqlmi-org-pri`.
 
 > **Terminology note:** the SQL CLI uses `--server-key-type AzureKeyVault` and the portal labels it "Azure Key Vault" even when the underlying key lives in a **Managed HSM** at `*.managedhsm.azure.net`. This is expected — SQL MI treats both as the same key-store family. Confirm via the `kid` value, not the label.
 
+
+> **Notes — applies equally to a new SQL MI and to a long-running one with production databases** (the §9.2 commands are identical for both; TDE is always on, so the operation is an online protector swap with no downtime):
+>
+> - **Auto-failover groups (FOG): run §9.2 against the geo-secondary first, then the primary**, both pointing at the same `kid`. Doing the primary first creates a window in which the secondary cannot rewrap DEKs and falls behind.
+> - **Do not delete or disable the previous TDE-protector key for at least 30 days after the swap.** SQL MI keeps the prior key referenced for point-in-time-restore log chains; deleting it early can break PITR across the swap point.
+
+
 ### 9.3 Application tier (envelope encryption)
 For any organisation app that wraps its own DEKs:
 1. Enable **system-assigned managed identity** on the VM / App Service / AKS workload.
