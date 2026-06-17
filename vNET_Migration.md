@@ -1,0 +1,450 @@
+# Migrating a Classic Hub-and-Spoke VNet Architecture to Azure Virtual WAN
+
+> A practical guide for migrating an existing Azure **classic Hub-and-Spoke** topology (with a **Palo Alto NVA firewall**, **ExpressRoute**, and **UDR-based forced tunneling**) to a **Secured Azure Virtual WAN**.
+
+---
+
+## Table of Contents
+
+1. [Overview & Goal](#1-overview--goal)
+2. [Key Concepts (Quick Refresher)](#2-key-concepts-quick-refresher)
+3. [The Firewall Decision — Supported Paths](#3-the-firewall-decision--supported-paths)
+4. [Path Comparison: What's Possible, What's Not, and Why](#4-path-comparison-whats-possible-whats-not-and-why)
+5. [Architecture Diagrams](#5-architecture-diagrams)
+6. [Migration Steps (Phased Approach)](#6-migration-steps-phased-approach)
+7. [Precautions & Gotchas](#7-precautions--gotchas)
+8. [Pre-Migration Checklist](#8-pre-migration-checklist)
+9. [Reference Documentation](#9-reference-documentation)
+
+---
+
+## 1. Overview & Goal
+
+**Current state (typical classic topology):**
+
+- Hub-and-Spoke VNets connected via **VNet peering**
+- **Hub VNet hosting a Palo Alto NVA** (firewall) — typically **VM-Series**
+- **ExpressRoute Gateway** for on-premises connectivity
+- All spoke → on-premises / internet traffic **forced through the Hub NVA**
+- **User-Defined Routes (UDRs)** on spoke VNets/subnets to steer traffic
+
+**Target state:**
+
+- **Azure Virtual WAN** with one or more **Microsoft-managed Virtual Hubs**
+- Firewall inspection retained, but repositioned per supported Virtual WAN options
+- **Routing Intent** replaces per-spoke UDRs for centralized traffic steering *(only when the firewall is a valid hub next hop — see Section 3)*
+- **BGP-driven dynamic route propagation** replaces manual peering/UDR plumbing
+
+**Why migrate?**
+
+| Classic Hub-and-Spoke | Azure Virtual WAN |
+|---|---|
+| You build & maintain the hub VNet, gateways, and HA | Microsoft-managed hub, gateways, and routing |
+| Manual VNet peering for every spoke | VNet connections to the hub (any-to-any transit) |
+| UDRs on every spoke/subnet | Centralized **Routing Intent** at the hub *(Path A)* |
+| Manual route management | **BGP** dynamic propagation |
+| Scaling across regions is operationally heavy | Native multi-hub, multi-region interconnect |
+
+---
+
+## 2. Key Concepts (Quick Refresher)
+
+| Concept | What it is | Who manages it |
+|---|---|---|
+| **Virtual Hub** | A Microsoft-managed VNet at the center of Virtual WAN; contains a built-in router | **Microsoft** |
+| **Hub Router** | Runs **BGP** + route tables; propagates routes automatically; **ASN 65515** | **Microsoft** (auto) |
+| **Default / None route tables** | Auto-created route tables in the hub | **Microsoft** (auto) |
+| **Custom route tables** | Optional tables for advanced segmentation | **You** (optional) |
+| **Routing Intent / Routing Policies** | Centralized policy to send Private and/or Internet traffic through a security appliance **inside the hub** | **You** (explicit config) |
+| **UDRs** | Per-subnet route overrides | **You** (still required when steering to a spoke NVA) |
+
+> **Critical ownership distinction:**
+> Azure **automatically** builds the *plumbing* (route tables + BGP engine).
+> **You** explicitly declare the *policy* (**Routing Intent**).
+> Configuring Routing Intent is what makes the per-spoke UDRs unnecessary — but it is **not** created automatically, **and it only works when the next hop is inside the hub** (see Section 3).
+
+---
+
+## 3. The Firewall Decision — Supported Paths
+
+> ⚠️ **The single most important constraint in this migration.**
+
+Two rules drive the entire design:
+
+1. A **Palo Alto VM-Series** firewall (the traditional VM-based product commonly used in classic hubs) **cannot** be deployed as a natively integrated NVA *inside* a Virtual WAN hub.
+2. **Routing Intent's next hop must be inside the hub.** It **cannot** target an NVA that lives in a spoke/connected VNet, for either Private or Internet traffic.
+
+Together these produce **two supported paths**:
+
+### Path A — Palo Alto Cloud NGFW (SaaS) integrated in the Virtual WAN hub ✅ *(cleanest "Secured Hub")*
+
+- Fully **managed SaaS** firewall, **natively integrated** into the Virtual Hub as a "bump-in-the-wire."
+- **Plugs directly into Routing Intent** (it is a valid hub next hop).
+- Availability-Zone resilient; lifecycle managed by the service.
+- Policy managed via **Azure** or **Panorama**.
+- Billed **pay-as-you-go**.
+- ✅ **Achieves the "remove spoke UDRs / use Routing Intent" goal.**
+
+### Path B — Keep Palo Alto VM-Series in a dedicated "security" VNet attached to the hub ✅ *(reuse existing investment)*
+
+- Existing **VM-Series** firewalls live in a dedicated VNet **connected to** (not inside) the hub.
+- ❌ **Routing Intent CANNOT target this VM-Series** (it's not in the hub). Traffic is steered to it using **route tables / UDRs** — the classic approach.
+- Preserves existing **licenses, configuration, and Panorama** setup.
+- **You** own more of the routing, HA, and scaling design.
+- ⚠️ **Does NOT remove UDRs** for firewall steering — the UDR-based model is retained for the firewall path.
+- ❌ **Internet traffic inspection via the spoke VM-Series cannot be driven by Routing Intent's Internet policy** (it can still be achieved with manual UDRs/route tables).
+
+> **Decision rule:** If adopting **Routing Intent** and eliminating UDRs is a primary goal, **only Path A delivers it.** Path B preserves the existing VM-Series investment but keeps the **UDR/route-table-based** steering model.
+
+> **Note on other vendors:** This guide focuses on Palo Alto, where the **hub-integrated** option is **Cloud NGFW (SaaS)** and the classic **VM-Series** falls under the connected-VNet (Path B) scenario. Other vendors (e.g., **Fortinet**, **Check Point**, **Cisco**, **Barracuda**) offer their own **hub-integrated NVAs** for Virtual WAN. If you are open to alternatives, validate each vendor's current integrated-NVA support against the Azure Marketplace and Microsoft documentation.
+
+---
+
+## 4. Path Comparison: What's Possible, What's Not, and Why
+
+| Capability / Factor | Path A — Cloud NGFW (SaaS in hub) | Path B — VM-Series (attached VNet) |
+|---|---|---|
+| **Natively integrated inside vWAN hub** | ✅ Yes | ❌ No (runs in an attached VNet) |
+| **Usable as Routing Intent next hop** | ✅ Yes | ❌ No (next hop must be in the hub) |
+| **Removes spoke UDRs for firewall steering** | ✅ Yes | ❌ No (UDRs / route tables retained) |
+| **Internet traffic inspection via Routing Intent** | ✅ Yes | ❌ Not via Routing Intent (manual UDRs only) |
+| **Private (east-west) inspection** | ✅ Via Routing Intent | ⚠️ Possible, but via route tables / UDRs (not Routing Intent) |
+| **Lifecycle / patching managed by service** | ✅ Yes | ❌ No — you manage it |
+| **Built-in AZ high availability** | ✅ Yes (platform-provided) | ⚠️ You design HA |
+| **Reuse existing VM-Series config/licenses** | ❌ No — different product | ✅ Yes |
+| **Panorama management** | ✅ Supported | ✅ Supported |
+| **Billing model** | PAYG (SaaS) | Existing VM-Series licensing (BYOL/PAYG) |
+| **Operational overhead** | Low | Higher |
+| **Regional availability** | ⚠️ Verify per region | ✅ Anywhere VM-Series runs |
+| **Best for** | Clean, managed, Routing-Intent-based secured hub | Preserving existing investment & config |
+
+### What is **possible**
+
+- Retaining Palo Alto inspection for **east-west (private)** and **north-south (internet)** traffic in Virtual WAN.
+- **Removing per-spoke UDRs** via Routing Intent — **only in Path A** (Cloud NGFW in the hub).
+- **Two policy types per hub**: one **Private Traffic** policy + one **Internet Traffic** policy.
+- **Next-hop options for Routing Intent**: **Azure Firewall**, an **NVA in the hub**, or **Security SaaS** (e.g., Cloud NGFW) — **all inside the hub**.
+- **Mixing** next hops — e.g., Azure Firewall for private traffic, a SaaS firewall for internet (or both to the same Palo Alto), as long as each is in the hub.
+- **Multi-region**: multiple hubs auto-interconnected; each hub's Routing Intent is respected, **including inter-hub** flows.
+
+### What is **NOT supported via Routing Intent** (and why)
+
+> These scenarios are **not natively handled by Routing Intent** given current capabilities. Several remain achievable with **manual UDRs / custom route tables** — they are not physically impossible, just not driven by Routing Intent.
+
+| Scenario | Status | Why / Workaround |
+|---|---|---|
+| Lift-and-shift **VM-Series into the vWAN hub** as a native NVA | ❌ Not possible | VM-Series is not an integrated Virtual WAN hub NVA offer; only specific partner NVAs / Cloud NGFW SaaS are natively integrated |
+| Use a **spoke-based NVA (VM-Series) as a Routing Intent next hop** | ❌ Not via Routing Intent | Routing Intent's next hop **must be inside the hub**; steer with **UDRs/route tables** instead |
+| Drive **Internet traffic inspection** through a **spoke VM-Series** via Routing Intent | ❌ Not via Routing Intent | Internet traffic policy requires a hub next hop; this is the "Private-only policy + VM-Series in spoke for internet" scenario. **Workaround:** manual UDRs/custom route tables |
+| More than **one next-hop resource per policy type per hub** | ❌ Not possible | Routing Intent allows a single next hop per Private and per Internet policy per hub |
+| Assume **all NVAs/SaaS are available in every region/SKU** | ⚠️ Varies | Availability differs — must be validated per region and Virtual WAN configuration |
+| Rely on UDRs being "automatically gone" | ⚠️ Conditional | Routing Intent is **admin-configured** and **hub-next-hop only**; in Path B the UDR model is retained |
+
+---
+
+## 5. Architecture Diagrams
+
+### Diagram A — Current State (Classic Hub & Spoke)
+
+```mermaid
+graph TB
+    subgraph ONPREM["On-Premises / Remote Sites"]
+        DC["Datacenter + Branch Sites"]
+    end
+
+    subgraph AZURE["Azure - Classic Hub and Spoke (CURRENT)"]
+        subgraph HUBVNET["Hub VNet(self-managed)"]
+            ERGW["ExpressRoute<br/>Gateway"]
+            PALO["Palo Alto<br/>VM-Series NVA<br/>Firewall"]
+        end
+
+        subgraph SPOKE1["Spoke VNet 1"]
+            APP["Workloads"]
+            UDR1["UDR<br/>0.0.0.0/0<br/>to Palo Alto"]
+        end
+
+        subgraph SPOKE2["Spoke VNet 2"]
+            DB["Workloads"]
+            UDR2["UDR<br/>0.0.0.0/0<br/>to Palo Alto"]
+        end
+    end
+
+    DC -->|ExpressRoute| ERGW
+    ERGW --- PALO
+    SPOKE1 ---|Peering| HUBVNET
+    SPOKE2 ---|Peering| HUBVNET
+    APP -.-> UDR1
+    UDR1 -.forced tunnel.-> PALO
+    DB -.-> UDR2
+    UDR2 -.forced tunnel.-> PALO
+
+    style HUBVNET fill:#0078D4,stroke:#fff,color:#fff
+    style PALO fill:#D13438,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+```
+
+**Pain points:** manual UDRs per spoke, manual peering, self-managed hub/gateways/HA, heavy multi-region scaling.
+
+---
+
+### Diagram B — Target State, Path A (Cloud NGFW SaaS integrated in hub)
+
+```mermaid
+graph TB
+    subgraph ONPREM["On-Premises / Remote Sites"]
+        DC["Datacenter +<br/>Branch Sites"]
+    end
+
+    subgraph AZURE["Azure - Secured Virtual WAN (Path A)"]
+        subgraph VWAN["Azure Virtual WAN"]
+            subgraph HUB["Virtual WAN Hub Microsoft-Managed ASN 65515"]
+                ROUTER["Hub Router BGP + Route Tables Routing Intent"]
+                ERGW["ExpressRoute GW<br/>managed"]
+                CNGFW["Palo Alto<br/>Cloud NGFW<br/>SaaS in hub"]
+            end
+        end
+
+        subgraph SPOKE1["Spoke VNet 1 no UDRs needed"]
+            
+            APP["Workloads"]
+        end
+
+        subgraph SPOKE2["Spoke VNet 2 no UDRs needed"]
+            DB["Workloads"]
+        end
+    end
+
+    DC -->|ExpressRoute<br/>BGP| ERGW
+    ROUTER <-->|BGP<br/>propagation| SPOKE1
+    ROUTER <-->|BGP<br/>propagation| SPOKE2
+    ROUTER -->|Routing Intent<br/>steers all traffic| CNGFW
+
+    style HUB fill:#0078D4,stroke:#fff,color:#fff
+    style ROUTER fill:#FFB900,stroke:#333,color:#000
+    style CNGFW fill:#D13438,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+```
+
+---
+
+### Diagram C — Target State, Path B (VM-Series in attached VNet)
+
+```mermaid
+graph TB
+    subgraph ONPREM["On-Premises / Remote Sites"]
+        DC["Datacenter +<br/>Branch Sites"]
+    end
+
+    subgraph AZURE["Azure - Virtual WAN + Spoke Firewall (Path B)"]
+        subgraph VWAN["Azure Virtual WAN"]
+            subgraph HUB["Virtual WAN Hub Microsoft-Managed ASN 65515"]
+                ROUTER["Hub Router<br/>BGP + Route Tables<br/>no Routing Intent<br/>for spoke NVA"]
+                ERGW["ExpressRoute GW<br/>managed"]
+            end
+        end
+
+        subgraph SECVNET["Security VNet self-managed"]
+            PALO["Palo Alto<br/>VM-Series NVA<br/>existing"]
+        end
+
+        subgraph SPOKE1["Spoke VNet 1<br/>UDRs required"]
+            APP["Workloads"]
+            UDR1["UDR<br/>to VM-Series"]
+        end
+
+        subgraph SPOKE2["Spoke VNet 2<br/>UDRs required"]
+            DB["Workloads"]
+            UDR2["UDR<br/>to VM-Series"]
+        end
+    end
+
+    DC -->|ExpressRoute<br/>BGP| ERGW
+    ROUTER <-->|BGP<br/>propagation| SPOKE1
+    ROUTER <-->|BGP<br/>propagation| SPOKE2
+    SECVNET ---|VNet<br/>connection| HUB
+    APP -.-> UDR1
+    UDR1 -.steer.-> PALO
+    DB -.-> UDR2
+    UDR2 -.steer.-> PALO
+
+    style HUB fill:#0078D4,stroke:#fff,color:#fff
+    style ROUTER fill:#FFB900,stroke:#333,color:#000
+    style PALO fill:#D13438,stroke:#fff,color:#fff
+    style SECVNET fill:#8E562E,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+```
+
+> **Note the difference:** In Path B, **Routing Intent does not steer to the VM-Series** (it's in a spoke, not the hub). You **retain UDRs/route tables** to send traffic to the firewall. **Internet traffic inspection via this spoke VM-Series is not handled by Routing Intent** (achievable only with manual UDRs). ⚠️ **Cover all relevant prefixes** with custom routes to avoid the hub's default routing bypassing the firewall (see asymmetric routing in Section 7).
+
+---
+
+### Diagram D — Traffic Flow with Routing Intent (Path A inspection path)
+
+```mermaid
+graph LR
+    SPOKE1["Spoke 1<br/>Workload"]
+    SPOKE2["Spoke 2<br/>Workload"]
+    FW["Palo Alto<br/>Cloud NGFW<br/>in Hub"]
+    ONPREM["On-Prem<br/>via ExpressRoute"]
+    NET["Internet"]
+
+    SPOKE1 -->|1 - east-west| FW
+    FW -->|2 - inspect + allow| SPOKE2
+    SPOKE1 -->|private| FW
+    FW -->|inspected| ONPREM
+    SPOKE1 -->|internet| FW
+    FW -->|inspected egress| NET
+
+    style FW fill:#D13438,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+```
+
+> With **Routing Intent = Internet + Private** (Path A), even **spoke-to-spoke** traffic is forced through the firewall — something that required complex UDRs in the classic model.
+---
+
+
+
+---
+
+## 6. Migration Steps (Phased Approach)
+
+### Phase 0 — Discovery & the Firewall Fork
+
+1. **Confirm current firewall** = Palo Alto **VM-Series** (vs Cloud NGFW).
+2. **Decide the path:**
+   - **Path A →** Palo Alto **Cloud NGFW  <br> (SaaS)** integrated in the hub (✅ Routing Intent, removes UDRs), or
+   - **Path B →** Keep **VM-Series** in an attached security VNet (⚠️ retains UDR/route-table steering; ❌ no Routing Intent for the firewall; ❌ no Internet inspection via Routing Intent).
+3. Confirm **Panorama** usage (eases policy migration in both paths).
+4. If leaning **Path A**, verify **Cloud NGFW regional availability** for the target region(s) — see Section 9.
+5. **Inventory** all spoke VNets, address spaces, UDRs, ExpressRoute circuit(s), peering, and the firewall rule base.
+6. **ASN check** — ensure on-premises ASN does **not** clash with **65515** or other Azure-reserved ASNs.
+7. **Check for SD-WAN coexistence** — if an SD-WAN connectivity NVA (e.g., Cisco 8000v/Catalyst) is planned **in the hub**, note that hosting **both** an SD-WAN NVA **and** a separate Firewall NVA/SaaS in the **same hub** is **not currently supported** (see Section 7).
+
+### Phase 1 — Build the Virtual WAN Foundation *(non-disruptive, runs in parallel)*
+
+8. Create the **Virtual WAN** resource.
+9. Create the **Virtual Hub(s)** — one per region — with a **non-overlapping** address space (e.g., `/23` or larger).
+10. Connect the **ExpressRoute** circuit to the hub's **ExpressRoute Gateway** (can run in parallel with the existing circuit during cutover).
+
+### Phase 2 — Deploy the Firewall *(per chosen path)*
+
+11. **Path A:** Provision **Palo Alto Cloud NGFW** from Azure Marketplace into the hub; it peers with the hub router and plugs into Routing Intent natively. Attach Panorama / import policy.
+    **Path B:** Deploy/keep **VM-Series** in a dedicated **security VNet**; connect that VNet to the hub. Import existing config / attach Panorama. Plan the **route tables / UDRs** that will steer traffic to it (ensure **all prefixes** are covered).
+
+### Phase 3 — Configure Routing
+
+12. Connect **spoke VNets** to the hub (VNet connections replace hub VNet peering).
+13. **Path A — Configure Routing Intent** on each hub *(you create this)*:
+    - **Private Traffic → Cloud NGFW**
+    - **Internet Traffic → Cloud NGFW**
+    - BGP propagates this to all spokes → **now remove the spoke UDRs**.
+    **Path B — Configure route tables / UDRs** to steer traffic to the spoke VM-Series. **Routing Intent is not used for the firewall**; UDRs remain part of the design.
+
+### Phase 4 — Staged Cutover & Validation
+
+14. Migrate **one spoke at a time** (non-prod first):
+    - **Path A:** connect spoke to hub → validate routes learned via **BGP** → remove old **UDR** and old hub peering.
+    - **Path B:** connect spoke to hub → apply the new **UDRs/route tables** pointing at the VM-Series → validate.
+15. **Test all traffic flows:** spoke↔spoke, spoke↔on-prem, spoke↔internet — confirm each is **inspected by the firewall** (check firewall logs) and that **nothing bypasses** the NVA (asymmetric routing check).
+16. Validate **ExpressRoute** path and on-premises reachability.
+
+### Phase 5 — Decommission & Second Region
+
+17. After all spokes are cut over and validated, **decommission** the old Hub VNet, old ExpressRoute Gateway, and leftover peerings/UDRs *(Path A; in Path B, retain only the UDRs that are still required)*.
+18. Repeat for the **second region** hub; confirm **inter-hub** connectivity and that each hub's Routing Intent (Path A) is respected. Ensure **each region's hub performs its own local inspection / internet breakout** (see Section 7).
+19. **Document** final state: ASNs, route tables, Routing Intent policies / UDRs, and firewall rules.
+
+---
+
+## 7. Precautions & Gotchas
+
+### Routing & BGP
+
+- **ASN conflict:** Never use **65515** (Azure hub ASN) or other Azure-reserved ASNs (e.g., `65515`, `65517`–`65520`) for on-premises devices.
+- **Address overlap:** Hub address space must **not overlap** any existing VNet or on-prem range.
+- **Route priority:** After longest-prefix match, Azure prefers **UDR > BGP > system routes** — watch for leftover UDRs overriding intended behavior during cutover.
+- **Routing Intent is not automatic:** It must be **explicitly configured**, and its **next hop must be inside the hub**.
+- **Spoke NVA ≠ Routing Intent next hop:** A firewall in a spoke/connected VNet (Path B) **cannot** be a Routing Intent next hop. Use **route tables / UDRs** instead.
+- **Routing Intent + custom/static routes — plan carefully:** Routing Intent **can coexist** with custom route tables and certain static routes, but they interact under **specific rules** and can conflict if not designed together. This is **not** an outright prohibition — but before combining them in the same hub, **review the current Microsoft documentation** and validate the resulting effective routes to avoid unexpected paths.
+
+### Firewall-specific
+
+- **VM-Series ≠ hub-native:** You **cannot** lift VM-Series into the hub. It must run in an attached VNet (Path B) or be replaced by Cloud NGFW (Path A).
+- **No Internet inspection via spoke VM-Series + Routing Intent:** The "Private-only Routing Intent + VM-Series in spoke for Internet" pattern is **not supported via Routing Intent**. Internet inspection via the spoke firewall must be handled with **manual UDRs**, or move to Path A.
+- **Asymmetric routing / firewall bypass (Path B):** With a spoke firewall, if static routes/UDRs don't cover **all** relevant prefixes, the hub's default routing can send some flows **directly**, **bypassing the NVA** — causing asymmetric paths or dropped sessions. **Ensure every relevant prefix is steered to the NVA** and validate both directions of traffic.
+- **Product change (Path A):** Cloud NGFW is a **different product** from VM-Series — expect a new licensing/billing model and a policy migration (Panorama helps).
+- **HA ownership (Path B):** With VM-Series in an attached VNet, **you** own high availability and scaling design.
+- **One next hop per policy:** Only **one** next-hop resource per Private and per Internet policy **per hub**.
+
+### Multi-NVA / SD-WAN coexistence
+
+- **SD-WAN + Firewall in the same hub is not currently supported:** Deploying **both** an SD-WAN connectivity NVA **and** a separate Firewall NVA or SaaS solution **in the same Virtual WAN hub** is **on the roadmap but not available today**. If you plan to run an SD-WAN NVA (e.g., Cisco 8000v) **and** Palo Alto security, use **separate hubs**, or place one component in a **connected VNet** rather than the hub. See the [Routing Policies known limitations](https://learn.microsoft.com/en-us/azure/virtual-wan/how-to-routing-policies#known-limitations).
+
+### Multi-Region / Inter-Hub
+
+- **Each hub inspects locally:** In multi-hub deployments, **each hub should perform its own traffic inspection** and **internet breakout** with a firewall **in that hub**. Plan a firewall per hub.
+- **Avoid cross-hub hairpinning:** Don't rely on a **single** firewall cluster in one region to inspect another region's internet/egress traffic — this causes hairpinning and suboptimal paths. Keep **local breakout per region**.
+- **Inter-hub private traffic** is inspected per each hub's Routing Intent (Path A) — size firewall capacity in **each** hub accordingly.
+
+### Operational
+
+- **Parallel run:** Keep the classic environment live and migrate **per spoke** to minimize downtime.
+- **Regional availability:** Validate **Cloud NGFW** (and any NVA/SaaS) availability in **each** target region before committing to Path A — see Section 9.
+- **Gateway SKU / limits:** Be mindful of route advertisement/learning limits and gateway capabilities; size hubs for expected scale.
+- **Validate before decommission:** Never remove old peerings, gateways, or UDRs until the corresponding spoke is fully validated on Virtual WAN.
+
+---
+
+## 8. Pre-Migration Checklist
+
+- [ ] Current firewall product confirmed (VM-Series vs Cloud NGFW)
+- [ ] Path chosen (A: Cloud NGFW SaaS / B: VM-Series attached VNet)
+- [ ] Understood: Path B retains UDRs and cannot use Routing Intent for the firewall
+- [ ] Checked SD-WAN + Firewall coexistence constraint (if SD-WAN NVA is in scope)
+- [ ] Panorama usage confirmed
+- [ ] Cloud NGFW regional availability verified (if Path A)
+- [ ] Full inventory: spokes, address spaces, UDRs, ExpressRoute, peerings
+- [ ] Firewall rule base exported
+- [ ] On-premises ASN verified (no conflict with 65515 / reserved ASNs)
+- [ ] Hub address space planned (non-overlapping)
+- [ ] Asymmetric routing review done (Path B — all prefixes steered to NVA)
+- [ ] Multi-region / inter-hub design defined (local breakout per hub)
+- [ ] HA design defined (especially Path B)
+- [ ] Cutover plan: per-spoke, non-prod first, with rollback
+- [ ] Validation plan: spoke↔spoke, spoke↔on-prem, spoke↔internet + firewall logs + bypass check
+
+---
+
+## 9. Reference Documentation
+
+### Azure Virtual WAN — Core
+
+- [Configure Palo Alto Networks Cloud NGFW in Virtual WAN — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/how-to-palo-alto-cloud-ngfw)
+- [How to configure Virtual WAN Hub routing policies (Routing Intent) — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/how-to-routing-policies)
+- [Routing Policies — Known Limitations (SD-WAN + Firewall coexistence) — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/how-to-routing-policies#known-limitations)
+- [About virtual hub routing — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/about-virtual-hub-routing)
+- [About Network Virtual Appliances in a Virtual WAN hub — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/about-nva-hub)
+- [About Third Party Integrations — Virtual WAN hub — Microsoft Learn](https://learn.microsoft.com/en-us/azure/virtual-wan/third-party-integrations)
+- [Palo Alto VM-Series firewall with Azure Virtual WAN (Microsoft Q&A)](https://learn.microsoft.com/en-us/answers/questions/451120/palo-alto-vm-series-firewall-with-azure-virtual-wa)
+
+### Palo Alto Networks — Cloud NGFW for Azure Virtual WAN
+
+- [Cloud NGFW for Azure Virtual WAN — Palo Alto Networks](https://docs.paloaltonetworks.com/cloud-ngfw-azure/deployment/cloud-ngfw-for-azure-deployment-architectures/cloud-ngfw-for-azure-virtual-wan)
+- [Deploy the Cloud NGFW in a vWAN — Palo Alto Networks](https://docs.paloaltonetworks.com/cloud-ngfw-azure/administration/cloud-ngfw-for-azure-deployment-resources/deploy-the-cloud-ngfw-for-azure-in-a-vwan)
+- [Cloud NGFW for Azure — Supported Regions and Zones — Palo Alto Networks](https://docs.paloaltonetworks.com/cloud-ngfw-azure/reference/cloud-ngfw-for-azure-supported-regions-and-zones)
+- [Securing vWAN (Terraform) — Palo Alto Networks](https://pan.dev/terraform/docs/cloudngfw/azure/tutorials/intro/)
+
+### Community / Practical Guides
+
+- [Azure Virtual WAN: What's Actually Supported — Routing Intent, Azure Firewall & NVA Integration](https://www.tsls.co.uk/index.php/2026/05/15/azure-virtual-wan-whats-actually-supported-a-practical-guide-to-routing-intent-azure-firewall-and-nva-integration/)
+- [Azure vWAN route tables, route intent and policies, route maps](https://blog.roninking.me/azure-vwan-route-tables-route-intent-and-policies-route-maps-c4a84ea9ba3d)
+
+> **Note:** Virtual WAN capabilities and NVA/SaaS support evolve over time. Always confirm current support, regional availability, and limits against the official Microsoft Learn and Palo Alto Networks documentation before finalizing a design.
