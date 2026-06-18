@@ -355,4 +355,18 @@ graph LR
     style FABRIC fill:#5C2D91,stroke:#fff,color:#fff
     style SPOKES fill:#5C2D91,stroke:#fff,color:#fff
 ```
+
+### Design C (Two-Hub) — Trade-offs to Flag for the Call
+
+| Consideration | Note |
+|---|---|
+| **Cost** | Two hubs = **more cost** than one (each hub bills separately) |
+| **Hub-to-hub bandwidth** | There's a **bandwidth ceiling** (~50 Gbps) and **inter-hub egress charges** between hubs |
+| **Complexity** | More moving parts than a single dual-role hub (Design A) |
+| **When it's worth it** | Only when **vendor separation** + **both vendors hub-integrated** is a hard requirement |
+
+> **In one line:** Design C is the "have your cake and eat it too" option — both Cisco SD-WAN *and* Palo Alto Cloud NGFW, each hub-integrated — but you pay for it with **two hubs** (extra cost + inter-hub bandwidth/latency considerations).
+
+
+
 ---
