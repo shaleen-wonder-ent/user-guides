@@ -15,10 +15,11 @@
 5. [Where Do Shared Services Go? (Classic vs vWAN)](#5-where-do-shared-services-go-classic-vs-vwan)
 6. [How Traffic Actually Flows (End to End)](#6-how-traffic-actually-flows-end-to-end)
 7. [Routing 101 — How Devices Decide Where to Send Traffic](#7-routing-101--how-devices-decide-where-to-send-traffic)
-8. [Vendor & Product Landscape (Cisco vs Palo Alto)](#8-vendor--product-landscape-cisco-vs-palo-alto)
-9. [Terminology: Branch vs Site vs Spoke](#9-terminology-branch-vs-site-vs-spoke)
-10. [Networking Jargon Glossary](#10-networking-jargon-glossary)
-11. [Quick Reference Cheat Sheet](#11-quick-reference-cheat-sheet)
+8. [NAT Deep Dive — SNAT & DNAT Explained](#8-nat-deep-dive--snat--dnat-explained)
+9. [Vendor & Product Landscape (Cisco vs Palo Alto)](#9-vendor--product-landscape-cisco-vs-palo-alto)
+10. [Terminology: Branch vs Site vs Spoke](#10-terminology-branch-vs-site-vs-spoke)
+11. [Networking Jargon Glossary](#11-networking-jargon-glossary)
+12. [Quick Reference Cheat Sheet](#12-quick-reference-cheat-sheet)
 
 ---
 
@@ -122,7 +123,7 @@ A firewall — specifically a **Next-Generation Firewall (NGFW)** — inspects a
 | **URL filtering** | Blocks/allows web categories and sites |
 | **Threat prevention** | Anti-malware, threat intelligence feeds |
 | **TLS/SSL inspection** | Decrypts encrypted traffic to inspect it (where policy allows) |
-| **NAT** | Translates addresses (see glossary) |
+| **NAT** | Translates addresses (see Section 8) |
 
 ### Why a firewall is separate from connectivity
 
@@ -225,14 +226,96 @@ Routing is simply **how a device decides where to send a packet next**. A few co
 
 - A **route** says: *"To reach destination X, send the packet to next hop Y."*
 - A **route table** is a collection of routes a device or subnet uses.
+- **Next hop** = the next device/destination a packet is handed to on its way to the final destination.
 
-### How the best route is chosen
+### Understanding CIDR notation (the `/24`, `/8` part)
 
-When multiple routes could match, devices generally use this priority:
+An IPv4 address is **32 bits**, written as four 8-bit "octets" (e.g., `10.1.2.3`). The number after the slash — the **prefix length** — tells you **how many bits from the left are "fixed" (the network part)**. The rest are free for hosts.
 
-1. **Longest prefix match** — the **most specific** route wins (e.g., `10.1.2.0/24` beats `10.0.0.0/8`).
-2. Then, by **route type/source** — in Azure, the typical preference is:
-   **User-Defined Route (UDR) > BGP-learned route > system/default route.**
+| CIDR | Fixed (network) bits | Free (host) bits | Approx. addresses |
+|---|---|---|---|
+| `/8` | 8 | 24 | ~16.7 million |
+| `/16` | 16 | 16 | ~65,536 |
+| `/24` | 24 | 8 | 256 |
+| `/32` | 32 | 0 | 1 (a single host) |
+
+> **Bigger slash number = more fixed bits = smaller, more specific range.**
+> `/8` is huge; `/24` is small; `/32` is a single address. And `0.0.0.0/0` fixes **zero** bits — it matches **everything** (the ultimate catch-all).
+
+### How the best route is chosen — Longest Prefix Match
+
+When **multiple routes match** the same destination, the router picks the one with the **longest prefix** (the most fixed bits / biggest slash number). It does **not** care about route order or which was added first — only **specificity**.
+
+**Seeing it in bits.** Both of these routes contain the address `10.1.2.3`:
+
+```
+Address:        10 . 1 . 2 . 3   = 00001010.00000001.00000010.00000011
+
+Route A: 10.0.0.0/8   fixes:  00001010 . xxxxxxxx.xxxxxxxx.xxxxxxxx
+                              └─ 8 bits ─┘   (only "10." must match  → huge pool)
+
+Route B: 10.1.2.0/24  fixes:  00001010.00000001.00000010 . xxxxxxxx
+                              └──────── 24 bits ────────┘   ("10.1.2." must match → small pool)
+```
+
+The address falls inside **both**, so the router picks the **more specific** one:
+
+```
+Destination: 10.1.2.3
+   ✓ 10.0.0.0/8    (8 bits match)   ← less specific
+   ✓ 10.1.2.0/24   (24 bits match)  ← MORE specific  ✅ WINNER
+```
+
+**Why this rule exists:** a more specific route reflects a more deliberate, targeted intent. If you bothered to define `10.1.2.0/24 → somewhere`, you almost certainly meant *that* network to behave differently from the broad `10.0.0.0/8` catch-all.
+
+### Worked example — how one route table resolves different destinations
+
+Suppose a subnet has these routes:
+
+| Route | Next hop | Meaning |
+|---|---|---|
+| `0.0.0.0/0` | Firewall | "Send **everything** to the firewall" |
+| `10.0.0.0/8` | Hub router | "Internal traffic → hub" |
+| `10.1.2.0/24` | Local | "**This specific subnet** stays local" |
+
+| Destination | Routes that match | Winner (longest prefix) | Result |
+|---|---|---|---|
+| `8.8.8.8` (internet) | only `0.0.0.0/0` | `0.0.0.0/0` | → **Firewall** |
+| `10.50.0.5` (other internal) | `0.0.0.0/0`, `10.0.0.0/8` | `10.0.0.0/8` | → **Hub** |
+| `10.1.2.7` (same subnet) | `0.0.0.0/0`, `10.0.0.0/8`, `10.1.2.0/24` | `10.1.2.0/24` | → **Local** |
+
+Notice: `0.0.0.0/0` is the **least specific possible**, so it only "wins" when **nothing more specific matches** — which is exactly why it's the perfect **default / catch-all** route.
+
+### The two-UDR example (and the firewall-bypass trap ⚠️)
+
+A key consequence: a more specific route **carves an exception** out of a broad one. Say you have just two UDRs:
+
+| UDR | Destination | Next hop |
+|---|---|---|
+| 1 | `0.0.0.0/0` | Firewall |
+| 2 | `20.1.0.0/16` | Internet (direct) |
+
+Then traffic resolves like this:
+
+| Packet going to... | Inside `20.1.0.0/16`? | Winner | Goes to |
+|---|---|---|---|
+| `20.1.5.10` | ✅ Yes | `20.1.0.0/16` (more specific) | **Internet (direct)** |
+| `20.1.200.7` | ✅ Yes | `20.1.0.0/16` (more specific) | **Internet (direct)** |
+| `8.8.8.8` | ❌ No | only `0.0.0.0/0` | **Firewall** |
+| `52.96.0.1` | ❌ No | only `0.0.0.0/0` | **Firewall** |
+
+> **Important nuance:** `20.1.0.0/16` beats `0.0.0.0/0` **only for destinations inside `20.1.x.x`** — *not* for all traffic. For every other destination, the `/0` still wins because the `/16` doesn't match.
+
+⚠️ **This is the classic firewall-bypass trap.** Your intent is "inspect *all* traffic" (`0.0.0.0/0 → Firewall`). But if someone adds `20.1.0.0/16 → Internet (direct)`, then all traffic to `20.1.x.x` **silently skips the firewall** — no inspection, no logging — because the more specific route wins. The firewall *looks* like it's catching everything, but that one route quietly punches a hole. **When troubleshooting, always ask: "what is the *most specific* route that matches this destination?"** — that's the one that actually takes effect.
+
+### Route preference — the full decision order
+
+Longest-prefix match is the **first** tiebreaker, applied across *all* matching routes regardless of source. **Only if two matching routes have the *same* prefix length** does the next tiebreaker apply — the route **type/source** (in Azure: **UDR > BGP-learned > system/default**).
+
+```
+1. Among all matching routes → pick the LONGEST prefix (most specific)
+2. If there is a TIE on prefix length → use route-type preference (UDR > BGP > system)
+```
 
 ### Static vs dynamic routing
 
@@ -251,7 +334,141 @@ When multiple routes could match, devices generally use this priority:
 
 ---
 
-## 8. Vendor & Product Landscape (Cisco vs Palo Alto)
+## 8. NAT Deep Dive — SNAT & DNAT Explained
+
+NAT (Network Address Translation) = **rewriting the source and/or destination IP** of packets. SNAT and DNAT confuse almost everyone at first, so here's the foundation that makes it click.
+
+### The one rule that resolves all confusion
+
+> **SNAT and DNAT are named after *which IP gets rewritten*, NOT after the *direction* of the traffic.**
+> - Rewrite the **Source** field → **S**NAT
+> - Rewrite the **Destination** field → **D**NAT
+
+### Every packet carries TWO addresses
+
+| Field | Meaning |
+|---|---|
+| **Source IP** | Where the packet is coming **FROM** (sender) |
+| **Destination IP** | Where the packet is going **TO** (receiver) |
+
+```
+[ Source: 10.0.0.5 ]  ───────►  [ Destination: 8.8.8.8 ]
+   (your laptop)                      (Google)
+```
+
+NAT can rewrite **either** field — and which one it rewrites gives it its name.
+
+### SNAT (Source NAT) — for traffic going OUT
+
+Your laptop has a **private** IP (`10.0.0.5`). Private IPs (RFC 1918) **can't travel on the public internet** — replies could never find their way back. So when you browse out, the NAT device rewrites the **SOURCE** to its own **public** IP:
+
+```
+Step 1 — Packet leaves your laptop:
+   [ Source: 10.0.0.5 ]  ──►  [ Dest: 8.8.8.8 ]
+        (private — unusable on internet!)
+
+Step 2 — NAT device rewrites the SOURCE to its public IP:
+   [ Source: 52.1.2.3 ]  ──►  [ Dest: 8.8.8.8 ]
+        (public — now valid!)        ↑ destination UNCHANGED
+
+Step 3 — Google replies to the public IP it saw:
+   [ Source: 8.8.8.8 ]  ──►  [ Dest: 52.1.2.3 ]
+
+Step 4 — NAT device reverses it (using its mapping table):
+   [ Source: 8.8.8.8 ]  ──►  [ Dest: 10.0.0.5 ]
+                                    ↑ back to your laptop
+```
+
+> **The "aha":** On **outbound** traffic the **destination is already correct** (you *want* `8.8.8.8`). What's broken is the **source** (your private IP). So NAT fixes the **source** → **S**NAT. This is also why **"many private IPs share one public IP"**: every device's source is rewritten to the *same* public IP, and the NAT device's mapping table remembers which reply goes back to which device.
+
+### DNAT (Destination NAT) — for traffic coming IN
+
+DNAT is the mirror image — it's for when **you host a service** that outsiders need to reach. Your server has a **private** IP (`10.0.0.50`), but the internet can't address that. So you publish a **public** IP, and DNAT rewrites the **DESTINATION** to the real server:
+
+```
+Step 1 — Internet user connects to your PUBLIC IP:
+   [ Source: 203.0.113.9 ]  ──►  [ Dest: 52.1.2.3 : 443 ]
+       (the visitor)                 (your public IP)
+
+Step 2 — NAT device applies a DNAT rule, rewrites the DESTINATION:
+   [ Source: 203.0.113.9 ]  ──►  [ Dest: 10.0.0.50 : 443 ]
+        ↑ source UNCHANGED             (your real web server)
+
+Step 3 — Server replies; device reverses the translation outbound:
+   [ Source: 52.1.2.3 ]  ◄──  [ from 10.0.0.50 ]
+   (visitor sees the public IP reply — consistent with what they dialed)
+```
+
+> **The "aha":** On **inbound** traffic the **source is already correct** (the visitor's real IP — you need it to reply!). What's broken is the **destination** (`52.1.2.3` isn't where the server lives). So NAT fixes the **destination** → **D**NAT.
+
+### Why would anyone need DNAT? (What/who/why)
+
+- **Why people connect in:** because **you're hosting a service** they want to use. They don't see your private IP — they hit your **public** IP, and DNAT bridges public → private behind the scenes.
+- **What they're looking for:** whatever you **publish** — examples:
+
+| You host... | Who connects in | What they want |
+|---|---|---|
+| A **website / web app** | Customers, public | Load your site (`https://yourcompany.com`) |
+| An **API** | Partner systems, apps | Call your API endpoints |
+| A **VPN gateway** | Remote employees | Connect into the corporate network |
+| An **email/SMTP server** | Other mail servers | Deliver email to you |
+| A **game/app server** | Players/clients | Connect to the service |
+| An **SSH/RDP jump box** | Admins (from outside) | Manage internal servers |
+
+- **Who does it (and how):** the **same border devices** that do SNAT — **firewalls, gateways, load balancers, reverse proxies** — anything sitting at the public/private boundary. They use a **DNAT rule** (a.k.a. port forwarding / publishing rule): *"traffic to **public IP:port** → forward to **private IP:port**,"* rewriting the **destination** and keeping the source intact so the server can reply. SNAT and DNAT frequently run on the **same box**, handling opposite directions.
+
+### You already use DNAT every day (load balancers)
+
+Every website you visit uses DNAT: a public IP (from DNS) is taken by a **load balancer** and **DNAT'd** to one of many backend servers on private IPs:
+
+```mermaid
+graph LR
+    USER["Internet User"]
+    LB["Load Balancer / Firewall<br/>Public IP: 52.1.2.3<br/>(does DNAT)"]
+    S1["Web Server 1<br/>10.0.0.50"]
+    S2["Web Server 2<br/>10.0.0.51"]
+    S3["Web Server 3<br/>10.0.0.52"]
+
+    USER -->|connects to 52.1.2.3| LB
+    LB -->|DNAT to a backend| S1
+    LB -->|DNAT to a backend| S2
+    LB -->|DNAT to a backend| S3
+
+    style LB fill:#D13438,stroke:#fff,color:#fff
+    style USER fill:#107C10,stroke:#fff,color:#fff
+    style S1 fill:#5C2D91,stroke:#fff,color:#fff
+    style S2 fill:#5C2D91,stroke:#fff,color:#fff
+    style S3 fill:#5C2D91,stroke:#fff,color:#fff
+```
+
+This does two jobs at once: **bridges public → private** *and* **spreads load** — while the user only ever sees one public IP.
+
+### The envelope analogy (makes it stick)
+
+Think of a letter with a **"From"** (return) address and a **"To"** (forwarding) address:
+
+- **SNAT** = changing the **"From"** (return) address. Mail leaving your company gets the **company's** return address (not each employee's home), so replies come back to the mailroom. *Destination is fine; you're fixing who it appears to come from.*
+- **DNAT** = changing the **"To"** (forwarding) address. Mail arrives addressed to "Company HQ, PO Box 123," and the mailroom **re-addresses** it to the right person inside. *Sender is fine; you're fixing where it actually goes.*
+
+### SNAT vs DNAT — side by side
+
+| | **SNAT (Source NAT)** | **DNAT (Destination NAT)** |
+|---|---|---|
+| **Which field is rewritten** | **Source** IP | **Destination** IP |
+| **Typical direction** | **Outbound** (inside → internet) | **Inbound** (internet → inside) |
+| **Problem being solved** | Source (private IP) unusable on internet | Destination (public IP) isn't the real server |
+| **What stays unchanged** | Destination (already correct) | Source (needed for the reply) |
+| **Whose need** | *Your* devices want to **go out** | *Outsiders* want to **come in** |
+| **Real-world use** | Devices **consume** internet services | You **provide/host** a service to others |
+| **Analogy** | Return address on an envelope | Forwarding address on an envelope |
+
+> **One-liner to lock it in:**
+> **SNAT** = *"I'm going out"* → fix my **source** (so replies find their way back).
+> **DNAT** = *"Someone's coming in to use what I host"* → fix the **destination** (so their request reaches the real server).
+
+---
+
+## 9. Vendor & Product Landscape (Cisco vs Palo Alto)
 
 A quick map of who does what — useful because product names cause a lot of confusion.
 
@@ -274,7 +491,7 @@ Because the **8000V can do both jobs in one box**, it can serve as a **dual-role
 
 ---
 
-## 9. Terminology: Branch vs Site vs Spoke
+## 10. Terminology: Branch vs Site vs Spoke
 
 These three are easy to mix up. Keep them distinct:
 
@@ -303,7 +520,7 @@ graph LR
 
 ---
 
-## 10. Networking Jargon Glossary
+## 11. Networking Jargon Glossary
 
 Plain-English definitions of the terms that come up constantly.
 
@@ -311,7 +528,8 @@ Plain-English definitions of the terms that come up constantly.
 
 - **IP address** — A unique numeric label for a device on a network (e.g., `10.1.2.3`).
 - **Subnet** — A subdivision of a network's address space (e.g., `10.1.2.0/24`). Groups related devices.
-- **CIDR (Classless Inter-Domain Routing)** — Notation for an address range using a prefix length, e.g., `10.0.0.0/16`. The number after `/` says how many bits are "fixed" — **smaller number = bigger range** (`/8` is huge, `/30` is tiny).
+- **CIDR (Classless Inter-Domain Routing)** — Notation for an address range using a prefix length, e.g., `10.0.0.0/16`. The number after `/` says how many bits are "fixed" — **smaller number = bigger range** (`/8` is huge, `/30` is tiny). See Section 7 for a full breakdown.
+- **Prefix length** — The `/N` part of CIDR; how many leading bits are fixed (the network portion).
 - **RFC 1918 (private IP ranges)** — Address ranges reserved for **private/internal** use, not routable on the public internet:
   - `10.0.0.0/8`
   - `172.16.0.0/12`
@@ -319,9 +537,9 @@ Plain-English definitions of the terms that come up constantly.
 - **Route** — A rule: *"to reach destination X, send to next hop Y."*
 - **Route table** — A collection of routes used by a subnet/device.
 - **Next hop** — The **next device/destination** a packet is sent to on its way to the final destination.
-- **Default route (`0.0.0.0/0`)** — The "catch-all" route: *"if nothing more specific matches, send the packet here."* Often used to force **all internet-bound traffic** to a firewall.
-- **Longest prefix match** — The rule that the **most specific** route wins when several match.
-- **UDR (User-Defined Route)** — A **manually created** route you place on a subnet to **override** default routing — e.g., *"send all traffic (`0.0.0.0/0`) to the firewall."* The classic way to force traffic through an appliance.
+- **Default route (`0.0.0.0/0`)** — The "catch-all" route: *"if nothing more specific matches, send the packet here."* The **least specific** possible route. Often used to force **all internet-bound traffic** to a firewall.
+- **Longest prefix match** — The rule that the **most specific** route (most fixed bits) wins when several match. The first tiebreaker in route selection (see Section 7).
+- **UDR (User-Defined Route)** — A **manually created** route you place on a subnet to **override** default routing — e.g., *"send all traffic (`0.0.0.0/0`) to the firewall."* The classic way to force traffic through an appliance. ⚠️ A more specific UDR can **override** a broad one for its range — a common cause of accidental firewall bypass (see Section 7).
 
 ### Routing protocols & dynamic routing
 
@@ -333,9 +551,9 @@ Plain-English definitions of the terms that come up constantly.
 
 ### Address translation & connectivity
 
-- **NAT (Network Address Translation)** — Rewriting the **source and/or destination IP** of packets. Two common forms:
-  - **SNAT (Source NAT)** — Changes the **source** address (e.g., many private IPs share one public IP for outbound internet). This is how internal devices reach the internet without public IPs each.
-  - **DNAT (Destination NAT)** — Changes the **destination** address (e.g., forward inbound traffic hitting a public IP to an internal server). Used to **publish** internal services.
+- **NAT (Network Address Translation)** — Rewriting the source and/or destination IP of packets (see Section 8 for the full deep dive).
+- **SNAT (Source NAT)** — Rewrites the **source** address; typically for **outbound** traffic so internal devices can reach the internet (many private IPs → one public IP).
+- **DNAT (Destination NAT)** — Rewrites the **destination** address; typically for **inbound** traffic to **publish** an internal service (public IP → real internal server).
 - **VPN (Virtual Private Network)** — An **encrypted tunnel** over a public network (e.g., Site-to-Site VPN connecting an office to the cloud).
 - **ExpressRoute (ER)** — A **dedicated private circuit** to Azure (not over the public internet). Private, reliable, higher cost.
 - **SD-WAN (Software-Defined WAN)** — Intelligent **WAN-edge** technology that connects branch offices over **any transport** with **dynamic path selection** and central management.
@@ -376,7 +594,7 @@ Plain-English definitions of the terms that come up constantly.
 
 ---
 
-## 11. Quick Reference Cheat Sheet
+## 12. Quick Reference Cheat Sheet
 
 ### The three layers
 | Layer | Job | Tech |
@@ -392,11 +610,17 @@ Plain-English definitions of the terms that come up constantly.
 | **SD-WAN** | **Virtual WAN** | Branch connectivity vs cloud backbone |
 | **Classic hub** | **vWAN hub** | Your VNet (can host services) vs Microsoft-managed transit (cannot) |
 | **UDR (static)** | **BGP (dynamic)** | Manually written vs automatically learned |
-| **SNAT** | **DNAT** | Rewrites source vs destination |
+| **SNAT** | **DNAT** | Rewrites **source** (outbound) vs **destination** (inbound) |
 | **East-West** | **North-South** | Internal traffic vs in/out traffic |
 
+### NAT in one line
+- **SNAT** → going **out**, fix the **source** (private → shared public IP).
+- **DNAT** → coming **in**, fix the **destination** (public IP → real internal server).
+
 ### Route preference (typical)
-`Longest prefix match` → then `UDR > BGP > system/default`
+`Longest prefix match (most specific wins)` → then on a tie → `UDR > BGP > system/default`
+
+> Remember: a more specific route (e.g., `20.1.0.0/16`) beats `0.0.0.0/0` **only for its own range** — and that's how firewalls get **accidentally bypassed**.
 
 ### Private IP ranges (RFC 1918)
 `10.0.0.0/8` · `172.16.0.0/12` · `192.168.0.0/16`
@@ -405,7 +629,7 @@ Plain-English definitions of the terms that come up constantly.
 - **ASN conflicts** (reused/reserved ASNs in BGP)
 - **Address overlap** (two networks using the same CIDR)
 - **Asymmetric routing** (breaks stateful firewalls)
-- **Leftover UDRs** overriding intended routing
+- **Leftover / more-specific UDRs** overriding intended routing (firewall bypass)
 - **Mixing platform-managed and operator-managed routing** without planning
 
 ---
