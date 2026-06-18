@@ -1,4 +1,4 @@
-***Diagram 1 — Path A: Cisco 8000V (SD-WAN) + Cloud NGFW (SaaS) in the hub***
+**Diagram 1 — Path A: Cisco 8000V (SD-WAN) + Cloud NGFW (SaaS) in the hub**
 
 ```mermaid
 graph LR
@@ -37,9 +37,50 @@ graph LR
 
 >Why it works: Cloud NGFW is SaaS, not an NVA — so it doesn't consume the hub's single NVA slot, leaving it free for the 8000V. Routing Intent steers traffic to Cloud NGFW inside the hub → no spoke UDRs.
 
+
+***Target State, Path A (Cloud NGFW SaaS integrated in hub)***
+
+```mermaid
+graph TB
+    subgraph ONPREM["On-Premises / Remote Sites"]
+        DC["Datacenter +<br/>Branch Sites"]
+    end
+
+    subgraph AZURE["Azure - Secured Virtual WAN (Path A)"]
+        subgraph VWAN["Azure Virtual WAN"]
+            subgraph HUB["Virtual WAN Hub Microsoft-Managed ASN 65515"]
+                ROUTER["Hub Router BGP + Route Tables Routing Intent"]
+                ERGW["ExpressRoute GW<br/>managed"]
+                CNGFW["Palo Alto<br/>Cloud NGFW<br/>SaaS in hub"]
+            end
+        end
+
+        subgraph SPOKE1["Spoke VNet 1 no UDRs needed"]
+            
+            APP["Workloads"]
+        end
+
+        subgraph SPOKE2["Spoke VNet 2 no UDRs needed"]
+            DB["Workloads"]
+        end
+    end
+
+    DC -->|ExpressRoute<br/>BGP| ERGW
+    ROUTER <-->|BGP<br/>propagation| SPOKE1
+    ROUTER <-->|BGP<br/>propagation| SPOKE2
+    ROUTER -->|Routing Intent<br/>steers all traffic| CNGFW
+
+    style HUB fill:#0078D4,stroke:#fff,color:#fff
+    style ROUTER fill:#FFB900,stroke:#333,color:#000
+    style CNGFW fill:#D13438,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+```
+
 ---
 
-***Diagram 2 — Path A: Cisco 8000V with its OWN firewall capability (dual-role)***
+**Diagram 2 — Path A: Cisco 8000V with its OWN firewall capability (dual-role)**
 
 ```mermaid
 graph LR
@@ -76,7 +117,7 @@ graph LR
 >Why it works: The same 8000V does both SD-WAN and firewalling (its own NGFW capability) — one NVA, two roles — so it satisfies the one-NVA-per-hub rule. Routing Intent steers traffic to the 8000V's firewall role inside the hub → no spoke UDRs. (No Palo Alto here — Cisco does the firewalling.)
 
 ---
-***Diagram 3 — Path B: Cisco 8000V (SD-WAN) in hub + Palo Alto VM-Series in its own spoke***
+**Diagram 3 — Path B: Cisco 8000V (SD-WAN) in hub + Palo Alto VM-Series in its own spoke**
 
 ```mermaid
 graph LR
@@ -121,6 +162,56 @@ graph LR
 ```
 >Why it works: The 8000V (SD-WAN) takes the hub's single NVA slot; the VM-Series lives in a separate spoke, so there's no second-NVA conflict. But Routing Intent can't reach a spoke firewall, so traffic is steered via UDRs on every spoke → the "1 or 50" maintenance burden.
 
+
+***Target State, Path B (VM-Series in attached VNet)***
+
+
+```mermaid
+graph TB
+    subgraph ONPREM["On-Premises / Remote Sites"]
+        DC["Datacenter +<br/>Branch Sites"]
+    end
+
+    subgraph AZURE["Azure - Virtual WAN + Spoke Firewall (Path B)"]
+        subgraph VWAN["Azure Virtual WAN"]
+            subgraph HUB["Virtual WAN Hub Microsoft-Managed ASN 65515"]
+                ROUTER["Hub Router<br/>BGP + Route Tables<br/>no Routing Intent<br/>for spoke NVA"]
+                ERGW["ExpressRoute GW<br/>managed"]
+            end
+        end
+
+        subgraph SECVNET["Security VNet self-managed"]
+            PALO["Palo Alto<br/>VM-Series NVA<br/>existing"]
+        end
+
+        subgraph SPOKE1["Spoke VNet 1<br/>UDRs required"]
+            APP["Workloads"]
+            UDR1["UDR<br/>to VM-Series"]
+        end
+
+        subgraph SPOKE2["Spoke VNet 2<br/>UDRs required"]
+            DB["Workloads"]
+            UDR2["UDR<br/>to VM-Series"]
+        end
+    end
+
+    DC -->|ExpressRoute<br/>BGP| ERGW
+    ROUTER <-->|BGP<br/>propagation| SPOKE1
+    ROUTER <-->|BGP<br/>propagation| SPOKE2
+    SECVNET ---|VNet<br/>connection| HUB
+    APP -.-> UDR1
+    UDR1 -.steer.-> PALO
+    DB -.-> UDR2
+    UDR2 -.steer.-> PALO
+
+    style HUB fill:#0078D4,stroke:#fff,color:#fff
+    style ROUTER fill:#FFB900,stroke:#333,color:#000
+    style PALO fill:#D13438,stroke:#fff,color:#fff
+    style SECVNET fill:#8E562E,stroke:#fff,color:#fff
+    style ONPREM fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE1 fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKE2 fill:#5C2D91,stroke:#fff,color:#fff
+```
 ---
 
 # Cisco SD-WAN (Catalyst 8000V) + Firewall — Quick Comparison of the 3 Options
