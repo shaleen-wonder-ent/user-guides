@@ -652,6 +652,44 @@ Both "VNet↔VNet (same subscription)" and "VNet↔VNet (different subscription)
 
 ---
 
+### 7.6 Cisco SD-WAN + Firewall: The 3 Viable Options (and why SaaS ≠ NVA slot)
+
+Because of the **one-NVA-per-hub** rule (§7.2), putting **Cisco SD-WAN (8000V) in the hub** *plus* a **separate firewall NVA** (Fortinet, Check Point, Palo Alto VM-Series, etc.) in the **same hub** is **not supported** — that would be **two NVAs**. However, there are still **three viable ways** to have both Cisco SD-WAN and firewalling:
+
+| # | Option | The 1 NVA in hub | Firewall | Why it's allowed |
+|---|---|---|---|---|
+| **1** | **8000V + Cloud NGFW (SaaS)** | 8000V (SD-WAN only) | **Cloud NGFW in hub** | ✅ Cloud NGFW is **SaaS, not an NVA** → it **does not consume the NVA slot** |
+| **2** | **8000V + VM-Series in a spoke (Path B)** | 8000V (SD-WAN only) | **VM-Series in a spoke** | ✅ Firewall is in a **spoke**, not the hub → NVA slot stays free |
+| **3** | **Dual-role 8000V** | 8000V (**SD-WAN + NGFW**) | **Same 8000V** | ✅ **One NVA doing two jobs** → still one NVA |
+
+> 🔑 **The critical loophole — "one NVA per hub" really means one *NVA*.**
+> **SaaS firewalls (Cloud NGFW) and Azure Firewall do NOT count against the NVA limit.** That's why Option 1 works: the 8000V (NVA) and Cloud NGFW (SaaS) are **different resource types** and can coexist in the same hub.
+
+| In the hub | Resource type | Consumes the single NVA slot? |
+|---|---|---|
+| Cisco 8000V | **NVA** | ✅ Yes (this is *the* one NVA) |
+| Cloud NGFW | **SaaS** | ❌ No |
+| Azure Firewall | Managed service | ❌ No |
+| Fortinet / Check Point / Palo Alto **VM** NVA | **NVA** | ✅ Yes → ❌ **conflicts** with the 8000V |
+
+> ⚠️ **The combo that is NOT supported:** **8000V + a separate firewall NVA in the same hub** (e.g., 8000V + Fortinet NVA, or 8000V + a Palo Alto VM NVA in-hub). That's two NVAs — use **Option 1, 2, or 3**, or split across **two hubs** (Design C in §7.3).
+
+> ⚠️ **Validate the specific combination.** While the *principle* (SaaS ≠ NVA slot) holds, the exact **co-existence** of an SD-WAN NVA (8000V) with Cloud NGFW + Routing Intent in the **same** hub can carry configuration caveats depending on current vWAN capabilities and the Cloud OnRamp/IOS XE release. Confirm against current Microsoft, Cisco, and Palo Alto documentation before committing (see §7.1, §7.2).
+
+#### How the three options compare on outcomes
+
+| Option | Keeps Palo Alto? | Routing Intent? | Removes spoke UDRs? | Best when... |
+|---|---|---|---|---|
+| **1. Cloud NGFW** | ✅ (different PA product) | ✅ Yes | ✅ Yes | Want a clean, managed, Routing-Intent hub *and* Palo Alto |
+| **2. VM-Series (Path B)** | ✅ (exact same product) | ❌ No | ❌ No (UDRs everywhere) | Must reuse the existing VM-Series investment |
+| **3. Dual-role 8000V** | ❌ No (Cisco firewalling) | ✅ Yes (it's the in-hub NVA) | ✅ Yes | Cisco firewalling is acceptable → simplest single-vendor hub |
+
+> **And the multi-hub alternative (Design C):** if TCS insists on **both** Cisco SD-WAN **and** Palo Alto as **hub-integrated** experiences with **vendor separation**, split them across **two hubs** — 8000V in hub-1, Cloud NGFW in hub-2 — sidestepping the one-NVA-per-hub limit by using two hubs.
+
+> **See the three end-to-end flow diagrams** for these options (8000V + Cloud NGFW, dual-role 8000V, and 8000V + VM-Series in a spoke) — they trace Branch → SD-WAN → Hub → firewall → destination for each.
+
+---
+
 ## 8. Migration Steps (Phased Approach)
 
 ### Phase 0 — Discovery, the Firewall Fork & SD-WAN Placement
