@@ -309,3 +309,50 @@ graph TB
 - [ ] **Existing SD-WAN overlay** details (SD-WAN Manager/vManage version, IOS XE release, HA expectations).
 
 ---
+
+**Optional/additional aproach**
+***Two-Hub Architecture (8000V in Hub-1 + Cloud NGFW in Hub-2)***
+
+```mermaid
+graph LR
+    subgraph BRANCH["Branches / Sites"]
+        SITE["Remote Sites"]
+    end
+
+    subgraph FABRIC["Cisco SD-WAN Fabric"]
+        OVERLAY["SD-WAN Overlay"]
+    end
+
+    subgraph AZURE["Azure Virtual WAN (single vWAN, TWO hubs)"]
+
+        subgraph HUB1["Virtual Hub 1 (SD-WAN hub)"]
+            C8KV["Catalyst 8000V x2<br/>SD-WAN<br/>= Hub-1's 1 NVA"]
+            ROUTER1["Hub-1 Router<br/>BGP"]
+        end
+
+        subgraph HUB2["Virtual Hub 2 (Security hub)"]
+            CNGFW["Palo Alto Cloud NGFW<br/>(SaaS, in hub)<br/>+ Routing Intent"]
+            ROUTER2["Hub-2 Router<br/>BGP"]
+        end
+
+        SPOKES["Spoke VNets<br/>(workloads)"]
+    end
+
+    SITE --> OVERLAY
+    OVERLAY --> C8KV
+    C8KV <-->|eBGP| ROUTER1
+    ROUTER1 <-->|"hub-to-hub<br/>(auto interconnect)"| ROUTER2
+    ROUTER2 -->|Routing Intent:<br/>inspect Private + Internet| CNGFW
+    ROUTER2 <-->|BGP propagation| SPOKES
+
+    style HUB1 fill:#0078D4,stroke:#fff,color:#fff
+    style HUB2 fill:#0078D4,stroke:#fff,color:#fff
+    style C8KV fill:#1BA0D7,stroke:#fff,color:#fff
+    style CNGFW fill:#D13438,stroke:#fff,color:#fff
+    style ROUTER1 fill:#FFB900,stroke:#333,color:#000
+    style ROUTER2 fill:#FFB900,stroke:#333,color:#000
+    style BRANCH fill:#107C10,stroke:#fff,color:#fff
+    style FABRIC fill:#5C2D91,stroke:#fff,color:#fff
+    style SPOKES fill:#5C2D91,stroke:#fff,color:#fff
+```
+---
