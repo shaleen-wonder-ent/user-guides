@@ -227,6 +227,109 @@ graph LR
 
 ---
 
+### 4.3 End-to-End Flow: Path A vs Path B (Side by Side)
+
+A frequent point of confusion is *how* traffic actually reaches the firewall in each path — and people often accidentally **combine** the two (e.g., "Routing Intent sends it to the spoke, then a UDR sends it to the VM-Series"). That's a mix-up: **the two paths are mutually exclusive.** You pick **one firewall, in one place, reached one way.**
+
+> **The golden rule:**
+> - Firewall **inside the hub** → reached via **Routing Intent** (Path A). **No spoke UDRs.**
+> - Firewall **in a spoke** → reached via **UDRs on the spokes** (Path B). **No Routing Intent for the firewall.**
+> You never use **both** Routing Intent *and* spoke-UDRs to reach the firewall for the same traffic.
+
+#### Quick mental model
+
+```
+Path A:  SD-WAN → Hub → (Routing Intent) → Cloud NGFW in hub → pass/fail → destination spoke
+                         └─ inspected BEFORE it ever reaches a spoke ─┘
+
+Path B:  SD-WAN → Hub → destination spoke → (spoke UDR) → VM-Series spoke → pass/fail → destination
+                         └─ inspected AFTER reaching the spoke, via a detour ─┘
+```
+
+#### Path A — Cloud NGFW (firewall IN the hub)
+
+1. SD-WAN traffic arrives at the **Virtual Hub**.
+2. **Routing Intent** forces it to the **in-hub firewall (Cloud NGFW)** — the inspection **detour happens at the hub**.
+3. Cloud NGFW inspects → **pass** (hand back to hub) or **fail** (drop).
+4. The hub **delivers** the (allowed) traffic to the destination spoke.
+
+> Inspection happens **at the hub, before the traffic ever reaches a spoke**. **No per-spoke UDRs.**
+
+```mermaid
+graph LR
+    SDWAN["SD-WAN call"]
+    subgraph HUBA["Virtual Hub"]
+        ROUTERA["Hub Router"]
+        CNGFW["Cloud NGFW<br/>(IN the hub)"]
+    end
+    SPOKEA["Destination Spoke<br/>(workload)"]
+
+    SDWAN --> ROUTERA
+    ROUTERA -->|1. Routing Intent:<br/>detour to firewall| CNGFW
+    CNGFW -->|2. inspected, allowed| ROUTERA
+    ROUTERA -->|3. deliver| SPOKEA
+
+    style HUBA fill:#0078D4,stroke:#fff,color:#fff
+    style CNGFW fill:#D13438,stroke:#fff,color:#fff
+    style ROUTERA fill:#FFB900,stroke:#333,color:#000
+    style SDWAN fill:#107C10,stroke:#fff,color:#fff
+    style SPOKEA fill:#5C2D91,stroke:#fff,color:#fff
+```
+
+#### Path B — VM-Series (firewall IN a spoke)
+
+1. SD-WAN traffic arrives at the **Virtual Hub**.
+2. The hub **delivers it toward the destination spoke on its own** (built-in connectivity — **no hub UDRs, no Routing Intent firewall step**).
+3. A **UDR on the spoke** (`0.0.0.0/0 → VM-Series`) **redirects** the traffic to the **secured (VM-Series) spoke**.
+4. The **VM-Series inspects** → **pass** (forward to the final destination) or **fail** (drop).
+
+> Inspection happens **after reaching the spoke**, via a **UDR detour** to the security spoke. A **UDR is required on every spoke** (current *and* future — the "1 or 50" burden).
+
+```mermaid
+graph LR
+    SDWANB["SD-WAN call"]
+    subgraph HUBB["Virtual Hub"]
+        ROUTERB["Hub Router<br/>(no RI firewall step)"]
+    end
+    subgraph SECSPOKEB["Security Spoke"]
+        VMS["VM-Series"]
+    end
+    subgraph SPOKEB["Destination Spoke"]
+        W["Workload"]
+        UDR["UDR: 0.0.0.0/0<br/>→ VM-Series"]
+    end
+
+    SDWANB --> ROUTERB
+    ROUTERB -->|1. forward toward spoke| SPOKEB
+    W -.->|2. UDR redirects| VMS
+    VMS -.->|3. inspected, allowed,<br/>sent to destination| W
+
+    style HUBB fill:#0078D4,stroke:#fff,color:#fff
+    style SECSPOKEB fill:#8E562E,stroke:#fff,color:#fff
+    style VMS fill:#D13438,stroke:#fff,color:#fff
+    style ROUTERB fill:#FFB900,stroke:#333,color:#000
+    style SDWANB fill:#107C10,stroke:#fff,color:#fff
+    style SPOKEB fill:#5C2D91,stroke:#fff,color:#fff
+    style UDR fill:#107C10,stroke:#fff,color:#fff
+```
+
+#### The two flows at a glance
+
+| Step | **Path A (Cloud NGFW)** | **Path B (VM-Series)** |
+|---|---|---|
+| Who steers to the firewall? | **Routing Intent** (at the hub) | **UDRs** (on the spokes) |
+| Where's the firewall? | **In the hub** | **In a spoke** |
+| When does inspection happen? | **At the hub, before the spoke** | **After reaching the spoke, redirected out** |
+| UDRs on spokes? | ❌ None | ✅ On every spoke (current + future) |
+| Routing Intent used? | ✅ Yes | ❌ No |
+| "Pass" means... | Hub delivers to destination | VM-Series forwards to final destination (same spoke, another spoke, internet, or on-prem) |
+
+> **Clarifications worth remembering:**
+> 1. In Path B, the **UDR isn't gone** — it's **on the spokes** (the mechanism), just **never on the hub** (which is Microsoft-managed).
+
+
+---
+
 ## 5. Path Comparison: What's Possible, What's Not, and Why
 
 | Capability / Factor | Path A — Cloud NGFW (SaaS in hub) | Path B — VM-Series (attached VNet) |
