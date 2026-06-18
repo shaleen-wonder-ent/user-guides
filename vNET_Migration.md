@@ -118,6 +118,45 @@ Together these produce **two supported paths**:
 
 ## 4. How Routing Intent Behaves (and Why UDRs Disappear)
 
+### 4.0 First — Hub Routing vs Routing Intent (they are NOT the same thing)
+
+A very common point of confusion: *"The vWAN hub already has a router — so why do I need Routing Intent?"* The answer is that **the hub's built-in routing and Routing Intent solve two different problems.**
+
+| | **The hub's built-in routing** | **Routing Intent** |
+|---|---|---|
+| **What it does** | Knows how to get packets **from A to B** (reachability) | Forces packets to **detour through a firewall** for inspection |
+| **Default behavior** | "Spoke 1 wants Spoke 2? Here's the path" → sends it **directly** | "Before Spoke 1 reaches Spoke 2, send it through the firewall first" |
+| **Goal** | **Connectivity** | **Security / inspection** |
+| **On by default?** | ✅ Yes — automatic | ❌ No — **you must declare it** |
+| **Analogy** | The road map (knows all roads) | A mandatory checkpoint inserted on the road |
+
+> **Key point:** The hub **already gives you connectivity** (any-to-any transit, automatically). What it does **NOT** do by default is **force traffic through a firewall**. That is the job Routing Intent adds.
+
+**Why the hub's default routing isn't enough for security.** By default the hub connects everything to everything — spokes reach each other and the internet **directly**, with **no inspection**:
+
+```
+WITHOUT Routing Intent (hub default):
+   Spoke 1  ─────────────────────►  Spoke 2        ❌ no inspection
+   Spoke 1  ─────────────────────►  Internet       ❌ no inspection
+
+WITH Routing Intent:
+   Spoke 1  ──►  Firewall  ──►  Spoke 2            ✅ inspected
+   Spoke 1  ──►  Firewall  ──►  Internet           ✅ inspected
+```
+
+So **Routing Intent is how you tell the hub: "stop sending traffic directly — force it through the firewall first."** The hub's router *executes* this, but only because you *declared the intent*.
+
+**Routing Intent is the modern replacement for per-spoke UDRs.** In classic hub-and-spoke you forced traffic to the firewall by hand-writing `0.0.0.0/0 → firewall` **UDRs on every spoke** (tedious, error-prone, bypass-prone). Routing Intent replaces all of that: you declare **once** at the hub ("send Private and/or Internet traffic through this firewall"), and the hub **automatically propagates** it to every spoke via BGP.
+
+> **The one-line summary:**
+> **Hub routing = connectivity (automatic).** **Routing Intent = inspection enforcement (opt-in).** Routing Intent *steers* the connectivity the hub already provides.
+
+> ⚠️ **And the critical catch (ties to Section 3):** Routing Intent's firewall **must live inside the hub**. So you only get this benefit in **Path A** (Cloud NGFW in the hub). With **Path B** (VM-Series in a spoke), Routing Intent **cannot reach the firewall**, and you fall back to manual **UDRs / route tables** — the old method. See 4.1 below and Section 3.
+
+---
+
+### 4.1 What Routing Intent Advertises (and Why UDRs Disappear)
+
 Understanding *what* Routing Intent advertises makes it clear why per-spoke UDRs are no longer needed in Path A.
 
 When you enable Routing Intent on a hub:
@@ -136,6 +175,55 @@ Spoke  ->  Hub  ->  Firewall (inspect)  ->  Hub  ->  Destination
 ```
 
 **Traffic symmetry requirement:** Firewalls are stateful, so traffic must be **symmetric** — both directions of a flow must traverse the **same** firewall. Misconfigured routes can cause **asymmetric flows**, **dropped sessions**, or **firewall bypass**. This is automatically handled in Path A (Routing Intent), but is a **critical manual responsibility in Path B** (see Section 9).
+
+---
+
+### 4.2 Why VM-Series Can't Use Routing Intent (Statements 1 & 2 Explained)
+
+Section 3 states two rules that together create the central design constraint. Here's *why* they combine into a hard limitation.
+
+**Statement 1 — VM-Series can't go *inside* the hub.**
+The vWAN hub is **Microsoft-managed**, so you can't drop arbitrary VMs into it. Microsoft made a **special exception** for a *specific list* of **pre-integrated partner appliances** (and Cloud NGFW SaaS / Azure Firewall) that can be deployed *into* the hub via the Marketplace. The Palo Alto **VM-Series is NOT on that list** — it's a regular VM appliance. So it must run in a **separate "security" VNet** that you **connect to** the hub like a spoke (**Path B**).
+
+**Statement 2 — Routing Intent can only point *inside* the hub.**
+Routing Intent steers traffic to a firewall, but that firewall **must physically live inside the hub**. It **cannot** point to a firewall sitting in a spoke/connected VNet.
+
+**Combine them → the killer constraint:**
+
+```mermaid
+graph LR
+    RI["Routing Intent<br/>(declared at hub)"]
+    subgraph HUB["vWAN Hub"]
+        HUBFW["✅ Firewall IN hub<br/>(Cloud NGFW)"]
+    end
+    subgraph SPOKE["Security Spoke"]
+        SPOKEFW["❌ VM-Series<br/>(in a spoke)"]
+    end
+
+    RI -->|✅ CAN target| HUBFW
+    RI -.->|❌ CANNOT target| SPOKEFW
+
+    style HUB fill:#0078D4,stroke:#fff,color:#fff
+    style HUBFW fill:#107C10,stroke:#fff,color:#fff
+    style SPOKE fill:#8E562E,stroke:#fff,color:#fff
+    style SPOKEFW fill:#D13438,stroke:#fff,color:#fff
+    style RI fill:#FFB900,stroke:#333,color:#000
+```
+
+- **Statement 1:** VM-Series can't be inside the hub → it lives in a spoke.
+- **Statement 2:** Routing Intent only targets things inside the hub.
+- **Therefore:** Routing Intent **cannot target your VM-Series**. ❌
+
+**Practical consequence:** If you keep VM-Series (**Path B**), you **lose Routing Intent for the firewall** and must steer traffic the **old way** — hand-written **UDRs / route tables** on the spokes (the manual, bypass-prone approach Routing Intent was designed to replace).
+
+| | **Path A — Cloud NGFW (in hub)** | **Path B — VM-Series (in spoke)** |
+|---|---|---|
+| Firewall location | Inside hub ✅ | In a spoke ❌ |
+| Can use Routing Intent? | ✅ Yes | ❌ No |
+| How traffic is steered | **Routing Intent** (centralized, automatic) | **UDRs / route tables** (manual, per-spoke) |
+| Removes UDRs? | ✅ Yes | ❌ No — you keep them |
+
+> **This is the single reason the firewall-placement decision (Path A vs Path B) is so consequential** — it directly determines whether you get centralized, automatic, Routing-Intent-based steering, or fall back to the classic UDR model.
 
 ---
 
