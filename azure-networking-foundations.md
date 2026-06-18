@@ -155,7 +155,7 @@ A very common misconception is *"shared services go in the hub."* That's **only 
 
 ```mermaid
 graph TB
-    subgraph VWANHUB["vWAN Hub (Microsoft-managed)<br/>transit + gateways + firewall ONLY"]
+    subgraph VWANHUB["vWAN Hub (Microsoft-managed) transit + gateways + firewall ONLY"]
         R["Router / Routing"]
     end
     SHARED["Shared-Services SPOKE<br/>DNS, AD/DC, jump box, tooling"]
