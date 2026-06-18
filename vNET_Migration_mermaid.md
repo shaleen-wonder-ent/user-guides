@@ -299,3 +299,13 @@ graph TB
 
 
 ---
+
+### What to confirm?
+
+- [ ] Is **Cisco firewalling on the 8000V** acceptable (enables Design A), or is **Palo Alto** mandatory (Design B or C)?
+- [ ] Exact **8000V deployment model** (in-hub vs attached NVA VNet) per the current Cloud OnRamp release.
+- [ ] **One hub or two per region** — and whether vendor separation (Design C) is needed.
+- [ ] **Tenant/subscription layout** — confirm all spokes share one Entra tenant; map RBAC for cross-subscription attachment.
+- [ ] **Existing SD-WAN overlay** details (SD-WAN Manager/vManage version, IOS XE release, HA expectations).
+
+---
