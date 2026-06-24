@@ -548,7 +548,7 @@ The "split combination" model — 5 officers, need any 3 to recover. Store offli
 
 Keys should be rotated periodically (annually, quarterly — whatever Contoso's policy is). The basic process is:
 
-1. **Crypto Officer** creates a new version of the key". Crypto User can create/rotate too, but for consistency with the corrected model, attribute lifecycle actions to Crypto Officer
+1. **Crypto Officer** creates a new version of the key (same name, new version number)
 2. Update services to use the new version
 3. Old data re-encrypts automatically with the new version (for most services)
 4. Old key version is kept around so existing encrypted data can still be decrypted
