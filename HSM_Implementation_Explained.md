@@ -344,7 +344,7 @@ This is the **most important step** and the moment Contoso takes true ownership.
 
 #### Step 3: Create the CMK Keys
 
-This is when the **actual encryption keys** are created. The person with the **Crypto User** role runs a simple command:
+This is when the **actual encryption keys** are created. The person with the **Crypto Officer** role (the key-lifecycle role) runs a simple command:
 
 ```bash
 az keyvault key create \
@@ -374,12 +374,12 @@ This is about **who can do what** with the HSM. Here's where it gets counterintu
 
 | Role Name | What You'd Think It Does | What It Actually Does |
 |---|---|---|
-| **Managed HSM Administrator** | "Controls everything" | Only manages Security Domain, backup/restore, and role assignments. Can't touch keys at all. |
-| **Crypto Officer** | "Manages keys" | **WRONG.** This is a governance/compliance role. Can purge/recover deleted keys, export keys, and manage roles. **Cannot** create, rotate, or delete live keys. |
-| **Crypto User** | "Just uses keys" | **WRONG.** This is actually the **key management** role. Can create, rotate, delete, import keys AND use them for crypto. |
-| **Crypto Service Encryption User** | "For Azure services" | Correct. This is the minimal role that Azure services (SQL MI, DES, Storage) need — just wrap and unwrap keys. |
+| **Managed HSM Administrator** | "Controls everything" | Manages the **Security Domain, backup/restore, and role assignments** (who has access). Does **not** perform key operations by default. |
+| **Crypto Officer** | "Manages keys" | ✅ **Correct — this IS the key-lifecycle role.** Can **create, import, rotate, delete, recover, purge**, and back up/restore keys. Does **not** do crypto operations (encrypt/sign/unwrap) by default. |
+| **Crypto User** | "Just uses keys" | Does crypto ops (**encrypt/decrypt/sign/verify/wrap/unwrap**) **and can create + rotate** keys — but **cannot delete or purge** them. |
+| **Crypto Service Encryption User** | "For Azure services" | ✅ Correct. The minimal role Azure services (SQL MI, DES, Storage) need — **wrap/unwrap only**. |
 
-**Why this matters:** If Contoso assigns their Key Management team the "Crypto Officer" role (because the name sounds right), that team **won't be able to create or rotate keys.** The names are misleading and this is the #1 mistake people make.
+**Why this matters:** The role names are subtle. Your **Key Management team should be "Crypto Officer"** — that's the role that can create, rotate, delete, and purge keys. **Workload identities** (SQL MI, DES, Storage) should get only **"Crypto Service Encryption User"** (wrap/unwrap). Don't give services Crypto Officer or Crypto User — they only ever need wrap/unwrap.
 
 ---
 
@@ -509,7 +509,7 @@ Where things live:
 
 ### Section 7: RBAC (Already Covered Above)
 
-The key takeaway is the **role name confusion** — Crypto Officer ≠ key management, Crypto User = key management. And all service identities (SQL MI, DES, Storage) get the minimal `Crypto Service Encryption User` role, scoped to only the specific key they need.
+The key takeaway is the **role mapping**: **Crypto Officer = key lifecycle** (create/rotate/delete/purge), **Crypto User = use + create/rotate** (no delete/purge), and all service identities (SQL MI, DES, Storage) get the minimal **Crypto Service Encryption User** (wrap/unwrap only).
 
 ---
 
@@ -548,7 +548,7 @@ The "split combination" model — 5 officers, need any 3 to recover. Store offli
 
 Keys should be rotated periodically (annually, quarterly — whatever Contoso's policy is). The basic process is:
 
-1. **Crypto User** creates a new version of the key (same name, new version number)
+1. **Crypto Officer** creates a new version of the key". Crypto User can create/rotate too, but for consistency with the corrected model, attribute lifecycle actions to Crypto Officer
 2. Update services to use the new version
 3. Old data re-encrypts automatically with the new version (for most services)
 4. Old key version is kept around so existing encrypted data can still be decrypted
